@@ -1,6 +1,7 @@
 import { Resend } from 'resend'
 
-const resend = new Resend(process.env.RESEND_API_KEY)
+// Fallback key to prevent Next.js static build fail when env vars are missing
+const resend = new Resend(process.env.RESEND_API_KEY || 're_dummy_fallback_key')
 
 export async function sendEmailConfirmation(
     toEmail: string,
