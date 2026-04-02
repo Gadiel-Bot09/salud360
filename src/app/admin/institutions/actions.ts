@@ -9,10 +9,13 @@ export async function createInstitution(formData: FormData) {
 
   const supabase = await createClient()
 
+  // Generate URL friendly slug from name
+  const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, '')
+
   // Relies on RLS 'Super Admin' policy
   const { error } = await supabase
     .from('institutions')
-    .insert({ name, logo_url: logoUrl })
+    .insert({ name, logo_url: logoUrl, slug })
 
   if (error) {
     console.error('Create institution error:', error)

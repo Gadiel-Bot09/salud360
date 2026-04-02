@@ -22,7 +22,17 @@ export async function getInstitutionTemplate(institutionId: string) {
 export async function getActiveInstitutions() {
   const { data } = await supabase
     .from('institutions')
-    .select('id, name')
+    .select('id, name, slug')
     .order('name')
+  return data
+}
+
+export async function getInstitutionBySlug(slug: string) {
+  if (!slug) return null
+  const { data } = await supabase
+    .from('institutions')
+    .select('id, name, logo_url, colors')
+    .eq('slug', slug)
+    .single()
   return data
 }
