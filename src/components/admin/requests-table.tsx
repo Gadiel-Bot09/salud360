@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 'use client'
 
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import {
     Table,
     TableBody,
@@ -12,13 +12,33 @@ import {
 } from '@/components/ui/table'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Eye, FileText } from 'lucide-react'
+import { Input } from '@/components/ui/input'
+import { Eye, FileText, Search, X } from 'lucide-react'
 import { format } from 'date-fns'
 import { es } from 'date-fns/locale'
-import { Request } from '@/types'
+import Link from 'next/link'
+import { ExportButtons } from './export-buttons'
 
 export function RequestsTable({ initialData }: { initialData: any[] }) {
-    const [data] = useState<any[]>(initialData)
+    const [search, setSearch] = useState('')
+    const [statusFilter, setStatusFilter] = useState('all')
+
+    // Filter data based on search & status
+    const filtered = useMemo(() => {
+        return initialData.filter((req) => {
+            const query = search.toLowerCase()
+            const matchesSearch =
+                !query ||
+                req.radicado?.toLowerCase().includes(query) ||
+                req.patient_data_json?.fullName?.toLowerCase().includes(query) ||
+                req.patient_document_number?.toLowerCase().includes(query) ||
+                req.type?.toLowerCase().includes(query)
+
+            const matchesStatus = statusFilter === 'all' || req.status === statusFilter
+
+            return matchesSearch && matchesStatus
+        })
+    }, [initialData, search, statusFilter])
 
     const getStatusBadge = (status: string) => {
         switch (status) {
@@ -43,59 +63,117 @@ export function RequestsTable({ initialData }: { initialData: any[] }) {
         return null
     }
 
+    const STATUS_OPTIONS = [
+        { label: 'Todos los estados', value: 'all' },
+        { label: 'Recibidas', value: 'received' },
+        { label: 'En Trámite', value: 'processing' },
+        { label: 'Respondidas', value: 'responded' },
+        { label: 'Cerradas', value: 'closed' },
+        { label: 'Escaladas', value: 'escalated' },
+    ]
+
     return (
-        <div className="rounded-md border border-slate-200">
-            <Table>
-                <TableHeader className="bg-slate-50">
-                    <TableRow>
-                        <TableHead className="font-semibold text-slate-700">Radicado</TableHead>
-                        <TableHead className="font-semibold text-slate-700">Fecha</TableHead>
-                        <TableHead className="font-semibold text-slate-700">Paciente</TableHead>
-                        <TableHead className="font-semibold text-slate-700">Tipo</TableHead>
-                        <TableHead className="font-semibold text-slate-700">Estado</TableHead>
-                        <TableHead className="text-right font-semibold text-slate-700">Acciones</TableHead>
-                    </TableRow>
-                </TableHeader>
-                <TableBody>
-                    {data.length === 0 ? (
+        <div className="space-y-4">
+            {/* Toolbar: Search + Filter + Export */}
+            <div className="flex flex-col sm:flex-row gap-3 justify-between items-start sm:items-center">
+                <div className="flex items-center gap-3 w-full sm:w-auto">
+                    {/* Search */}
+                    <div className="relative flex-1 sm:w-72">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                        <Input
+                            placeholder="Buscar por radicado, paciente, doc..."
+                            value={search}
+                            onChange={(e) => setSearch(e.target.value)}
+                            className="pl-9 h-9 text-sm border-slate-200"
+                        />
+                        {search && (
+                            <button onClick={() => setSearch('')} className="absolute right-3 top-1/2 -translate-y-1/2">
+                                <X className="h-3.5 w-3.5 text-slate-400 hover:text-slate-600" />
+                            </button>
+                        )}
+                    </div>
+
+                    {/* Status filter */}
+                    <select
+                        value={statusFilter}
+                        onChange={(e) => setStatusFilter(e.target.value)}
+                        className="flex h-9 items-center rounded-md border border-slate-200 bg-white px-3 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-teal-600"
+                    >
+                        {STATUS_OPTIONS.map((o) => (
+                            <option key={o.value} value={o.value}>{o.label}</option>
+                        ))}
+                    </select>
+                </div>
+
+                {/* Export Buttons — gets the currently filtered data */}
+                <ExportButtons data={filtered} />
+            </div>
+
+            {/* Table */}
+            <div className="rounded-md border border-slate-200 overflow-hidden">
+                <Table>
+                    <TableHeader className="bg-slate-50">
                         <TableRow>
-                            <TableCell colSpan={6} className="text-center py-10 text-slate-500">
-                                No hay solicitudes para mostrar
-                            </TableCell>
+                            <TableHead className="font-semibold text-slate-700">Radicado</TableHead>
+                            <TableHead className="font-semibold text-slate-700">Fecha</TableHead>
+                            <TableHead className="font-semibold text-slate-700">Paciente</TableHead>
+                            <TableHead className="font-semibold text-slate-700">Tipo</TableHead>
+                            <TableHead className="font-semibold text-slate-700">Estado</TableHead>
+                            <TableHead className="text-right font-semibold text-slate-700">Acciones</TableHead>
                         </TableRow>
-                    ) : (
-                        data.map((req) => (
-                            <TableRow key={req.id} className="hover:bg-slate-50 transition-colors">
-                                <TableCell className="font-medium">
-                                    {req.radicado}
-                                    <div className="mt-1">{getPriorityBadge(req.priority)}</div>
-                                </TableCell>
-                                <TableCell className="text-slate-600">
-                                    {format(new Date(req.created_at), "d MMM, yyyy", { locale: es })}
-                                </TableCell>
-                                <TableCell>
-                                    <div className="font-medium text-slate-900">{req.patient_data_json.fullName || 'N/A'}</div>
-                                    <div className="text-xs text-slate-500">{req.patient_document_type} {req.patient_document_number}</div>
-                                </TableCell>
-                                <TableCell>
-                                    <div className="flex items-center space-x-2">
-                                        <FileText className="h-4 w-4 text-slate-400" />
-                                        <span>{req.type}</span>
-                                    </div>
-                                </TableCell>
-                                <TableCell>
-                                    {getStatusBadge(req.status)}
-                                </TableCell>
-                                <TableCell className="text-right">
-                                    <Button variant="ghost" size="sm" className="text-teal-600 hover:text-teal-700 hover:bg-teal-50">
-                                        <Eye className="h-4 w-4 mr-1" /> Ver Detalle
-                                    </Button>
+                    </TableHeader>
+                    <TableBody>
+                        {filtered.length === 0 ? (
+                            <TableRow>
+                                <TableCell colSpan={6} className="text-center py-12 text-slate-400">
+                                    {search || statusFilter !== 'all'
+                                        ? 'No se encontraron solicitudes con los filtros aplicados.'
+                                        : 'No hay solicitudes para mostrar.'}
                                 </TableCell>
                             </TableRow>
-                        ))
-                    )}
-                </TableBody>
-            </Table>
+                        ) : (
+                            filtered.map((req) => (
+                                <TableRow key={req.id} className="hover:bg-slate-50 transition-colors">
+                                    <TableCell className="font-medium">
+                                        {req.radicado}
+                                        <div className="mt-1">{getPriorityBadge(req.priority)}</div>
+                                    </TableCell>
+                                    <TableCell className="text-slate-600">
+                                        {format(new Date(req.created_at), "d MMM, yyyy", { locale: es })}
+                                    </TableCell>
+                                    <TableCell>
+                                        <div className="font-medium text-slate-900">{req.patient_data_json?.fullName || 'N/A'}</div>
+                                        <div className="text-xs text-slate-500">{req.patient_document_type} {req.patient_document_number}</div>
+                                    </TableCell>
+                                    <TableCell>
+                                        <div className="flex items-center space-x-2">
+                                            <FileText className="h-4 w-4 text-slate-400" />
+                                            <span>{req.type}</span>
+                                        </div>
+                                    </TableCell>
+                                    <TableCell>
+                                        {getStatusBadge(req.status)}
+                                    </TableCell>
+                                    <TableCell className="text-right">
+                                        <Button asChild variant="ghost" size="sm" className="text-teal-600 hover:text-teal-700 hover:bg-teal-50">
+                                            <Link href={`/admin/requests/${req.id}`}>
+                                                <Eye className="h-4 w-4 mr-1" /> Ver Detalle
+                                            </Link>
+                                        </Button>
+                                    </TableCell>
+                                </TableRow>
+                            ))
+                        )}
+                    </TableBody>
+                </Table>
+            </div>
+
+            {/* Summary footer */}
+            {initialData.length > 0 && (
+                <p className="text-xs text-slate-400 text-right">
+                    Mostrando {filtered.length} de {initialData.length} solicitudes
+                </p>
+            )}
         </div>
     )
 }
