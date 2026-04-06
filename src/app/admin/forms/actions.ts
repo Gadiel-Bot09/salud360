@@ -3,53 +3,72 @@
 import { createClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
 
-export async function saveFormTemplate(fields: any[], templateName: string) {
+/**
+ * Saves (upserts) a form template. 
+ * institutionId param is used directly when provided (Super Admin flow).
+ * Falls back to the logged-in user's own institution_id (regular admin flow).
+ */
+export async function saveFormTemplate(
+  fields: any[],
+  templateName: string,
+  institutionId?: string
+) {
   const supabase = await createClient()
 
-  // Verify Role & Get Institution
+  // Verify authentication
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { success: false, error: 'No autorizado' }
 
-  const { data: userProfile } = await supabase.from('users').select('institution_id').eq('id', user.id).single()
-  if (!userProfile?.institution_id) {
-     return { success: false, error: 'No tienes una institución asignada para configurar formularios.' }
+  // Resolve which institution to save into
+  let targetInstitutionId = institutionId
+
+  if (!targetInstitutionId) {
+    // Fallback: read from user's own profile (regular admins)
+    const { data: userProfile } = await supabase
+      .from('users')
+      .select('institution_id')
+      .eq('id', user.id)
+      .single()
+    targetInstitutionId = userProfile?.institution_id
   }
 
-  // Check if institution already has a template
+  if (!targetInstitutionId) {
+    return {
+      success: false,
+      error: 'No hay una institución seleccionada. Selecciónala en el menú superior antes de guardar.'
+    }
+  }
+
+  // Check if this institution already has a template (upsert logic)
   const { data: existingTemplate } = await supabase
     .from('form_templates')
     .select('id')
-    .eq('institution_id', userProfile.institution_id)
+    .eq('institution_id', targetInstitutionId)
     .single()
 
-  let error;
+  let error
 
   if (existingTemplate) {
-    // Update existing active template
     const { error: updateError } = await supabase
       .from('form_templates')
-      .update({
-         name: templateName,
-         fields_json: fields
-      })
+      .update({ name: templateName, fields_json: fields })
       .eq('id', existingTemplate.id)
-    error = updateError;
+    error = updateError
   } else {
-    // Insert new template
     const { error: insertError } = await supabase
       .from('form_templates')
       .insert({
-         institution_id: userProfile.institution_id,
-         name: templateName,
-         fields_json: fields,
-         is_active: true
+        institution_id: targetInstitutionId,
+        name: templateName,
+        fields_json: fields,
+        is_active: true
       })
-    error = insertError;
+    error = insertError
   }
 
   if (error) {
-     console.error('Save template error:', error)
-     return { success: false, error: 'Error persistiendo la plantilla en base de datos.' }
+    console.error('Save template error:', error)
+    return { success: false, error: 'Error al guardar en base de datos: ' + error.message }
   }
 
   revalidatePath('/admin/forms')

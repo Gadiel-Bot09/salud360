@@ -226,7 +226,7 @@ interface FormBuilderProps {
   initialFields: FormField[]
   templateId: string | null
   institutionId: string
-  onSave: (fields: FormField[], name: string) => Promise<{ success: boolean; error?: string }>
+  onSave: (fields: FormField[], name: string, institutionId: string) => Promise<{ success: boolean; error?: string }>
 }
 
 export function FormBuilder({ initialFields, templateId, institutionId, onSave }: FormBuilderProps) {
@@ -325,7 +325,7 @@ export function FormBuilder({ initialFields, templateId, institutionId, onSave }
 
   const handleSave = async () => {
     setLoading(true)
-    const result = await onSave(fields, templateName)
+    const result = await onSave(fields, templateName, institutionId)
     setLoading(false)
     if (result.success) {
       toast({ title: 'Plantilla Guardada', description: 'El formulario ha sido actualizado.', className: 'bg-green-50' })

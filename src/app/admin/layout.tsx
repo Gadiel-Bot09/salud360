@@ -15,6 +15,7 @@ import {
 } from 'lucide-react'
 import { logout } from '@/app/login/actions'
 import { Button } from '@/components/ui/button'
+import { Toaster } from '@/components/ui/toaster'
 
 export default async function AdminLayout({ children }: { children: ReactNode }) {
     const supabase = await createClient()
@@ -79,6 +80,7 @@ export default async function AdminLayout({ children }: { children: ReactNode })
             {/* Main Content */}
             <main className="flex-1 overflow-y-auto w-full">
                 {children}
+                <Toaster />
             </main>
         </div>
     )
