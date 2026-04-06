@@ -26,14 +26,19 @@ export async function POST(request: Request) {
         const entries = Array.from(formData.entries())
 
         for (const [key, value] of entries) {
-             if (!coreKeys.includes(key)) {
-                  if (value instanceof File) {
-                      if (value.size > 0) filesToUpload.push(value)
-                  } else {
-                      patientData[key] = value as string
-                  }
+             if (coreKeys.includes(key)) continue
+
+             if (value instanceof File) {
+                 if (value.size > 0) filesToUpload.push(value)
+             } else if (key.startsWith('cond__')) {
+                 // Conditional sub-field: cond__{parentFieldId}__{subFieldId}
+                 // Store as "ParentLabel > SubLabel" in patientData using the key directly
+                 patientData[key] = value as string
+             } else {
+                 patientData[key] = value as string
              }
         }
+
 
         // Validate basic rules
         if (!institutionId || !documentNumber || !email) {
