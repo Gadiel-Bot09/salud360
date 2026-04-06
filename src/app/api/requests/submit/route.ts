@@ -45,6 +45,10 @@ export async function POST(request: Request) {
             return NextResponse.json({ error: 'Datos básicos incompletos.' }, { status: 400 })
         }
 
+        // Ensure core patient fields are also stored in the JSON for easy retrieval in admin UI
+        patientData['fullName'] = fullName || ''
+        patientData['phone'] = phone || ''
+
         // Generate Radicado: RAD-{AÑO}-{SYS}-{SECUENCIAL}
         const year = new Date().getFullYear()
         const shortId = Math.random().toString(36).substring(2, 8).toUpperCase()

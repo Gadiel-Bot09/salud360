@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/supabase/server'
+import { createClient as createAdminClient } from '@supabase/supabase-js'
 import { FormBuilder } from '@/components/admin/form-builder'
 import { FileEdit, Building2 } from 'lucide-react'
 import { saveFormTemplate } from './actions'
@@ -83,7 +84,13 @@ export default async function FormsAdminPage({ searchParams }: { searchParams: {
 
 // Sub-component to keep async clean
 async function DataLoader({ activeInstitutionId, supabase }: { activeInstitutionId: string, supabase: any }) {
-    const { data: template } = await supabase
+    // Use admin client to bypass RLS on form_templates reads
+    const supabaseAdmin = createAdminClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.SUPABASE_SERVICE_ROLE_KEY!
+    )
+
+    const { data: template } = await supabaseAdmin
        .from('form_templates')
        .select('*')
        .eq('institution_id', activeInstitutionId)

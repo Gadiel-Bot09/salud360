@@ -18,10 +18,10 @@ export default async function RequestsPage() {
     const isGlobal = userProfile?.role === 'Super Admin'
     const institutionName = (userProfile?.institutions as any)?.name || ''
 
-    // Fetch requests — RLS will automatically scope to institution if not Super Admin
+    // Fetch requests with attachments — RLS will automatically scope to institution if not Super Admin
     const { data: requests, error } = await supabase
         .from('requests')
-        .select('*')
+        .select('*, request_attachments(id)')
         .order('created_at', { ascending: false })
 
     if (error) {

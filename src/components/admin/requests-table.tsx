@@ -13,7 +13,7 @@ import {
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Eye, FileText, Search, X } from 'lucide-react'
+import { Eye, FileText, Search, X, Paperclip } from 'lucide-react'
 import { format } from 'date-fns'
 import { es } from 'date-fns/locale'
 import Link from 'next/link'
@@ -27,10 +27,11 @@ export function RequestsTable({ initialData }: { initialData: any[] }) {
     const filtered = useMemo(() => {
         return initialData.filter((req) => {
             const query = search.toLowerCase()
+            const patientName = req.patient_data_json?.fullName || ''
             const matchesSearch =
                 !query ||
                 req.radicado?.toLowerCase().includes(query) ||
-                req.patient_data_json?.fullName?.toLowerCase().includes(query) ||
+                patientName.toLowerCase().includes(query) ||
                 req.patient_document_number?.toLowerCase().includes(query) ||
                 req.type?.toLowerCase().includes(query)
 
@@ -142,8 +143,10 @@ export function RequestsTable({ initialData }: { initialData: any[] }) {
                                         {format(new Date(req.created_at), "d MMM, yyyy", { locale: es })}
                                     </TableCell>
                                     <TableCell>
-                                        <div className="font-medium text-slate-900">{req.patient_data_json?.fullName || 'N/A'}</div>
-                                        <div className="text-xs text-slate-500">{req.patient_document_type} {req.patient_document_number}</div>
+                                        <div className="font-medium text-slate-900">
+                                            {req.patient_data_json?.fullName || <span className="text-slate-400 italic text-xs">Sin nombre</span>}
+                                        </div>
+                                        <div className="text-xs text-slate-500 mt-0.5">{req.patient_document_type} {req.patient_document_number}</div>
                                     </TableCell>
                                     <TableCell>
                                         <div className="flex items-center space-x-2">
@@ -155,11 +158,18 @@ export function RequestsTable({ initialData }: { initialData: any[] }) {
                                         {getStatusBadge(req.status)}
                                     </TableCell>
                                     <TableCell className="text-right">
-                                        <Button asChild variant="ghost" size="sm" className="text-teal-600 hover:text-teal-700 hover:bg-teal-50">
-                                            <Link href={`/admin/requests/${req.id}`}>
-                                                <Eye className="h-4 w-4 mr-1" /> Ver Detalle
-                                            </Link>
-                                        </Button>
+                                        <div className="flex items-center justify-end gap-2">
+                                            {(req.request_attachments?.length > 0 || req.attachments_count > 0) && (
+                                              <span className="inline-flex items-center gap-1 text-xs text-slate-500 bg-slate-100 rounded-full px-2 py-0.5">
+                                                <Paperclip className="h-3 w-3" />{req.request_attachments?.length || ''}
+                                              </span>
+                                            )}
+                                            <Button asChild variant="ghost" size="sm" className="text-teal-600 hover:text-teal-700 hover:bg-teal-50">
+                                                <Link href={`/admin/requests/${req.id}`}>
+                                                    <Eye className="h-4 w-4 mr-1" /> Ver Detalle
+                                                </Link>
+                                            </Button>
+                                        </div>
                                     </TableCell>
                                 </TableRow>
                             ))
