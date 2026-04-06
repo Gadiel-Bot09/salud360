@@ -3,6 +3,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { createClient as createAdminClient } from '@supabase/supabase-js'
 import { revalidatePath } from 'next/cache'
+import type { FormTemplate } from '@/components/admin/form-builder'
 
 // Service role client bypasses RLS — safe here because all operations
 // are protected by the auth check below before any DB write happens.
@@ -12,12 +13,13 @@ const supabaseAdmin = createAdminClient(
 )
 
 /**
- * Saves (upserts) a form template. 
+ * Saves (upserts) a form template.
+ * Accepts the full FormTemplate v2 object.
  * institutionId param is used directly when provided (Super Admin flow).
  * Falls back to the logged-in user's own institution_id (regular admin flow).
  */
 export async function saveFormTemplate(
-  fields: any[],
+  template: FormTemplate,
   templateName: string,
   institutionId?: string
 ) {
@@ -59,7 +61,7 @@ export async function saveFormTemplate(
   if (existingTemplate) {
     const { error: updateError } = await supabaseAdmin
       .from('form_templates')
-      .update({ name: templateName, fields_json: fields })
+      .update({ name: templateName, fields_json: template })
       .eq('id', existingTemplate.id)
     error = updateError
   } else {
@@ -68,7 +70,7 @@ export async function saveFormTemplate(
       .insert({
         institution_id: targetInstitutionId,
         name: templateName,
-        fields_json: fields,
+        fields_json: template,
         is_active: true
       })
     error = insertError

@@ -1,6 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
 import { createClient as createAdminClient } from '@supabase/supabase-js'
-import { FormBuilder } from '@/components/admin/form-builder'
+import { FormBuilder, parseTemplate } from '@/components/admin/form-builder'
 import { FileEdit, Building2 } from 'lucide-react'
 import { saveFormTemplate } from './actions'
 import Link from 'next/link'
@@ -96,7 +96,8 @@ async function DataLoader({ activeInstitutionId, supabase }: { activeInstitution
        .eq('institution_id', activeInstitutionId)
        .single()
 
-    const initialFields = template?.fields_json || []
+    const initialTemplate = parseTemplate(template?.fields_json || null)
+    const initialFields = initialTemplate.fields
 
     return (
         <div className="mt-4 space-y-6">
@@ -110,7 +111,7 @@ async function DataLoader({ activeInstitutionId, supabase }: { activeInstitution
                       Campos activos en el portal público
                    </h3>
                    <span className="text-xs text-slate-400 font-medium">
-                      {initialFields.length} campo{initialFields.length !== 1 ? 's' : ''} configurado{initialFields.length !== 1 ? 's' : ''}
+                      {initialFields.length} campo{initialFields.length !== 1 ? 's' : ''} · {initialTemplate.requestTypes.length} tipo{initialTemplate.requestTypes.length !== 1 ? 's' : ''} de trámite
                    </span>
                 </div>
                 <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
@@ -131,13 +132,13 @@ async function DataLoader({ activeInstitutionId, supabase }: { activeInstitution
                    ))}
                 </div>
                 <p className="text-xs text-slate-400 mt-3">
-                   Estos campos aparecen en el formulario de pacientes <strong>además</strong> de los campos fijos del sistema (identificación, nombre, correo).
+                   Estos campos aparecen en el formulario del paciente. Edítalos abajo y presiona <strong>Publicar Cambios</strong>.
                 </p>
              </div>
            )}
 
            <FormBuilder 
-              initialFields={initialFields} 
+              initialTemplate={initialTemplate}
               initialTemplateName={template?.name}
               templateId={template?.id || null} 
               institutionId={activeInstitutionId} 

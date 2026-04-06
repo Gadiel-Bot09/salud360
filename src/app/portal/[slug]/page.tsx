@@ -14,7 +14,7 @@ export default async function PortalPage({ params }: { params: { slug: string } 
      return notFound()
   }
 
-  const fields = await getInstitutionTemplate(institution.id) || []
+  const template = await getInstitutionTemplate(institution.id)
 
   return (
     <main className="min-h-screen bg-slate-50 py-12 px-4 sm:px-6 lg:px-8">
@@ -42,7 +42,7 @@ export default async function PortalPage({ params }: { params: { slug: string } 
           <RequestForm 
              institutionId={institution.id} 
              institutionName={institution.name} 
-             fields={fields} 
+             template={template} 
           />
         </div>
       </div>

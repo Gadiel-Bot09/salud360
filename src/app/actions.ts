@@ -1,6 +1,7 @@
 'use server'
 
 import { createClient } from '@supabase/supabase-js'
+import { parseTemplate, DEFAULT_TEMPLATE } from '@/components/admin/form-builder'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -8,7 +9,7 @@ const supabase = createClient(
 )
 
 export async function getInstitutionTemplate(institutionId: string) {
-  if (!institutionId) return null
+  if (!institutionId) return DEFAULT_TEMPLATE
 
   const { data: template } = await supabase
     .from('form_templates')
@@ -16,7 +17,7 @@ export async function getInstitutionTemplate(institutionId: string) {
     .eq('institution_id', institutionId)
     .single()
 
-  return template?.fields_json || null
+  return parseTemplate(template?.fields_json)
 }
 
 export async function getActiveInstitutions() {

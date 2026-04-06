@@ -9,14 +9,15 @@ import { Checkbox } from '@/components/ui/checkbox'
 import { useToast } from '@/hooks/use-toast'
 import {
   Trash2, Plus, ArrowUp, ArrowDown, Save, Loader2,
-  ChevronDown, ChevronRight, GitBranch, X
+  ChevronDown, ChevronRight, GitBranch, X, Eye, EyeOff,
+  Shield, Layers, ClipboardList, UploadCloud
 } from 'lucide-react'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 export type FormFieldType = 'text' | 'email' | 'number' | 'date' | 'select' | 'file' | 'textarea'
+export type SystemRole = 'documentType' | 'documentNumber' | 'fullName' | 'email' | 'phone'
 
-/** A leaf field that lives inside a conditional option (cannot itself be conditional) */
 export interface SubField {
   id: string
   label: string
@@ -25,27 +26,36 @@ export interface SubField {
   placeholder?: string
 }
 
-/** One option of a conditional select, plus the sub-fields it activates */
 export interface ConditionalOption {
-  value: string       // The option label / value shown to the patient
-  fields: SubField[]  // Fields that appear when this option is chosen
+  value: string
+  fields: SubField[]
 }
 
-/** Top-level form field */
 export interface FormField {
   id: string
   label: string
   type: FormFieldType
   required: boolean
   placeholder?: string
-  // Simple select (comma list)
+  systemRole?: SystemRole
   options?: string[]
-  // Conditional select
   hasConditionalOptions?: boolean
   conditionalOptions?: ConditionalOption[]
 }
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
+export interface RequestType {
+  id: string
+  label: string
+  conditionalFields: FormField[]
+}
+
+export interface FormTemplate {
+  version: 2
+  fields: FormField[]
+  requestTypes: RequestType[]
+}
+
+// ─── Constants ────────────────────────────────────────────────────────────────
 
 const FIELD_TYPE_LABELS: Record<FormFieldType, string> = {
   text: 'Texto Corto',
@@ -57,6 +67,14 @@ const FIELD_TYPE_LABELS: Record<FormFieldType, string> = {
   textarea: 'Texto Largo',
 }
 
+const SYSTEM_ROLE_LABELS: Record<SystemRole, string> = {
+  documentType: 'Tipo de Documento',
+  documentNumber: 'N° de Documento',
+  fullName: 'Nombre del Paciente',
+  email: 'Correo de Notificación',
+  phone: 'Teléfono',
+}
+
 const SUB_FIELD_TYPES: Array<{ value: Exclude<FormFieldType, 'select'>; label: string }> = [
   { value: 'text', label: 'Texto Corto' },
   { value: 'textarea', label: 'Texto Largo' },
@@ -66,19 +84,47 @@ const SUB_FIELD_TYPES: Array<{ value: Exclude<FormFieldType, 'select'>; label: s
   { value: 'email', label: 'Correo' },
 ]
 
-function newSubField(): SubField {
-  return { id: crypto.randomUUID(), label: 'Nuevo Sub-campo', type: 'text', required: false, placeholder: '' }
+// ─── Default Template (all previously hardcoded fields) ───────────────────────
+
+let _counter = 0
+function sid(prefix: string) { return `${prefix}-${++_counter}` }
+
+export const DEFAULT_TEMPLATE: FormTemplate = {
+  version: 2,
+  fields: [
+    { id: sid('sys'), label: 'Tipo de Identificación', type: 'select', required: true, systemRole: 'documentType', options: ['Cédula de Ciudadanía (CC)', 'Tarjeta de Identidad (TI)', 'Cédula de Extranjería (CE)', 'Registro Civil (RC)', 'Pasaporte (PA)'] },
+    { id: sid('sys'), label: 'Número de Identificación', type: 'text', required: true, systemRole: 'documentNumber', placeholder: 'Ej: 1102345678' },
+    { id: sid('sys'), label: 'Nombre Completo', type: 'text', required: true, systemRole: 'fullName', placeholder: 'Ej: Juan Carlos Pérez García' },
+    { id: sid('sys'), label: 'Correo de Notificaciones', type: 'email', required: true, systemRole: 'email', placeholder: 'Para recibir su radicado por correo...' },
+    { id: sid('sys'), label: 'Teléfono de Contacto', type: 'text', required: false, systemRole: 'phone', placeholder: 'Ej: 300 123 4567' },
+  ],
+  requestTypes: [
+    { id: sid('rt'), label: 'Agendamiento de Cita Médica', conditionalFields: [] },
+    { id: sid('rt'), label: 'Autorización de Procedimientos', conditionalFields: [] },
+    { id: sid('rt'), label: 'Renovación de Fórmula', conditionalFields: [] },
+    { id: sid('rt'), label: 'PQR (Quejas / Reclamos)', conditionalFields: [] },
+  ],
 }
 
-// ─── Sub-field Editor ─────────────────────────────────────────────────────────
+// ─── Parse old/new format ─────────────────────────────────────────────────────
 
-function SubFieldEditor({
-  sub,
-  onUpdate,
-  onRemove,
-}: {
+export function parseTemplate(rawJson: any): FormTemplate {
+  if (!rawJson) return { ...DEFAULT_TEMPLATE, fields: [...DEFAULT_TEMPLATE.fields], requestTypes: [...DEFAULT_TEMPLATE.requestTypes] }
+  if (rawJson.version === 2) return rawJson as FormTemplate
+  // Old format: array of dynamic (non-system) fields → migrate to v2
+  const oldFields: FormField[] = Array.isArray(rawJson) ? rawJson : []
+  return {
+    version: 2,
+    fields: [...DEFAULT_TEMPLATE.fields, ...oldFields],
+    requestTypes: [...DEFAULT_TEMPLATE.requestTypes],
+  }
+}
+
+// ─── Sub-field Editor ──────────────────────────────────────────────────────────
+
+function SubFieldEditor({ sub, onUpdate, onRemove }: {
   sub: SubField
-  onUpdate: (updates: Partial<SubField>) => void
+  onUpdate: (u: Partial<SubField>) => void
   onRemove: () => void
 }) {
   return (
@@ -86,136 +132,372 @@ function SubFieldEditor({
       <div className="flex-1 grid grid-cols-1 sm:grid-cols-3 gap-3">
         <div className="space-y-1">
           <Label className="text-[10px] text-slate-400 uppercase tracking-wider">Etiqueta</Label>
-          <Input
-            value={sub.label}
-            onChange={(e) => onUpdate({ label: e.target.value })}
-            className="h-8 text-sm"
-          />
+          <Input value={sub.label} onChange={(e) => onUpdate({ label: e.target.value })} className="h-8 text-sm" placeholder="Nombre del campo..." />
         </div>
         <div className="space-y-1">
           <Label className="text-[10px] text-slate-400 uppercase tracking-wider">Tipo</Label>
-          <select
-            value={sub.type}
-            onChange={(e) => onUpdate({ type: e.target.value as SubField['type'] })}
-            className="flex h-8 w-full rounded-md border border-slate-200 bg-white px-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-700"
-          >
-            {SUB_FIELD_TYPES.map((t) => (
-              <option key={t.value} value={t.value}>{t.label}</option>
-            ))}
+          <select value={sub.type} onChange={(e) => onUpdate({ type: e.target.value as SubField['type'] })} className="flex h-8 w-full rounded-md border border-slate-200 bg-white px-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-700">
+            {SUB_FIELD_TYPES.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
           </select>
         </div>
         <div className="space-y-1">
           <Label className="text-[10px] text-slate-400 uppercase tracking-wider">Placeholder</Label>
-          <Input
-            value={sub.placeholder || ''}
-            onChange={(e) => onUpdate({ placeholder: e.target.value })}
-            placeholder="Texto de ayuda..."
-            className="h-8 text-sm"
-            disabled={sub.type === 'file' || sub.type === 'date'}
-          />
+          <Input value={sub.placeholder || ''} onChange={(e) => onUpdate({ placeholder: e.target.value })} className="h-8 text-sm" />
         </div>
       </div>
-      <div className="flex items-center gap-2 pt-5">
-        <label className="flex items-center gap-1.5 text-xs text-slate-600 cursor-pointer">
-          <Checkbox
-            checked={sub.required}
-            onCheckedChange={(v) => onUpdate({ required: !!v })}
-            className="h-3.5 w-3.5"
-          />
-          Obligatorio
-        </label>
-        <Button
-          variant="ghost"
-          size="icon"
-          className="h-7 w-7 text-red-400 hover:text-red-600 hover:bg-red-50 opacity-0 group-hover:opacity-100 transition-opacity"
-          onClick={onRemove}
-        >
-          <X className="h-3.5 w-3.5" />
-        </Button>
+      <div className="flex items-center gap-2 mt-5">
+        <div className="flex items-center gap-1">
+          <Checkbox checked={sub.required} onCheckedChange={(v) => onUpdate({ required: !!v })} id={`sub-req-${sub.id}`} />
+          <label htmlFor={`sub-req-${sub.id}`} className="text-xs text-slate-500 cursor-pointer">*</label>
+        </div>
+        <button onClick={onRemove} className="text-slate-300 hover:text-red-500 transition-colors">
+          <X className="h-4 w-4" />
+        </button>
       </div>
     </div>
   )
 }
 
-// ─── Conditional Option Panel ─────────────────────────────────────────────────
+// ─── Field Card ────────────────────────────────────────────────────────────────
 
-function ConditionalOptionPanel({
-  opt,
-  index,
-  onUpdateValue,
-  onAddSubField,
-  onUpdateSubField,
-  onRemoveSubField,
-  onRemoveOption,
+function FieldCard({
+  field, isFirst, isLast, allowConditional = true,
+  onUpdate, onRemove, onMoveUp, onMoveDown
 }: {
-  opt: ConditionalOption
-  index: number
-  onUpdateValue: (val: string) => void
-  onAddSubField: () => void
-  onUpdateSubField: (subIdx: number, updates: Partial<SubField>) => void
-  onRemoveSubField: (subIdx: number) => void
-  onRemoveOption: () => void
+  field: FormField
+  isFirst: boolean
+  isLast: boolean
+  allowConditional?: boolean
+  onUpdate: (u: Partial<FormField>) => void
+  onRemove: () => void
+  onMoveUp: () => void
+  onMoveDown: () => void
 }) {
-  const [expanded, setExpanded] = useState(true)
+  const [expanded, setExpanded] = useState(false)
+  const [condExpanded, setCondExpanded] = useState(false)
+  const isSystem = !!field.systemRole
+
+  const addOption = () => onUpdate({ options: [...(field.options || []), ''] })
+  const updateOption = (i: number, v: string) => {
+    const opts = [...(field.options || [])]
+    opts[i] = v; onUpdate({ options: opts })
+  }
+  const removeOption = (i: number) => onUpdate({ options: (field.options || []).filter((_, j) => j !== i) })
+
+  const addConditionalOption = () => {
+    const opts = [...(field.conditionalOptions || []), { value: '', fields: [] }]
+    onUpdate({ conditionalOptions: opts })
+  }
+  const updateConditionalOption = (i: number, value: string) => {
+    const opts = [...(field.conditionalOptions || [])]
+    opts[i] = { ...opts[i], value }; onUpdate({ conditionalOptions: opts })
+  }
+  const removeConditionalOption = (i: number) => onUpdate({ conditionalOptions: (field.conditionalOptions || []).filter((_, j) => j !== i) })
+
+  const addSubField = (optIdx: number) => {
+    const opts = [...(field.conditionalOptions || [])]
+    opts[optIdx] = { ...opts[optIdx], fields: [...opts[optIdx].fields, { id: crypto.randomUUID(), label: '', type: 'text', required: false, placeholder: '' }] }
+    onUpdate({ conditionalOptions: opts })
+  }
+  const updateSubField = (optIdx: number, subIdx: number, u: Partial<SubField>) => {
+    const opts = [...(field.conditionalOptions || [])]
+    const subs = [...opts[optIdx].fields]; subs[subIdx] = { ...subs[subIdx], ...u }
+    opts[optIdx] = { ...opts[optIdx], fields: subs }; onUpdate({ conditionalOptions: opts })
+  }
+  const removeSubField = (optIdx: number, subIdx: number) => {
+    const opts = [...(field.conditionalOptions || [])]
+    opts[optIdx] = { ...opts[optIdx], fields: opts[optIdx].fields.filter((_, i) => i !== subIdx) }
+    onUpdate({ conditionalOptions: opts })
+  }
 
   return (
-    <div className="border border-slate-200 rounded-xl overflow-hidden">
-      {/* Option Header */}
-      <div className="flex items-center gap-3 bg-slate-50 px-4 py-2.5 border-b border-slate-200">
-        <button
-          type="button"
-          onClick={() => setExpanded(!expanded)}
-          className="text-slate-400 hover:text-slate-600"
-        >
-          {expanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+    <div className={`rounded-xl border shadow-sm overflow-hidden ${isSystem ? 'border-indigo-200 bg-indigo-50/30' : 'border-slate-200 bg-white'}`}>
+      {/* Card Header */}
+      <div className="flex items-center gap-2 px-4 py-3">
+        <button onClick={() => setExpanded(!expanded)} className="flex-1 flex items-center gap-2 text-left min-w-0">
+          {expanded ? <ChevronDown className="h-4 w-4 text-slate-400 shrink-0" /> : <ChevronRight className="h-4 w-4 text-slate-400 shrink-0" />}
+          <span className="text-sm font-semibold text-slate-700 truncate">{field.label || <span className="text-slate-400 italic">Sin etiqueta</span>}</span>
+          <span className="text-[10px] bg-slate-100 text-slate-500 rounded-full px-2 py-0.5 shrink-0">{FIELD_TYPE_LABELS[field.type]}</span>
+          {field.required && <span className="text-[10px] text-red-500 font-bold">*</span>}
+          {isSystem && (
+            <span className="inline-flex items-center gap-1 text-[10px] bg-indigo-100 text-indigo-700 rounded-full px-2 py-0.5 border border-indigo-200 shrink-0">
+              <Shield className="h-2.5 w-2.5" />{SYSTEM_ROLE_LABELS[field.systemRole!]}
+            </span>
+          )}
         </button>
-        <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider w-6">#{index + 1}</span>
-        <Input
-          value={opt.value}
-          onChange={(e) => onUpdateValue(e.target.value)}
-          placeholder="Nombre de la opción (ej: Cita de Primera Vez)"
-          className="flex-1 h-8 text-sm font-medium border-slate-300"
-        />
-        <span className="text-xs text-slate-400 bg-white border border-slate-200 rounded-full px-2 py-0.5 shrink-0">
-          {opt.fields.length} sub-campo{opt.fields.length !== 1 ? 's' : ''}
-        </span>
-        <Button
-          variant="ghost"
-          size="icon"
-          className="h-7 w-7 text-red-400 hover:text-red-600 hover:bg-red-50 shrink-0"
-          onClick={onRemoveOption}
-        >
-          <X className="h-3.5 w-3.5" />
-        </Button>
+        <div className="flex items-center gap-1 shrink-0">
+          <button disabled={isFirst} onClick={onMoveUp} className="p-1 text-slate-300 hover:text-slate-600 disabled:opacity-30"><ArrowUp className="h-3.5 w-3.5" /></button>
+          <button disabled={isLast} onClick={onMoveDown} className="p-1 text-slate-300 hover:text-slate-600 disabled:opacity-30"><ArrowDown className="h-3.5 w-3.5" /></button>
+          <button onClick={onRemove} className="p-1 text-slate-300 hover:text-red-500 transition-colors ml-1"><Trash2 className="h-4 w-4" /></button>
+        </div>
       </div>
 
-      {/* Sub-fields */}
+      {/* Expanded Editor */}
       {expanded && (
-        <div className="p-4 space-y-3 bg-slate-50/50">
-          {opt.fields.length === 0 && (
-            <p className="text-xs text-slate-400 text-center py-3 italic">
-              Esta opción no activa ningún campo adicional. Agrégale sub-campos abajo.
-            </p>
+        <div className="px-4 pb-4 border-t border-slate-100 pt-4 space-y-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            {/* Label */}
+            <div className="space-y-1">
+              <Label className="text-xs text-slate-500">Etiqueta del campo</Label>
+              <Input value={field.label} onChange={(e) => onUpdate({ label: e.target.value })} placeholder="Ej: Especialidad médica..." className="h-9" />
+            </div>
+            {/* Type — locked for system fields */}
+            <div className="space-y-1">
+              <Label className="text-xs text-slate-500">Tipo de campo {isSystem && <span className="text-indigo-500">(bloqueado)</span>}</Label>
+              <select disabled={isSystem} value={field.type} onChange={(e) => onUpdate({ type: e.target.value as FormFieldType, options: undefined, hasConditionalOptions: false, conditionalOptions: undefined })}
+                className="flex h-9 w-full rounded-md border border-slate-200 bg-white px-3 text-sm focus:outline-none focus:ring-2 focus:ring-teal-700 disabled:bg-slate-50 disabled:text-slate-400">
+                {Object.entries(FIELD_TYPE_LABELS).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+              </select>
+            </div>
+            {/* Placeholder */}
+            <div className="space-y-1">
+              <Label className="text-xs text-slate-500">Texto de ayuda (placeholder)</Label>
+              <Input value={field.placeholder || ''} onChange={(e) => onUpdate({ placeholder: e.target.value })} placeholder="Ej: Escriba aquí..." className="h-9" />
+            </div>
+            {/* Required */}
+            <div className="flex items-center gap-2 pt-5">
+              <Checkbox checked={field.required} onCheckedChange={(v) => onUpdate({ required: !!v })} id={`req-${field.id}`} />
+              <label htmlFor={`req-${field.id}`} className="text-sm font-medium text-slate-700 cursor-pointer">Campo obligatorio</label>
+            </div>
+          </div>
+
+          {/* Simple options for simple select */}
+          {field.type === 'select' && !field.hasConditionalOptions && (
+            <div className="space-y-2">
+              <Label className="text-xs text-slate-500 uppercase tracking-wider">Opciones de la lista</Label>
+              {(field.options || []).map((opt, i) => (
+                <div key={i} className="flex gap-2">
+                  <Input value={opt} onChange={(e) => updateOption(i, e.target.value)} className="h-8 text-sm flex-1" placeholder={`Opción ${i + 1}`} />
+                  <button onClick={() => removeOption(i)} className="text-slate-300 hover:text-red-500"><X className="h-4 w-4" /></button>
+                </div>
+              ))}
+              <div className="flex gap-2 flex-wrap">
+                <Button type="button" variant="outline" size="sm" onClick={addOption} className="text-xs h-8">
+                  <Plus className="h-3 w-3 mr-1" /> Agregar opción
+                </Button>
+                {allowConditional && (
+                  <Button type="button" variant="outline" size="sm" onClick={() => onUpdate({ hasConditionalOptions: true, options: undefined })} className="text-xs h-8 border-violet-200 text-violet-700 hover:bg-violet-50">
+                    <GitBranch className="h-3 w-3 mr-1" /> Convertir a opciones con subcampos
+                  </Button>
+                )}
+              </div>
+            </div>
           )}
-          {opt.fields.map((sub, si) => (
-            <SubFieldEditor
-              key={sub.id}
-              sub={sub}
-              onUpdate={(updates) => onUpdateSubField(si, updates)}
-              onRemove={() => onRemoveSubField(si)}
-            />
-          ))}
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={onAddSubField}
-            className="w-full border-dashed border-teal-300 text-teal-700 hover:bg-teal-50 text-xs"
-          >
-            <Plus className="h-3.5 w-3.5 mr-1.5" /> Añadir sub-campo para esta opción
-          </Button>
+
+          {/* Conditional options */}
+          {field.type === 'select' && field.hasConditionalOptions && (
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <button onClick={() => setCondExpanded(!condExpanded)} className="flex items-center gap-2 text-sm font-semibold text-violet-700">
+                  <GitBranch className="h-4 w-4" />
+                  Opciones con Subcampos Condicionales
+                  {condExpanded ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
+                  <span className="text-xs bg-violet-100 text-violet-600 rounded-full px-2 py-0.5">{field.conditionalOptions?.length || 0} opciones</span>
+                </button>
+                <Button type="button" variant="ghost" size="sm" onClick={() => onUpdate({ hasConditionalOptions: false, conditionalOptions: undefined, options: [] })} className="text-xs text-slate-400 h-7">
+                  <X className="h-3 w-3 mr-1" /> Simplificar
+                </Button>
+              </div>
+              {condExpanded && (
+                <div className="space-y-4 pl-4 border-l-2 border-violet-200">
+                  {(field.conditionalOptions || []).map((opt, optIdx) => (
+                    <div key={optIdx} className="bg-violet-50 border border-violet-200 rounded-xl p-3 space-y-3">
+                      <div className="flex gap-2 items-center">
+                        <Input value={opt.value} onChange={(e) => updateConditionalOption(optIdx, e.target.value)} className="h-8 text-sm flex-1 bg-white" placeholder="Nombre de la opción..." />
+                        <button onClick={() => removeConditionalOption(optIdx)} className="text-slate-300 hover:text-red-500"><X className="h-4 w-4" /></button>
+                      </div>
+                      <div className="space-y-2">
+                        {opt.fields.map((sub, subIdx) => (
+                          <SubFieldEditor key={sub.id} sub={sub}
+                            onUpdate={(u) => updateSubField(optIdx, subIdx, u)}
+                            onRemove={() => removeSubField(optIdx, subIdx)} />
+                        ))}
+                        <Button type="button" variant="outline" size="sm" onClick={() => addSubField(optIdx)} className="text-xs h-7 w-full border-dashed">
+                          <Plus className="h-3 w-3 mr-1" /> Agregar subcampo para &quot;{opt.value || 'esta opción'}&quot;
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                  <Button type="button" variant="outline" size="sm" onClick={addConditionalOption} className="text-xs h-8 border-violet-300 text-violet-700">
+                    <Plus className="h-3 w-3 mr-1" /> Nueva opción condicional
+                  </Button>
+                </div>
+              )}
+            </div>
+          )}
         </div>
       )}
+    </div>
+  )
+}
+
+// ─── Request Type Card ────────────────────────────────────────────────────────
+
+function RequestTypeCard({
+  type, isFirst, isLast,
+  onUpdate, onRemove, onMoveUp, onMoveDown
+}: {
+  type: RequestType
+  isFirst: boolean; isLast: boolean
+  onUpdate: (u: Partial<RequestType>) => void
+  onRemove: () => void
+  onMoveUp: () => void; onMoveDown: () => void
+}) {
+  const [expanded, setExpanded] = useState(false)
+
+  const addConditionalField = () => {
+    onUpdate({ conditionalFields: [...type.conditionalFields, { id: crypto.randomUUID(), label: '', type: 'text', required: false, placeholder: '' }] })
+  }
+  const updateCF = (i: number, u: Partial<FormField>) => {
+    const cf = [...type.conditionalFields]; cf[i] = { ...cf[i], ...u }; onUpdate({ conditionalFields: cf })
+  }
+  const removeCF = (i: number) => onUpdate({ conditionalFields: type.conditionalFields.filter((_, j) => j !== i) })
+  const moveCF = (i: number, dir: -1 | 1) => {
+    const cf = [...type.conditionalFields]; const j = i + dir
+    if (j < 0 || j >= cf.length) return;
+    [cf[i], cf[j]] = [cf[j], cf[i]]; onUpdate({ conditionalFields: cf })
+  }
+
+  return (
+    <div className="rounded-xl border border-amber-200 bg-amber-50/30 shadow-sm overflow-hidden">
+      <div className="flex items-center gap-2 px-4 py-3">
+        <button onClick={() => setExpanded(!expanded)} className="flex-1 flex items-center gap-2 text-left min-w-0">
+          {expanded ? <ChevronDown className="h-4 w-4 text-slate-400 shrink-0" /> : <ChevronRight className="h-4 w-4 text-slate-400 shrink-0" />}
+          <span className="text-sm font-semibold text-slate-700 truncate">{type.label || <span className="text-slate-400 italic">Sin nombre</span>}</span>
+          <span className="text-[10px] bg-amber-100 text-amber-700 rounded-full px-2 py-0.5 border border-amber-200 shrink-0">
+            {type.conditionalFields.length > 0 ? `${type.conditionalFields.length} campo${type.conditionalFields.length !== 1 ? 's' : ''} adicionale${type.conditionalFields.length !== 1 ? 's' : ''}` : 'Sin campos adicionales'}
+          </span>
+        </button>
+        <div className="flex items-center gap-1 shrink-0">
+          <button disabled={isFirst} onClick={onMoveUp} className="p-1 text-slate-300 hover:text-slate-600 disabled:opacity-30"><ArrowUp className="h-3.5 w-3.5" /></button>
+          <button disabled={isLast} onClick={onMoveDown} className="p-1 text-slate-300 hover:text-slate-600 disabled:opacity-30"><ArrowDown className="h-3.5 w-3.5" /></button>
+          <button onClick={onRemove} className="p-1 text-slate-300 hover:text-red-500 ml-1"><Trash2 className="h-4 w-4" /></button>
+        </div>
+      </div>
+
+      {expanded && (
+        <div className="px-4 pb-4 border-t border-amber-100 pt-4 space-y-4">
+          <div className="space-y-1">
+            <Label className="text-xs text-slate-500">Nombre del trámite</Label>
+            <Input value={type.label} onChange={(e) => onUpdate({ label: e.target.value })} placeholder="Ej: Agendamiento de Cita Médica" className="h-9" />
+          </div>
+          <div className="space-y-3">
+            <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Campos adicionales que aparecen al seleccionar este trámite</p>
+            {type.conditionalFields.map((cf, i) => (
+              <FieldCard key={cf.id} field={cf} isFirst={i === 0} isLast={i === type.conditionalFields.length - 1}
+                allowConditional={false}
+                onUpdate={(u) => updateCF(i, u)}
+                onRemove={() => removeCF(i)}
+                onMoveUp={() => moveCF(i, -1)}
+                onMoveDown={() => moveCF(i, 1)} />
+            ))}
+            <Button type="button" variant="outline" size="sm" onClick={addConditionalField} className="w-full text-xs h-9 border-dashed border-amber-300 text-amber-700 hover:bg-amber-50">
+              <Plus className="h-3 w-3 mr-1" /> Agregar campo adicional para &quot;{type.label || 'este trámite'}&quot;
+            </Button>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ─── Form Preview ─────────────────────────────────────────────────────────────
+
+function PreviewInput({ field }: { field: FormField }) {
+  const base = 'w-full border border-slate-300 rounded-lg px-3 py-2 text-sm text-slate-600 bg-white focus:outline-none focus:ring-2 focus:ring-teal-600'
+  if (field.type === 'textarea') return <textarea rows={3} placeholder={field.placeholder} className={`${base} resize-none`} readOnly />
+  if (field.type === 'select' && !field.hasConditionalOptions) return (
+    <select className={base} defaultValue="">
+      <option value="" disabled>{field.placeholder || 'Seleccione...'}</option>
+      {(field.options || []).map((o, i) => <option key={i}>{o}</option>)}
+    </select>
+  )
+  if (field.type === 'select' && field.hasConditionalOptions) return (
+    <select className={base} defaultValue="">
+      <option value="" disabled>{field.placeholder || 'Seleccione...'}</option>
+      {(field.conditionalOptions || []).map((o, i) => <option key={i}>{o.value}</option>)}
+    </select>
+  )
+  if (field.type === 'file') return (
+    <div className="border-2 border-dashed border-slate-300 rounded-lg p-4 text-center text-xs text-slate-400 bg-slate-50">
+      <UploadCloud className="h-5 w-5 mx-auto mb-1 text-slate-300" />
+      Seleccionar archivo
+    </div>
+  )
+  return <input type={field.type} placeholder={field.placeholder} className={base} readOnly />
+}
+
+function FormPreview({ template }: { template: FormTemplate }) {
+  const [selectedTypeId, setSelectedTypeId] = useState('')
+  const selectedType = template.requestTypes.find(rt => rt.id === selectedTypeId)
+
+  return (
+    <div className="bg-slate-100 rounded-2xl p-4 h-full overflow-y-auto">
+      <div className="text-center mb-3">
+        <span className="text-xs font-semibold text-slate-400 uppercase tracking-widest">👁️ Vista Previa del Paciente</span>
+      </div>
+      <div className="bg-white rounded-xl shadow-lg border border-slate-200 overflow-hidden max-w-lg mx-auto">
+        {/* Mock institution header */}
+        <div className="bg-gradient-to-r from-teal-700 to-teal-900 px-5 py-4">
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 bg-white/20 rounded-xl flex items-center justify-center">
+              <span className="text-white text-xs font-bold">IPS</span>
+            </div>
+            <div>
+              <p className="text-white font-bold text-sm">Portal del Paciente</p>
+              <p className="text-teal-200 text-xs">Su institución</p>
+            </div>
+          </div>
+        </div>
+
+        <div className="p-5 space-y-4">
+          {/* Request type selector */}
+          {template.requestTypes.length > 0 && (
+            <div className="space-y-1.5">
+              <label className="text-xs font-semibold text-slate-600">Trámite a Solicitar <span className="text-red-500">*</span></label>
+              <div className="relative">
+                <select value={selectedTypeId} onChange={(e) => setSelectedTypeId(e.target.value)}
+                  className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm appearance-none pr-8 focus:outline-none focus:ring-2 focus:ring-teal-600">
+                  <option value="">Seleccione el tipo de trámite...</option>
+                  {template.requestTypes.map(rt => <option key={rt.id} value={rt.id}>{rt.label}</option>)}
+                </select>
+                <ChevronDown className="pointer-events-none absolute right-2.5 top-2.5 h-4 w-4 text-slate-400" />
+              </div>
+            </div>
+          )}
+
+          {/* Conditional fields for selected type */}
+          {selectedType && selectedType.conditionalFields.length > 0 && (
+            <div className="bg-teal-50 border border-teal-200 rounded-xl p-3 space-y-3">
+              <p className="text-[10px] font-bold text-teal-700 uppercase tracking-widest">Información para: {selectedType.label}</p>
+              {selectedType.conditionalFields.map(cf => (
+                <div key={cf.id} className="space-y-1">
+                  <label className="text-xs font-semibold text-slate-600">{cf.label || <span className="text-slate-400 italic">Campo sin etiqueta</span>}{cf.required && <span className="text-red-500 ml-1">*</span>}</label>
+                  <PreviewInput field={cf} />
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Main fields */}
+          <div className="grid grid-cols-2 gap-3">
+            {template.fields.map(field => (
+              <div key={field.id} className={`space-y-1 ${(field.type === 'file' || field.type === 'textarea') ? 'col-span-2' : ''}`}>
+                <label className="text-xs font-semibold text-slate-600">
+                  {field.label || <span className="text-slate-400 italic">Campo sin etiqueta</span>}
+                  {field.required && <span className="text-red-500 ml-1">*</span>}
+                </label>
+                <PreviewInput field={field} />
+              </div>
+            ))}
+          </div>
+
+          {/* Submit button */}
+          <button className="w-full bg-teal-700 hover:bg-teal-800 text-white py-3 rounded-lg text-sm font-semibold transition-colors mt-2">
+            Radicar Solicitud Médica
+          </button>
+        </div>
+      </div>
     </div>
   )
 }
@@ -223,324 +505,172 @@ function ConditionalOptionPanel({
 // ─── Main FormBuilder ─────────────────────────────────────────────────────────
 
 interface FormBuilderProps {
-  initialFields: FormField[]
+  initialTemplate: FormTemplate | null
   initialTemplateName?: string
   templateId: string | null
   institutionId: string
-  onSave: (fields: FormField[], name: string, institutionId: string) => Promise<{ success: boolean; error?: string }>
+  onSave: (template: FormTemplate, name: string, institutionId: string) => Promise<{ success: boolean; error?: string }>
 }
 
-export function FormBuilder({ initialFields, initialTemplateName, templateId, institutionId, onSave }: FormBuilderProps) {
-  const [fields, setFields] = useState<FormField[]>(initialFields)
-  const [templateName, setTemplateName] = useState(initialTemplateName || 'Formulario Base Pacientes')
+export function FormBuilder({ initialTemplate, initialTemplateName, templateId, institutionId, onSave }: FormBuilderProps) {
+  const [template, setTemplate] = useState<FormTemplate>(initialTemplate || DEFAULT_TEMPLATE)
+  const [templateName, setTemplateName] = useState(initialTemplateName || 'Formulario de Radicación')
+  const [activeTab, setActiveTab] = useState<'fields' | 'types'>('fields')
+  const [showPreview, setShowPreview] = useState(true)
   const [loading, setLoading] = useState(false)
-  const [savedCount] = useState(initialFields.length) // Track how many fields were pre-loaded
   const { toast } = useToast()
 
-  // ── Field-level helpers ──────────────────────────────────────────────────
+  // ── Fields helpers ──────────────────────────────────────────────────────────
 
-  const addField = () => {
-    setFields([...fields, {
-      id: crypto.randomUUID(),
-      label: '',
-      type: 'text',
-      required: false,
-      placeholder: '',
-    }])
+  const fields = template.fields
+  const setFields = (f: FormField[]) => setTemplate(t => ({ ...t, fields: f }))
+  const addField = () => setFields([...fields, { id: crypto.randomUUID(), label: '', type: 'text', required: false, placeholder: '' }])
+  const updateField = (i: number, u: Partial<FormField>) => { const f = [...fields]; f[i] = { ...f[i], ...u }; setFields(f) }
+  const removeField = (i: number) => setFields(fields.filter((_, j) => j !== i))
+  const moveField = (i: number, dir: -1 | 1) => {
+    const f = [...fields]; const j = i + dir
+    if (j < 0 || j >= f.length) return;
+    [f[i], f[j]] = [f[j], f[i]]; setFields(f)
   }
 
-  const updateField = (i: number, updates: Partial<FormField>) => {
-    const next = [...fields]
-    next[i] = { ...next[i], ...updates }
-    setFields(next)
+  // ── RequestType helpers ─────────────────────────────────────────────────────
+
+  const types = template.requestTypes
+  const setTypes = (r: RequestType[]) => setTemplate(t => ({ ...t, requestTypes: r }))
+  const addType = () => setTypes([...types, { id: crypto.randomUUID(), label: '', conditionalFields: [] }])
+  const updateType = (i: number, u: Partial<RequestType>) => { const r = [...types]; r[i] = { ...r[i], ...u }; setTypes(r) }
+  const removeType = (i: number) => setTypes(types.filter((_, j) => j !== i))
+  const moveType = (i: number, dir: -1 | 1) => {
+    const r = [...types]; const j = i + dir
+    if (j < 0 || j >= r.length) return;
+    [r[i], r[j]] = [r[j], r[i]]; setTypes(r)
   }
 
-  const removeField = (i: number) => setFields(fields.filter((_, idx) => idx !== i))
-
-  const moveField = (i: number, dir: 'up' | 'down') => {
-    if ((dir === 'up' && i === 0) || (dir === 'down' && i === fields.length - 1)) return
-    const next = [...fields]
-    const swap = dir === 'up' ? i - 1 : i + 1;
-    [next[i], next[swap]] = [next[swap], next[i]]
-    setFields(next)
-  }
-
-  // Toggle between simple select and conditional select
-  const toggleConditional = (i: number, enable: boolean) => {
-    const field = fields[i]
-    if (enable) {
-      // Convert existing simple options to conditional options (with empty sub-fields)
-      const currentOpts = field.options || []
-      const conditionalOptions: ConditionalOption[] = currentOpts.length > 0
-        ? currentOpts.map((v) => ({ value: v, fields: [] }))
-        : [{ value: 'Opción 1', fields: [] }]
-      updateField(i, { hasConditionalOptions: true, conditionalOptions, options: undefined })
-    } else {
-      // Convert back: extract just the values as simple options
-      const opts = (field.conditionalOptions || []).map((o) => o.value)
-      updateField(i, { hasConditionalOptions: false, conditionalOptions: undefined, options: opts })
-    }
-  }
-
-  // ── Conditional option helpers ───────────────────────────────────────────
-
-  const addConditionalOption = (fieldIdx: number) => {
-    const opts = [...(fields[fieldIdx].conditionalOptions || [])]
-    opts.push({ value: `Opción ${opts.length + 1}`, fields: [] })
-    updateField(fieldIdx, { conditionalOptions: opts })
-  }
-
-  const updateOptionValue = (fieldIdx: number, optIdx: number, value: string) => {
-    const opts = [...(fields[fieldIdx].conditionalOptions || [])]
-    opts[optIdx] = { ...opts[optIdx], value }
-    updateField(fieldIdx, { conditionalOptions: opts })
-  }
-
-  const removeOption = (fieldIdx: number, optIdx: number) => {
-    const opts = (fields[fieldIdx].conditionalOptions || []).filter((_, i) => i !== optIdx)
-    updateField(fieldIdx, { conditionalOptions: opts })
-  }
-
-  // ── Sub-field helpers ────────────────────────────────────────────────────
-
-  const addSubField = (fieldIdx: number, optIdx: number) => {
-    const opts = [...(fields[fieldIdx].conditionalOptions || [])]
-    opts[optIdx] = { ...opts[optIdx], fields: [...opts[optIdx].fields, newSubField()] }
-    updateField(fieldIdx, { conditionalOptions: opts })
-  }
-
-  const updateSubField = (fieldIdx: number, optIdx: number, subIdx: number, updates: Partial<SubField>) => {
-    const opts = [...(fields[fieldIdx].conditionalOptions || [])]
-    const subFields = [...opts[optIdx].fields]
-    subFields[subIdx] = { ...subFields[subIdx], ...updates }
-    opts[optIdx] = { ...opts[optIdx], fields: subFields }
-    updateField(fieldIdx, { conditionalOptions: opts })
-  }
-
-  const removeSubField = (fieldIdx: number, optIdx: number, subIdx: number) => {
-    const opts = [...(fields[fieldIdx].conditionalOptions || [])]
-    opts[optIdx] = { ...opts[optIdx], fields: opts[optIdx].fields.filter((_, i) => i !== subIdx) }
-    updateField(fieldIdx, { conditionalOptions: opts })
-  }
-
-  // ── Save ─────────────────────────────────────────────────────────────────
+  // ── Save ────────────────────────────────────────────────────────────────────
 
   const handleSave = async () => {
     setLoading(true)
-    const result = await onSave(fields, templateName, institutionId)
+    const result = await onSave(template, templateName, institutionId)
     setLoading(false)
     if (result.success) {
-      toast({ title: 'Plantilla Guardada', description: 'El formulario ha sido actualizado.', className: 'bg-green-50' })
+      toast({ title: '✅ Plantilla Publicada', description: 'El formulario del paciente ha sido actualizado con los cambios.', className: 'bg-green-50 border-green-200' })
     } else {
       toast({ title: 'Error al Guardar', description: result.error, variant: 'destructive' })
     }
   }
 
-  // ─── Render ───────────────────────────────────────────────────────────────
+  const tabClass = (tab: 'fields' | 'types') =>
+    `flex items-center gap-2 px-4 py-2.5 text-sm font-semibold transition-colors border-b-2 ${activeTab === tab ? 'border-teal-600 text-teal-700' : 'border-transparent text-slate-500 hover:text-slate-700'}`
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
 
-      {/* ── Template Status Banner ── */}
+      {/* Status Banner */}
       {templateId ? (
         <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 bg-teal-50 border border-teal-200 rounded-xl px-5 py-4">
-          <div className="flex items-center gap-2 text-teal-700">
-            <span className="text-xl">✅</span>
+          <div className="flex items-center gap-2">
+            <span className="text-lg">✅</span>
             <div>
               <p className="text-sm font-bold text-teal-800">Plantilla activa: <span className="font-black">{initialTemplateName || templateName}</span></p>
-              <p className="text-xs text-teal-600 mt-0.5">
-                {savedCount === 0
-                  ? 'Sin campos personalizados aún. Añade campos abajo y presiona «Publicar Cambios».'
-                  : `${savedCount} campo${savedCount !== 1 ? 's' : ''} personalizado${savedCount !== 1 ? 's' : ''} guardado${savedCount !== 1 ? 's' : ''}. Puedes editar, reordenar o añadir más abajo.`
-                }
-              </p>
+              <p className="text-xs text-teal-600 mt-0.5">{fields.length} campo{fields.length !== 1 ? 's' : ''} · {types.length} tipo{types.length !== 1 ? 's' : ''} de trámite</p>
             </div>
           </div>
-          <span className="sm:ml-auto text-xs bg-teal-100 text-teal-700 border border-teal-200 rounded-full px-3 py-1 font-semibold whitespace-nowrap">
-            {fields.length} campo{fields.length !== 1 ? 's' : ''} en el editor
-          </span>
         </div>
       ) : (
         <div className="flex items-start gap-3 bg-amber-50 border border-amber-200 rounded-xl px-5 py-4">
           <span className="text-xl mt-0.5">⚠️</span>
           <div>
             <p className="text-sm font-bold text-amber-800">Sin plantilla guardada</p>
-            <p className="text-xs text-amber-700 mt-0.5">El formulario público de esta institución está vacío. Añade los campos que necesitas y presiona «Publicar Cambios» para activarlo.</p>
+            <p className="text-xs text-amber-700 mt-0.5">Configure el formulario abajo y presione «Publicar Cambios» para activarlo en el portal público.</p>
           </div>
         </div>
       )}
 
-      {/* Header toolbar */}
+      {/* Header Toolbar */}
       <Card className="border-slate-200">
-        <CardContent className="pt-6 flex flex-col md:flex-row gap-4 items-end justify-between">
-          <div className="w-full md:w-1/2 space-y-2">
-            <Label htmlFor="formName">Nombre de la Plantilla</Label>
-            <Input id="formName" value={templateName} onChange={(e) => setTemplateName(e.target.value)} />
+        <CardContent className="pt-4 flex flex-col md:flex-row gap-3 items-end justify-between">
+          <div className="w-full md:w-1/2 space-y-1">
+            <Label className="text-xs text-slate-500 font-semibold uppercase tracking-wider">Nombre de la plantilla</Label>
+            <Input value={templateName} onChange={(e) => setTemplateName(e.target.value)} className="h-10 font-semibold" placeholder="Ej: Formulario de Radicación IPS..." />
           </div>
-          <Button onClick={handleSave} disabled={loading} className="bg-teal-700 hover:bg-teal-800">
-            {loading ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Save className="w-4 h-4 mr-2" />}
-            Publicar Cambios
-          </Button>
+          <div className="flex gap-2 flex-wrap">
+            <Button type="button" variant="outline" size="sm" onClick={() => setShowPreview(!showPreview)} className="h-10 gap-2">
+              {showPreview ? <><EyeOff className="h-4 w-4" /> Ocultar Preview</> : <><Eye className="h-4 w-4" /> Mostrar Preview</>}
+            </Button>
+            <Button onClick={handleSave} disabled={loading} className="h-10 bg-teal-700 hover:bg-teal-800 gap-2 font-semibold px-6">
+              {loading ? <><Loader2 className="h-4 w-4 animate-spin" /> Publicando...</> : <><Save className="h-4 w-4" /> Publicar Cambios</>}
+            </Button>
+          </div>
         </CardContent>
       </Card>
 
-      {/* Fields list */}
-      <div className="space-y-4">
-        {fields.length === 0 ? (
-          <div className="text-center py-12 bg-white rounded-lg border border-dashed border-slate-300">
-            <GitBranch className="h-10 w-10 text-slate-300 mx-auto mb-3" />
-            <p className="text-slate-500 mb-4">No hay campos en esta plantilla.</p>
-            <Button onClick={addField} variant="outline" className="border-teal-200 text-teal-700 hover:bg-teal-50">
-              <Plus className="w-4 h-4 mr-2" /> Añadir Primer Campo
-            </Button>
+      {/* Main — Editor + Preview */}
+      <div className={`grid gap-6 ${showPreview ? 'grid-cols-1 lg:grid-cols-5' : 'grid-cols-1'}`}>
+
+        {/* Editor Panel */}
+        <div className={showPreview ? 'lg:col-span-3' : ''}>
+          <Card className="border-slate-200">
+            {/* Tabs */}
+            <div className="flex border-b border-slate-200 bg-slate-50 rounded-t-xl overflow-hidden">
+              <button className={tabClass('fields')} onClick={() => setActiveTab('fields')}>
+                <Layers className="h-4 w-4" /> Campos del Formulario
+                <span className="ml-1 text-xs bg-slate-200 text-slate-600 rounded-full px-1.5">{fields.length}</span>
+              </button>
+              <button className={tabClass('types')} onClick={() => setActiveTab('types')}>
+                <ClipboardList className="h-4 w-4" /> Tipos de Trámite
+                <span className="ml-1 text-xs bg-slate-200 text-slate-600 rounded-full px-1.5">{types.length}</span>
+              </button>
+            </div>
+
+            <CardContent className="p-4 space-y-3">
+              {/* Fields tab */}
+              {activeTab === 'fields' && (
+                <>
+                  <p className="text-xs text-slate-500 pb-1">
+                    Estos son <strong>todos</strong> los campos del formulario del paciente, en el orden en que aparecerán. Los campos con <span className="inline-flex items-center gap-1 bg-indigo-100 text-indigo-700 rounded-full px-1.5 py-0.5 text-[10px]"><Shield className="h-2.5 w-2.5" />Sistema</span> son esenciales para el funcionamiento de la plataforma.
+                  </p>
+                  {fields.map((field, i) => (
+                    <FieldCard key={field.id} field={field} isFirst={i === 0} isLast={i === fields.length - 1}
+                      onUpdate={(u) => updateField(i, u)}
+                      onRemove={() => removeField(i)}
+                      onMoveUp={() => moveField(i, -1)}
+                      onMoveDown={() => moveField(i, 1)} />
+                  ))}
+                  <Button type="button" variant="outline" onClick={addField} className="w-full h-10 border-dashed border-teal-300 text-teal-700 hover:bg-teal-50 text-sm font-semibold">
+                    <Plus className="h-4 w-4 mr-2" /> Agregar Campo Personalizado
+                  </Button>
+                </>
+              )}
+
+              {/* Types tab */}
+              {activeTab === 'types' && (
+                <>
+                  <p className="text-xs text-slate-500 pb-1">
+                    Configure los tipos de trámite disponibles. Al seleccionar uno, se pueden activar <strong>campos adicionales específicos</strong> para ese trámite.
+                  </p>
+                  {types.map((type, i) => (
+                    <RequestTypeCard key={type.id} type={type} isFirst={i === 0} isLast={i === types.length - 1}
+                      onUpdate={(u) => updateType(i, u)}
+                      onRemove={() => removeType(i)}
+                      onMoveUp={() => moveType(i, -1)}
+                      onMoveDown={() => moveType(i, 1)} />
+                  ))}
+                  <Button type="button" variant="outline" onClick={addType} className="w-full h-10 border-dashed border-amber-300 text-amber-700 hover:bg-amber-50 text-sm font-semibold">
+                    <Plus className="h-4 w-4 mr-2" /> Agregar Tipo de Trámite
+                  </Button>
+                </>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Preview Panel */}
+        {showPreview && (
+          <div className="lg:col-span-2">
+            <FormPreview template={template} />
           </div>
-        ) : (
-          fields.map((field, fi) => (
-            <Card key={field.id} className="border-slate-200 shadow-sm hover:border-teal-200 transition-colors">
-              <CardContent className="p-4 sm:p-6 flex gap-4 flex-col md:flex-row md:items-start">
-
-                {/* Order controls */}
-                <div className="flex flex-row md:flex-col items-center justify-center gap-1 text-slate-400 bg-slate-50 p-1 rounded shrink-0">
-                  <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => moveField(fi, 'up')} disabled={fi === 0}>
-                    <ArrowUp className="w-4 h-4" />
-                  </Button>
-                  <span className="text-xs font-bold w-4 text-center">{fi + 1}</span>
-                  <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => moveField(fi, 'down')} disabled={fi === fields.length - 1}>
-                    <ArrowDown className="w-4 h-4" />
-                  </Button>
-                </div>
-
-                {/* Field config */}
-                <div className="flex-1 space-y-4 w-full">
-
-                  {/* Row 1: label, type, placeholder */}
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <div className="space-y-2">
-                      <Label className="text-xs text-slate-500 uppercase">Etiqueta</Label>
-                      <Input value={field.label} onChange={(e) => updateField(fi, { label: e.target.value })} />
-                    </div>
-                    <div className="space-y-2">
-                      <Label className="text-xs text-slate-500 uppercase">Tipo de Campo</Label>
-                      <select
-                        value={field.type}
-                        onChange={(e) => updateField(fi, { type: e.target.value as FormFieldType })}
-                        className="flex h-10 w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-700"
-                      >
-                        {(Object.entries(FIELD_TYPE_LABELS) as [FormFieldType, string][]).map(([v, l]) => (
-                          <option key={v} value={v}>{l}</option>
-                        ))}
-                      </select>
-                    </div>
-                    <div className="space-y-2">
-                      <Label className="text-xs text-slate-500 uppercase">Placeholder</Label>
-                      <Input
-                        value={field.placeholder || ''}
-                        onChange={(e) => updateField(fi, { placeholder: e.target.value })}
-                        placeholder="Ej: Ingresa tu número..."
-                        disabled={['select', 'file', 'date'].includes(field.type)}
-                      />
-                    </div>
-                  </div>
-
-                  {/* Select configuration */}
-                  {field.type === 'select' && (
-                    <div className="rounded-xl border border-slate-200 overflow-hidden">
-
-                      {/* Toggle header */}
-                      <div className="flex items-center justify-between bg-slate-50 border-b border-slate-200 px-4 py-3">
-                        <div className="flex items-center gap-2">
-                          <GitBranch className="h-4 w-4 text-teal-600" />
-                          <span className="text-sm font-semibold text-slate-700">Opciones del Desplegable</span>
-                        </div>
-                        <label className="flex items-center gap-2 cursor-pointer">
-                          <Checkbox
-                            checked={!!field.hasConditionalOptions}
-                            onCheckedChange={(v) => toggleConditional(fi, !!v)}
-                            id={`cond-${field.id}`}
-                          />
-                          <span className="text-xs font-medium text-slate-600">Activar sub-campos condicionales</span>
-                        </label>
-                      </div>
-
-                      <div className="p-4">
-                        {!field.hasConditionalOptions ? (
-                          /* ── Simple options ── */
-                          <div className="space-y-2">
-                            <Label className="text-xs text-slate-500">Opciones (separadas por coma)</Label>
-                            <Input
-                              placeholder="Medicina General, Pediatría, Odontología"
-                              value={field.options?.join(', ') || ''}
-                              onChange={(e) => {
-                                const opts = e.target.value.split(',').map((s) => s.trim()).filter(Boolean)
-                                updateField(fi, { options: opts })
-                              }}
-                            />
-                          </div>
-                        ) : (
-                          /* ── Conditional options ── */
-                          <div className="space-y-3">
-                            {(field.conditionalOptions || []).map((opt, oi) => (
-                              <ConditionalOptionPanel
-                                key={oi}
-                                opt={opt}
-                                index={oi}
-                                onUpdateValue={(val) => updateOptionValue(fi, oi, val)}
-                                onAddSubField={() => addSubField(fi, oi)}
-                                onUpdateSubField={(si, updates) => updateSubField(fi, oi, si, updates)}
-                                onRemoveSubField={(si) => removeSubField(fi, oi, si)}
-                                onRemoveOption={() => removeOption(fi, oi)}
-                              />
-                            ))}
-                            <Button
-                              type="button"
-                              variant="outline"
-                              size="sm"
-                              onClick={() => addConditionalOption(fi)}
-                              className="w-full border-dashed border-slate-300 text-slate-600 hover:bg-slate-50"
-                            >
-                              <Plus className="h-3.5 w-3.5 mr-1.5" /> Añadir opción
-                            </Button>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Required toggle */}
-                  <div className="flex items-center gap-2 pt-1">
-                    <Checkbox
-                      id={`req-${field.id}`}
-                      checked={field.required}
-                      onCheckedChange={(v) => updateField(fi, { required: !!v })}
-                    />
-                    <Label htmlFor={`req-${field.id}`} className="text-sm cursor-pointer">
-                      Campo obligatorio
-                    </Label>
-                  </div>
-                </div>
-
-                {/* Delete */}
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="text-red-400 hover:text-red-600 hover:bg-red-50 self-start"
-                  onClick={() => removeField(fi)}
-                >
-                  <Trash2 className="w-5 h-5" />
-                </Button>
-              </CardContent>
-            </Card>
-          ))
         )}
       </div>
-
-      {fields.length > 0 && (
-        <div className="flex justify-center border-t border-dashed border-slate-300 pt-6">
-          <Button onClick={addField} variant="outline" className="border-teal-200 bg-white text-teal-700 hover:bg-teal-50 shadow-sm rounded-full px-8">
-            <Plus className="w-4 h-4 mr-2" /> Añadir Otro Campo
-          </Button>
-        </div>
-      )}
     </div>
   )
 }
