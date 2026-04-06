@@ -1,6 +1,7 @@
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import { Activity, ShieldCheck, PieChart, ChevronRight, Stethoscope, PhoneCall, LayoutDashboard, Send, Layers } from 'lucide-react'
+import Image from 'next/image'
 
 export default function SaaSLandingPage() {
   const WHATSAPP_URL = "https://wa.me/573012929983?text=Hola,%20estoy%20interesado%20en%20implementar%20Salud360%20en%20mi%20IPS"
@@ -17,9 +18,8 @@ export default function SaaSLandingPage() {
       {/* Navbar */}
       <nav className="relative z-10 flex items-center justify-between px-6 py-6 max-w-7xl mx-auto">
          <div className="flex items-center gap-2">
-            <Stethoscope className="w-8 h-8 text-teal-400" />
-            <span className="text-2xl font-bold tracking-tight text-white">Salud360</span>
-            <span className="hidden sm:inline-block ml-2 px-2 py-0.5 text-xs font-semibold bg-teal-500/10 text-teal-300 rounded-full border border-teal-500/20">Enterprise</span>
+            <Image src="/logo-white.svg" alt="Salud360 Logo" width={180} height={45} priority />
+            <span className="hidden sm:inline-block ml-2 px-2 py-0.5 text-xs font-semibold bg-teal-500/10 text-teal-300 rounded-full border border-teal-500/20 mt-1">Enterprise</span>
          </div>
          <div className="flex items-center gap-4">
             <Link href={WHATSAPP_URL} target="_blank" className="hidden sm:flex text-sm font-medium text-slate-300 hover:text-white transition-colors items-center gap-1">

@@ -3,6 +3,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
 import { Hospital, LogIn, Lock, Mail } from 'lucide-react'
+import Image from 'next/image'
 import { login } from './actions'
 
 export default function LoginPage({
@@ -23,10 +24,7 @@ export default function LoginPage({
                 
                 <div className="relative z-10">
                     <div className="flex items-center gap-3">
-                        <div className="bg-white/10 p-2 rounded-xl backdrop-blur-md">
-                            <Hospital className="w-8 h-8 text-teal-400" />
-                        </div>
-                        <span className="text-2xl font-bold tracking-tight">Salud360</span>
+                        <Image src="/logo-white.svg" alt="Salud360 Logo" width={220} height={55} priority />
                     </div>
                 </div>
 
@@ -55,8 +53,7 @@ export default function LoginPage({
                 
                 {/* Mobile Hospital Brand (Only visible on mobile) */}
                 <div className="absolute top-8 left-8 flex md:hidden items-center gap-2">
-                     <Hospital className="w-6 h-6 text-teal-600" />
-                     <span className="text-xl font-bold text-slate-800">Salud360</span>
+                     <Image src="/logo.svg" alt="Salud360 Logo" width={160} height={40} priority />
                 </div>
 
                 <div className="w-full max-w-md space-y-8">

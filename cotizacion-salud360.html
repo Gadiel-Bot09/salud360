@@ -1,0 +1,890 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Cotización Comercial — Salud360</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --teal-900: #134e4a;
+      --teal-800: #115e59;
+      --teal-700: #0f766e;
+      --teal-600: #0d9488;
+      --teal-500: #14b8a6;
+      --teal-400: #2dd4bf;
+      --teal-100: #ccfbf1;
+      --teal-50:  #f0fdfa;
+      --blue-700: #1d4ed8;
+      --slate-900: #0f172a;
+      --slate-800: #1e293b;
+      --slate-700: #334155;
+      --slate-600: #475569;
+      --slate-400: #94a3b8;
+      --slate-200: #e2e8f0;
+      --slate-100: #f1f5f9;
+      --slate-50:  #f8fafc;
+      --white: #ffffff;
+      --gold: #f59e0b;
+    }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      font-family: 'Inter', system-ui, sans-serif;
+      background: var(--slate-100);
+      color: var(--slate-800);
+      line-height: 1.6;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* ── PRINT ── */
+    @media print {
+      body { background: white; }
+      .no-print { display: none; }
+      .page-break { page-break-before: always; }
+      .card { box-shadow: none !important; border: 1px solid #ddd !important; }
+    }
+
+    /* ── LAYOUT ── */
+    .container {
+      max-width: 960px;
+      margin: 0 auto;
+      padding: 0 20px;
+    }
+
+    /* ── HEADER ── */
+    header {
+      background: linear-gradient(135deg, var(--slate-900) 0%, #0c3f3c 50%, var(--teal-900) 100%);
+      color: white;
+      padding: 48px 20px 64px;
+      position: relative;
+      overflow: hidden;
+    }
+    header::before {
+      content: '';
+      position: absolute;
+      top: -80px; right: -80px;
+      width: 400px; height: 400px;
+      background: radial-gradient(circle, rgba(13,148,136,0.25) 0%, transparent 70%);
+      border-radius: 50%;
+    }
+    header::after {
+      content: '';
+      position: absolute;
+      bottom: -100px; left: -60px;
+      width: 300px; height: 300px;
+      background: radial-gradient(circle, rgba(20,184,166,0.15) 0%, transparent 70%);
+      border-radius: 50%;
+    }
+    .header-inner {
+      position: relative; z-index: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 32px;
+    }
+    .header-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      flex-wrap: wrap;
+      gap: 24px;
+    }
+    .logo-block .logo-text {
+      font-size: 2rem;
+      font-weight: 900;
+      letter-spacing: -0.5px;
+      background: linear-gradient(90deg, #fff 0%, var(--teal-400) 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+    .logo-block .logo-sub {
+      font-size: 0.75rem;
+      color: rgba(255,255,255,0.5);
+      text-transform: uppercase;
+      letter-spacing: 2px;
+      margin-top: 2px;
+    }
+    .quote-meta {
+      text-align: right;
+    }
+    .quote-meta .label {
+      font-size: 0.7rem;
+      text-transform: uppercase;
+      letter-spacing: 2px;
+      color: rgba(255,255,255,0.45);
+    }
+    .quote-meta .value {
+      font-size: 0.9rem;
+      font-weight: 600;
+      color: rgba(255,255,255,0.85);
+      margin-top: 2px;
+    }
+    .quote-meta .badge {
+      display: inline-block;
+      margin-top: 8px;
+      background: var(--teal-600);
+      color: white;
+      border-radius: 999px;
+      padding: 3px 12px;
+      font-size: 0.7rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+    .header-title h1 {
+      font-size: clamp(1.6rem, 4vw, 2.5rem);
+      font-weight: 800;
+      line-height: 1.2;
+      color: white;
+    }
+    .header-title h1 span {
+      color: var(--teal-400);
+    }
+    .header-title p {
+      margin-top: 12px;
+      color: rgba(255,255,255,0.65);
+      font-size: 1rem;
+      max-width: 620px;
+    }
+    .header-price-row {
+      display: flex;
+      align-items: center;
+      gap: 20px;
+      flex-wrap: wrap;
+    }
+    .price-pill {
+      background: linear-gradient(135deg, var(--teal-600), var(--teal-800));
+      border: 2px solid rgba(45,212,191,0.3);
+      border-radius: 16px;
+      padding: 16px 28px;
+      display: flex;
+      flex-direction: column;
+    }
+    .price-pill .price-label {
+      font-size: 0.65rem;
+      text-transform: uppercase;
+      letter-spacing: 2.5px;
+      color: var(--teal-400);
+      font-weight: 600;
+    }
+    .price-pill .price-amount {
+      font-size: 2rem;
+      font-weight: 900;
+      color: white;
+      letter-spacing: -1px;
+      margin-top: 2px;
+    }
+    .price-pill .price-once {
+      font-size: 0.75rem;
+      color: rgba(255,255,255,0.55);
+      margin-top: 2px;
+    }
+    .validity-pill {
+      background: rgba(255,255,255,0.07);
+      border: 1px solid rgba(255,255,255,0.12);
+      border-radius: 12px;
+      padding: 12px 18px;
+    }
+    .validity-pill .v-label {
+      font-size: 0.65rem;
+      text-transform: uppercase;
+      letter-spacing: 2px;
+      color: rgba(255,255,255,0.4);
+    }
+    .validity-pill .v-val {
+      font-size: 0.9rem;
+      font-weight: 600;
+      color: white;
+      margin-top: 2px;
+    }
+
+    /* ── MAIN CONTENT ── */
+    main { padding: 48px 20px 64px; }
+
+    /* ── SECTION TITLES ── */
+    .section-title {
+      font-size: 1.4rem;
+      font-weight: 800;
+      color: var(--slate-900);
+      margin-bottom: 6px;
+    }
+    .section-subtitle {
+      font-size: 0.9rem;
+      color: var(--slate-500);
+      margin-bottom: 28px;
+    }
+    .divider {
+      width: 48px; height: 4px;
+      background: linear-gradient(90deg, var(--teal-600), var(--teal-400));
+      border-radius: 999px;
+      margin: 8px 0 28px;
+    }
+
+    /* ── CARDS ── */
+    .card {
+      background: white;
+      border-radius: 16px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.06), 0 4px 16px rgba(0,0,0,0.04);
+      overflow: hidden;
+    }
+
+    /* ── INTRO BLOCK ── */
+    .intro-card {
+      padding: 28px 32px;
+      border-left: 4px solid var(--teal-600);
+      margin-bottom: 40px;
+    }
+    .intro-card p { color: var(--slate-600); font-size: 0.95rem; line-height: 1.75; }
+    .intro-card p + p { margin-top: 12px; }
+    .intro-card strong { color: var(--teal-700); }
+
+    /* ── FEATURES GRID ── */
+    .features-section { margin-bottom: 48px; }
+    .features-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+      gap: 16px;
+    }
+    .feature-card {
+      background: white;
+      border-radius: 14px;
+      padding: 22px 24px;
+      border: 1.5px solid var(--slate-200);
+      transition: transform 0.2s, box-shadow 0.2s, border-color 0.2s;
+    }
+    .feature-card:hover {
+      transform: translateY(-3px);
+      box-shadow: 0 8px 24px rgba(13,148,136,0.1);
+      border-color: var(--teal-400);
+    }
+    .feature-icon {
+      width: 44px; height: 44px;
+      border-radius: 12px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 1.3rem;
+      margin-bottom: 14px;
+    }
+    .feature-card h3 {
+      font-size: 0.95rem;
+      font-weight: 700;
+      color: var(--slate-800);
+      margin-bottom: 6px;
+    }
+    .feature-card p {
+      font-size: 0.82rem;
+      color: var(--slate-500);
+      line-height: 1.6;
+    }
+
+    /* ── BENEFITS SECTION ── */
+    .benefits-section { margin-bottom: 48px; }
+    .benefits-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+      gap: 16px;
+    }
+    .benefit-card {
+      background: linear-gradient(135deg, var(--teal-50), white);
+      border: 1.5px solid var(--teal-100);
+      border-radius: 14px;
+      padding: 22px;
+      text-align: center;
+    }
+    .benefit-number {
+      font-size: 2.2rem;
+      font-weight: 900;
+      background: linear-gradient(135deg, var(--teal-600), var(--teal-400));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      line-height: 1;
+      margin-bottom: 6px;
+    }
+    .benefit-card h3 {
+      font-size: 0.85rem;
+      font-weight: 700;
+      color: var(--teal-900);
+      margin-bottom: 6px;
+    }
+    .benefit-card p {
+      font-size: 0.78rem;
+      color: var(--slate-500);
+      line-height: 1.5;
+    }
+
+    /* ── WHAT'S INCLUDED ── */
+    .included-section { margin-bottom: 48px; }
+    .included-card { padding: 28px 32px; }
+    .included-list { list-style: none; }
+    .included-list li {
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+      padding: 10px 0;
+      border-bottom: 1px solid var(--slate-100);
+      font-size: 0.88rem;
+      color: var(--slate-700);
+    }
+    .included-list li:last-child { border-bottom: none; }
+    .included-list li .check {
+      width: 22px; height: 22px;
+      background: var(--teal-600);
+      border-radius: 50%;
+      color: white;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 0.7rem;
+      flex-shrink: 0;
+      margin-top: 1px;
+    }
+    .included-list li strong { color: var(--slate-800); }
+
+    /* ── PRICING TABLE ── */
+    .pricing-section { margin-bottom: 48px; }
+    .pricing-table {
+      width: 100%;
+      border-collapse: separate;
+      border-spacing: 0;
+      overflow: hidden;
+      border-radius: 14px;
+      border: 1px solid var(--slate-200);
+      font-size: 0.88rem;
+    }
+    .pricing-table thead tr {
+      background: linear-gradient(135deg, var(--slate-900), #0c3f3c);
+      color: white;
+    }
+    .pricing-table th {
+      padding: 14px 20px;
+      text-align: left;
+      font-weight: 600;
+      font-size: 0.78rem;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+    .pricing-table th:last-child { text-align: right; }
+    .pricing-table tbody tr { background: white; }
+    .pricing-table tbody tr:nth-child(even) { background: var(--slate-50); }
+    .pricing-table td {
+      padding: 13px 20px;
+      color: var(--slate-700);
+      border-bottom: 1px solid var(--slate-100);
+    }
+    .pricing-table td:last-child { text-align: right; font-weight: 600; color: var(--slate-800); }
+    .pricing-table tfoot tr { background: var(--slate-900); color: white; }
+    .pricing-table tfoot td {
+      padding: 16px 20px;
+      font-weight: 800;
+      font-size: 1rem;
+      color: white;
+      border: none;
+    }
+    .pricing-table tfoot td:last-child {
+      color: var(--teal-400);
+      font-size: 1.2rem;
+      text-align: right;
+    }
+    .tag {
+      display: inline-block;
+      background: var(--teal-100);
+      color: var(--teal-800);
+      border-radius: 999px;
+      padding: 2px 10px;
+      font-size: 0.7rem;
+      font-weight: 600;
+      margin-left: 6px;
+    }
+
+    /* ── PAYMENT TERMS ── */
+    .terms-section { margin-bottom: 48px; }
+    .terms-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+    }
+    .term-card {
+      background: white;
+      border-radius: 12px;
+      border: 1.5px solid var(--slate-200);
+      padding: 20px 24px;
+    }
+    .term-card h4 {
+      font-size: 0.78rem;
+      text-transform: uppercase;
+      letter-spacing: 1.5px;
+      color: var(--slate-400);
+      font-weight: 600;
+      margin-bottom: 6px;
+    }
+    .term-card .term-value {
+      font-size: 1rem;
+      font-weight: 700;
+      color: var(--slate-800);
+    }
+    .term-card .term-note {
+      font-size: 0.78rem;
+      color: var(--slate-500);
+      margin-top: 4px;
+    }
+    .highlight-term {
+      background: linear-gradient(135deg, var(--teal-700), var(--teal-900));
+      border-color: transparent;
+      grid-column: 1 / -1;
+    }
+    .highlight-term h4 { color: rgba(255,255,255,0.5); }
+    .highlight-term .term-value { color: white; font-size: 1.1rem; }
+    .highlight-term .term-note { color: rgba(255,255,255,0.55); }
+
+    /* ── CONTACT ── */
+    .contact-section { margin-bottom: 16px; }
+    .contact-card {
+      background: linear-gradient(135deg, var(--slate-900) 0%, #0c3f3c 100%);
+      border-radius: 16px;
+      padding: 36px 32px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 24px;
+      color: white;
+    }
+    .contact-left h3 {
+      font-size: 1.3rem;
+      font-weight: 800;
+      margin-bottom: 6px;
+    }
+    .contact-left p {
+      color: rgba(255,255,255,0.55);
+      font-size: 0.88rem;
+    }
+    .contact-actions { display: flex; flex-direction: column; gap: 10px; align-items: flex-end; }
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 12px 24px;
+      border-radius: 10px;
+      font-size: 0.88rem;
+      font-weight: 700;
+      text-decoration: none;
+      transition: all 0.2s;
+      border: none;
+      cursor: pointer;
+    }
+    .btn-primary {
+      background: linear-gradient(135deg, var(--teal-500), var(--teal-700));
+      color: white;
+      box-shadow: 0 4px 14px rgba(13,148,136,0.4);
+    }
+    .btn-primary:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 6px 20px rgba(13,148,136,0.5);
+    }
+    .btn-outline {
+      background: rgba(255,255,255,0.07);
+      color: white;
+      border: 1px solid rgba(255,255,255,0.2);
+    }
+    .btn-outline:hover { background: rgba(255,255,255,0.12); }
+
+    .cta-print {
+      position: fixed;
+      bottom: 24px; right: 24px;
+      background: var(--teal-700);
+      color: white;
+      border: none;
+      border-radius: 50px;
+      padding: 14px 22px;
+      font-family: inherit;
+      font-size: 0.85rem;
+      font-weight: 700;
+      cursor: pointer;
+      box-shadow: 0 4px 20px rgba(13,148,136,0.5);
+      display: flex; align-items: center; gap-8px;
+      transition: all 0.2s;
+      z-index: 100;
+    }
+    .cta-print:hover { background: var(--teal-600); transform: translateY(-2px); }
+
+    /* ── FOOTER ── */
+    footer {
+      background: var(--slate-900);
+      color: rgba(255,255,255,0.35);
+      text-align: center;
+      padding: 20px;
+      font-size: 0.75rem;
+    }
+
+    /* ── RESPONSIVE ── */
+    @media (max-width: 640px) {
+      header { padding: 36px 20px 48px; }
+      .header-top { flex-direction: column; }
+      .quote-meta { text-align: left; }
+      .terms-grid { grid-template-columns: 1fr; }
+      .highlight-term { grid-column: 1; }
+      .contact-card { flex-direction: column; align-items: flex-start; }
+      .contact-actions { align-items: flex-start; width: 100%; }
+      .btn { width: 100%; justify-content: center; }
+      .cta-print { bottom: 16px; right: 16px; padding: 12px 18px; font-size: 0.8rem; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- ── HEADER ─────────────────────────────────────────── -->
+<header>
+  <div class="container header-inner">
+    <div class="header-top">
+      <div class="logo-block">
+        <div class="logo-text">Salud360</div>
+        <div class="logo-sub">Plataforma SaaS de Gestión Médica</div>
+      </div>
+      <div class="quote-meta">
+        <div class="label">Nº Cotización</div>
+        <div class="value">S360-2026-001</div>
+        <div class="label" style="margin-top:10px">Fecha de Emisión</div>
+        <div class="value">06 de Abril, 2026</div>
+        <span class="badge">Vigente 15 días</span>
+      </div>
+    </div>
+
+    <div class="header-title">
+      <h1>Propuesta Comercial para <span>Instituciones de Salud</span></h1>
+      <p>Solución digital integral para la gestión electrónica de solicitudes médicas, radicación de trámites y atención eficiente de pacientes.</p>
+    </div>
+
+    <div class="header-price-row">
+      <div class="price-pill">
+        <span class="price-label">Inversión Total</span>
+        <span class="price-amount">$1.000.000</span>
+        <span class="price-once">COP · Pago único de implementación</span>
+      </div>
+      <div class="validity-pill">
+        <div class="v-label">Esta cotización aplica para</div>
+        <div class="v-val">1 Institución / IPS / EPS</div>
+        <div class="v-label" style="margin-top:6px">Incluye</div>
+        <div class="v-val">Configuración + 30 días soporte</div>
+      </div>
+    </div>
+  </div>
+</header>
+
+<!-- ── MAIN ───────────────────────────────────────────── -->
+<main>
+  <div class="container">
+
+    <!-- INTRO -->
+    <div class="card intro-card">
+      <p>
+        Estimado cliente, a continuación encontrará el detalle completo de la propuesta de implementación de
+        <strong>Salud360</strong>, una plataforma SaaS de <strong>marca blanca (white-label)</strong> diseñada
+        específicamente para clínicas, IPS y EPS que buscan digitalizar, agilizar y controlar sus procesos de
+        atención al paciente con una solución de nivel empresarial.
+      </p>
+      <p>
+        Esta cotización cubre la implementación completa del sistema, la configuración personalizada para su institución,
+        la capacitación del equipo administrativo y 30 días de soporte técnico prioritario sin costo adicional.
+      </p>
+    </div>
+
+    <!-- FUNCIONALIDADES -->
+    <section class="features-section">
+      <div class="section-title">Funcionalidades del Sistema</div>
+      <div class="section-subtitle">Módulos listos para usar desde el primer día de implementación</div>
+      <div class="divider"></div>
+      <div class="features-grid">
+
+        <div class="feature-card">
+          <div class="feature-icon" style="background:#f0fdfa">🏥</div>
+          <h3>Portal del Paciente (Marca Blanca)</h3>
+          <p>URL única para cada institución (ej: <code>salud360.app/portal/su-clinica</code>). Los pacientes radican solicitudes directamente desde cualquier dispositivo.</p>
+        </div>
+
+        <div class="feature-card">
+          <div class="feature-icon" style="background:#eff6ff">📋</div>
+          <h3>Constructor de Formularios Dinámicos</h3>
+          <p>Cree y personalice los campos del formulario de radicación sin programación. Arrastre, ordene y configure cada campo según el tipo de trámite.</p>
+        </div>
+
+        <div class="feature-card">
+          <div class="feature-icon" style="background:#fef9c3">🔀</div>
+          <h3>Campos Condicionales por Opción</h3>
+          <p>Cuando el paciente elige "Cita de Primera Vez", se activan campos específicos. Cuando elige "Control", aparecen otros. Formularios inteligentes sin código.</p>
+        </div>
+
+        <div class="feature-card">
+          <div class="feature-icon" style="background:#fdf4ff">📊</div>
+          <h3>Panel de Solicitudes en Tiempo Real</h3>
+          <p>Visualice todas las solicitudes radicadas con filtros por estado, fecha y tipo. Búsqueda instantánea y actualización automática.</p>
+        </div>
+
+        <div class="feature-card">
+          <div class="feature-icon" style="background:#fff1f2">📤</div>
+          <h3>Exportación PDF y Excel</h3>
+          <p>Descargue reportes completos de solicitudes en PDF o Excel con un clic. Filtros aplicados antes de exportar para informes precisos.</p>
+        </div>
+
+        <div class="feature-card">
+          <div class="feature-icon" style="background:#f0fdf4">✉️</div>
+          <h3>Notificaciones Automáticas por Correo</h3>
+          <p>El paciente recibe su número de radicado automáticamente. Los administradores son notificados de cambios de estado con plantillas de email profesionales.</p>
+        </div>
+
+        <div class="feature-card">
+          <div class="feature-icon" style="background:#fef3c7">🔐</div>
+          <h3>Control de Roles y Accesos (RBAC)</h3>
+          <p>Super Admin, Líder Institución, Gestor y Auditor. Cada rol ve solo lo que le corresponde. Aislamiento total de datos entre instituciones.</p>
+        </div>
+
+        <div class="feature-card">
+          <div class="feature-icon" style="background:#ecfdf5">⚙️</div>
+          <h3>Módulo de Configuración Institucional</h3>
+          <p>Personalice razón social, URL del portal, logo, colores corporativos y seguridad de acceso directamente desde el panel sin soporte técnico.</p>
+        </div>
+
+        <div class="feature-card">
+          <div class="feature-icon" style="background:#f0f9ff">📁</div>
+          <h3>Gestión de Archivos Adjuntos</h3>
+          <p>Los pacientes pueden adjuntar documentos (órdenes médicas, cédulas, autorizaciones) al momento de radicar. Almacenamiento seguro en la nube.</p>
+        </div>
+
+        <div class="feature-card">
+          <div class="feature-icon" style="background:#fdf2f8">🏢</div>
+          <h3>Multi-Institución</h3>
+          <p>Una misma plataforma puede gestionar múltiples clínicas o sedes de forma independiente, con datos completamente aislados entre sí.</p>
+        </div>
+
+        <div class="feature-card">
+          <div class="feature-icon" style="background:#fff7ed">📱</div>
+          <h3>100% Responsivo y Móvil</h3>
+          <p>El portal del paciente y el panel administrativo funcionan perfectamente en celulares, tablets y computadores sin instalar ninguna aplicación.</p>
+        </div>
+
+        <div class="feature-card">
+          <div class="feature-icon" style="background:#f8fafc">🔒</div>
+          <h3>Seguridad Empresarial (RLS)</h3>
+          <p>Row Level Security en base de datos garantiza que ningún usuario pueda ver datos de otra institución, aunque el código falle.</p>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- BENEFICIOS -->
+    <section class="benefits-section">
+      <div class="section-title">Beneficios Clave para Su Institución</div>
+      <div class="section-subtitle">Impacto real medible desde los primeros días de uso</div>
+      <div class="divider"></div>
+      <div class="benefits-grid">
+        <div class="benefit-card">
+          <div class="benefit-number">-80%</div>
+          <h3>Menos llamadas al Call Center</h3>
+          <p>Los pacientes radican en línea 24/7 sin necesidad de llamar.</p>
+        </div>
+        <div class="benefit-card">
+          <div class="benefit-number">0</div>
+          <h3>Pérdida de solicitudes</h3>
+          <p>Cada trámite queda registrado con número único de radicado y auditoría.</p>
+        </div>
+        <div class="benefit-card">
+          <div class="benefit-number">24/7</div>
+          <h3>Portal disponible siempre</h3>
+          <p>Sus pacientes radican a cualquier hora, desde cualquier lugar del país.</p>
+        </div>
+        <div class="benefit-card">
+          <div class="benefit-number">100%</div>
+          <h3>Trazabilidad de trámites</h3>
+          <p>Historial completo de cada solicitud con auditoría de cambios.</p>
+        </div>
+        <div class="benefit-card">
+          <div class="benefit-number">&lt;1 día</div>
+          <h3>Tiempo de implementación</h3>
+          <p>La configuración inicial de la institución se completa en horas.</p>
+        </div>
+        <div class="benefit-card">
+          <div class="benefit-number">∞</div>
+          <h3>Escalabilidad ilimitada</h3>
+          <p>Desde 10 hasta 10.000 solicitudes diarias sin cambiar de plataforma.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- QUÉ INCLUYE -->
+    <section class="included-section">
+      <div class="section-title">¿Qué Incluye Esta Propuesta?</div>
+      <div class="section-subtitle">Todo lo necesario para empezar a operar desde el día 1</div>
+      <div class="divider"></div>
+      <div class="card included-card">
+        <ul class="included-list">
+          <li>
+            <span class="check">✓</span>
+            <span><strong>Implementación completa de la plataforma</strong> — Configuración técnica del entorno de producción en servidores de alta disponibilidad.</span>
+          </li>
+          <li>
+            <span class="check">✓</span>
+            <span><strong>Creación y configuración de la institución</strong> — Alta de la clínica/IPS con su slug único, colores corporativos y dados básicos.</span>
+          </li>
+          <li>
+            <span class="check">✓</span>
+            <span><strong>Diseño del formulario de radicación</strong> — Configuración de todos los campos dinámicos, opciones condicionales y tipos de trámite según sus necesidades.</span>
+          </li>
+          <li>
+            <span class="check">✓</span>
+            <span><strong>Creación de usuarios administrativos</strong> — Hasta 5 cuentas de gestores/auditores con los roles correspondientes y correos de bienvenida.</span>
+          </li>
+          <li>
+            <span class="check">✓</span>
+            <span><strong>Configuración de notificaciones de email</strong> — Plantillas de confirmación al paciente y alertas al equipo administrativo por cada solicitud.</span>
+          </li>
+          <li>
+            <span class="check">✓</span>
+            <span><strong>Capacitación virtual del equipo</strong> — Sesión de 2 horas via videollamada para el equipo administrativo sobre el uso del panel.</span>
+          </li>
+          <li>
+            <span class="check">✓</span>
+            <span><strong>Manual de usuario</strong> — Documentación PDF del panel administrativo y del portal del paciente.</span>
+          </li>
+          <li>
+            <span class="check">✓</span>
+            <span><strong>30 días de soporte técnico prioritario</strong> — Atención por WhatsApp y correo en horario hábil durante el primer mes de operación.</span>
+          </li>
+          <li>
+            <span class="check">✓</span>
+            <span><strong>Dominio personalizado (opcional)</strong> — Configuración de portal en dominio propio del cliente (ej: solicitudes.suinstitución.com).</span>
+          </li>
+        </ul>
+      </div>
+    </section>
+
+    <!-- DESGLOSE DE PRECIO -->
+    <section class="pricing-section">
+      <div class="section-title">Desglose de la Inversión</div>
+      <div class="section-subtitle">Transparencia total en el valor de cada componente</div>
+      <div class="divider"></div>
+      <table class="pricing-table">
+        <thead>
+          <tr>
+            <th>Descripción del Servicio</th>
+            <th style="display:none"></th>
+            <th>Cantidad</th>
+            <th>Valor</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Licencia de uso de la plataforma Salud360 <span class="tag">Pago único</span></td>
+            <td></td>
+            <td>1</td>
+            <td>$600.000</td>
+          </tr>
+          <tr>
+            <td>Implementación y configuración técnica personalizada</td>
+            <td></td>
+            <td>1</td>
+            <td>$150.000</td>
+          </tr>
+          <tr>
+            <td>Diseño de formularios dinámicos con campos condicionales</td>
+            <td></td>
+            <td>Hasta 3 formularios</td>
+            <td>$100.000</td>
+          </tr>
+          <tr>
+            <td>Capacitación virtual del equipo administrativo</td>
+            <td></td>
+            <td>2 horas</td>
+            <td>$80.000</td>
+          </tr>
+          <tr>
+            <td>Soporte técnico prioritario post-implementación</td>
+            <td></td>
+            <td>30 días</td>
+            <td>$70.000</td>
+          </tr>
+        </tbody>
+        <tfoot>
+          <tr>
+            <td colspan="3">💎 Total de la Inversión (IVA no incluido)</td>
+            <td>$1.000.000 COP</td>
+          </tr>
+        </tfoot>
+      </table>
+    </section>
+
+    <!-- TÉRMINOS DE PAGO -->
+    <section class="terms-section">
+      <div class="section-title">Condiciones Comerciales</div>
+      <div class="divider"></div>
+      <div class="terms-grid">
+        <div class="term-card highlight-term">
+          <h4>Forma de Pago</h4>
+          <div class="term-value">50% anticipo / 50% contra entrega</div>
+          <div class="term-note">50% al aprobar la propuesta · 50% al completar la implementación y capacitación.</div>
+        </div>
+        <div class="term-card">
+          <h4>Vigencia de la Oferta</h4>
+          <div class="term-value">15 días calendario</div>
+          <div class="term-note">A partir del 06 de Abril de 2026</div>
+        </div>
+        <div class="term-card">
+          <h4>Tiempo de Implementación</h4>
+          <div class="term-value">3 – 5 días hábiles</div>
+          <div class="term-note">Desde la confirmación del anticipo</div>
+        </div>
+        <div class="term-card">
+          <h4>Métodos de Pago</h4>
+          <div class="term-value">Transferencia / Nequi / Daviplata</div>
+          <div class="term-note">Se entrega factura electrónica</div>
+        </div>
+        <div class="term-card">
+          <h4>Plan de Mantenimiento (Opcional)</h4>
+          <div class="term-value">$200.000 COP/mes</div>
+          <div class="term-note">Soporte continuo, actualizaciones y nuevas funcionalidades</div>
+        </div>
+        <div class="term-card">
+          <h4>Garantía</h4>
+          <div class="term-value">30 días de garantía</div>
+          <div class="term-note">Corrección sin costo de cualquier fallo funcional</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- CONTACTO -->
+    <section class="contact-section">
+      <div class="contact-card">
+        <div class="contact-left">
+          <h3>¿Listo para digitalizar su institución?</h3>
+          <p>Escríbanos hoy mismo y comenzamos la implementación esta semana.</p>
+          <p style="margin-top:8px; color:rgba(255,255,255,0.4); font-size:0.8rem;">
+            📍 Colombia · 🌐 salud360.sinuhub.com
+          </p>
+        </div>
+        <div class="contact-actions">
+          <a href="https://wa.me/573012929983?text=Hola,%20quiero%20más%20información%20sobre%20Salud360" class="btn btn-primary" target="_blank">
+            💬 WhatsApp: 301 292 9983
+          </a>
+          <a href="mailto:admin@salud360.app" class="btn btn-outline">
+            ✉️ admin@salud360.app
+          </a>
+        </div>
+      </div>
+    </section>
+
+  </div>
+</main>
+
+<!-- ── FOOTER ──────────────────────────────────────────── -->
+<footer>
+  <p>© 2026 Salud360 — Plataforma SaaS de Gestión Médica · Todos los derechos reservados</p>
+  <p style="margin-top:4px">Esta cotización es confidencial y fue generada exclusivamente para el destinatario indicado.</p>
+</footer>
+
+<!-- ── PRINT BUTTON ────────────────────────────────────── -->
+<button class="cta-print no-print" onclick="window.print()">🖨️ Imprimir / Guardar PDF</button>
+
+</body>
+</html>

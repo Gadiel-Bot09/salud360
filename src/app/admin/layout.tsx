@@ -1,5 +1,6 @@
 import { ReactNode } from 'react'
 import Link from 'next/link'
+import Image from 'next/image'
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import {
@@ -30,8 +31,7 @@ export default async function AdminLayout({ children }: { children: ReactNode })
             {/* Sidebar */}
             <aside className="w-64 flex-shrink-0 bg-slate-900 flex flex-col items-center py-6 text-slate-300">
                 <div className="flex items-center space-x-2 text-white mb-10 w-full px-6">
-                    <Hospital className="h-6 w-6 text-teal-400" />
-                    <span className="text-xl font-bold tracking-wider">Salud360</span>
+                    <Image src="/logo-white.svg" alt="Salud360 Logo" width={140} height={35} priority />
                 </div>
 
                 <nav className="flex-1 w-full flex flex-col space-y-2 px-4">
