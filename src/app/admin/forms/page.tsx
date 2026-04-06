@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { createClient as createAdminClient } from '@supabase/supabase-js'
-import { FormBuilder, parseTemplate } from '@/components/admin/form-builder'
+import { FormBuilder } from '@/components/admin/form-builder'
+import { parseTemplate } from '@/lib/form-template'
 import { FileEdit, Building2 } from 'lucide-react'
 import { saveFormTemplate } from './actions'
 import Link from 'next/link'

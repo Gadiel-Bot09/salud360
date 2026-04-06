@@ -6,7 +6,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { useToast } from '@/hooks/use-toast'
 import { Loader2, UploadCloud, ShieldCheck, ChevronDown } from 'lucide-react'
-import type { FormField, FormTemplate } from '@/components/admin/form-builder'
+import type { FormField, FormTemplate } from '@/lib/form-template'
 
 // ─── Field Renderer ────────────────────────────────────────────────────────────
 

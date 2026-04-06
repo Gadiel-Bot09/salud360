@@ -3,7 +3,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { createClient as createAdminClient } from '@supabase/supabase-js'
 import { revalidatePath } from 'next/cache'
-import type { FormTemplate } from '@/components/admin/form-builder'
+import type { FormTemplate } from '@/lib/form-template'
 
 // Service role client bypasses RLS — safe here because all operations
 // are protected by the auth check below before any DB write happens.

@@ -13,47 +13,14 @@ import {
   Shield, Layers, ClipboardList, UploadCloud
 } from 'lucide-react'
 
-// ─── Types ────────────────────────────────────────────────────────────────────
+// Import types and utilities from the shared neutral module (NO 'use client')
+// Server files MUST import directly from '@/lib/form-template' — NOT from here.
+import type { FormFieldType, SystemRole, SubField, FormField, RequestType, FormTemplate } from '@/lib/form-template'
+import { DEFAULT_TEMPLATE, parseTemplate } from '@/lib/form-template'
 
-export type FormFieldType = 'text' | 'email' | 'number' | 'date' | 'select' | 'file' | 'textarea'
-export type SystemRole = 'documentType' | 'documentNumber' | 'fullName' | 'email' | 'phone'
-
-export interface SubField {
-  id: string
-  label: string
-  type: Exclude<FormFieldType, 'select'>
-  required: boolean
-  placeholder?: string
-}
-
-export interface ConditionalOption {
-  value: string
-  fields: SubField[]
-}
-
-export interface FormField {
-  id: string
-  label: string
-  type: FormFieldType
-  required: boolean
-  placeholder?: string
-  systemRole?: SystemRole
-  options?: string[]
-  hasConditionalOptions?: boolean
-  conditionalOptions?: ConditionalOption[]
-}
-
-export interface RequestType {
-  id: string
-  label: string
-  conditionalFields: FormField[]
-}
-
-export interface FormTemplate {
-  version: 2
-  fields: FormField[]
-  requestTypes: RequestType[]
-}
+// Re-export for convenience of client-side consumers
+export type { FormFieldType, SystemRole, SubField, ConditionalOption, FormField, RequestType, FormTemplate } from '@/lib/form-template'
+export { DEFAULT_TEMPLATE, parseTemplate } from '@/lib/form-template'
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -83,42 +50,6 @@ const SUB_FIELD_TYPES: Array<{ value: Exclude<FormFieldType, 'select'>; label: s
   { value: 'file', label: 'Archivo' },
   { value: 'email', label: 'Correo' },
 ]
-
-// ─── Default Template (all previously hardcoded fields) ───────────────────────
-
-let _counter = 0
-function sid(prefix: string) { return `${prefix}-${++_counter}` }
-
-export const DEFAULT_TEMPLATE: FormTemplate = {
-  version: 2,
-  fields: [
-    { id: sid('sys'), label: 'Tipo de Identificación', type: 'select', required: true, systemRole: 'documentType', options: ['Cédula de Ciudadanía (CC)', 'Tarjeta de Identidad (TI)', 'Cédula de Extranjería (CE)', 'Registro Civil (RC)', 'Pasaporte (PA)'] },
-    { id: sid('sys'), label: 'Número de Identificación', type: 'text', required: true, systemRole: 'documentNumber', placeholder: 'Ej: 1102345678' },
-    { id: sid('sys'), label: 'Nombre Completo', type: 'text', required: true, systemRole: 'fullName', placeholder: 'Ej: Juan Carlos Pérez García' },
-    { id: sid('sys'), label: 'Correo de Notificaciones', type: 'email', required: true, systemRole: 'email', placeholder: 'Para recibir su radicado por correo...' },
-    { id: sid('sys'), label: 'Teléfono de Contacto', type: 'text', required: false, systemRole: 'phone', placeholder: 'Ej: 300 123 4567' },
-  ],
-  requestTypes: [
-    { id: sid('rt'), label: 'Agendamiento de Cita Médica', conditionalFields: [] },
-    { id: sid('rt'), label: 'Autorización de Procedimientos', conditionalFields: [] },
-    { id: sid('rt'), label: 'Renovación de Fórmula', conditionalFields: [] },
-    { id: sid('rt'), label: 'PQR (Quejas / Reclamos)', conditionalFields: [] },
-  ],
-}
-
-// ─── Parse old/new format ─────────────────────────────────────────────────────
-
-export function parseTemplate(rawJson: any): FormTemplate {
-  if (!rawJson) return { ...DEFAULT_TEMPLATE, fields: [...DEFAULT_TEMPLATE.fields], requestTypes: [...DEFAULT_TEMPLATE.requestTypes] }
-  if (rawJson.version === 2) return rawJson as FormTemplate
-  // Old format: array of dynamic (non-system) fields → migrate to v2
-  const oldFields: FormField[] = Array.isArray(rawJson) ? rawJson : []
-  return {
-    version: 2,
-    fields: [...DEFAULT_TEMPLATE.fields, ...oldFields],
-    requestTypes: [...DEFAULT_TEMPLATE.requestTypes],
-  }
-}
 
 // ─── Sub-field Editor ──────────────────────────────────────────────────────────
 

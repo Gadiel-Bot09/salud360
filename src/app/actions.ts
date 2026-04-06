@@ -1,7 +1,7 @@
 'use server'
 
 import { createClient } from '@supabase/supabase-js'
-import { parseTemplate, DEFAULT_TEMPLATE } from '@/components/admin/form-builder'
+import { parseTemplate, DEFAULT_TEMPLATE } from '@/lib/form-template'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
