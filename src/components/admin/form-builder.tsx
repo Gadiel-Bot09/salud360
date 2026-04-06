@@ -224,15 +224,17 @@ function ConditionalOptionPanel({
 
 interface FormBuilderProps {
   initialFields: FormField[]
+  initialTemplateName?: string
   templateId: string | null
   institutionId: string
   onSave: (fields: FormField[], name: string, institutionId: string) => Promise<{ success: boolean; error?: string }>
 }
 
-export function FormBuilder({ initialFields, templateId, institutionId, onSave }: FormBuilderProps) {
+export function FormBuilder({ initialFields, initialTemplateName, templateId, institutionId, onSave }: FormBuilderProps) {
   const [fields, setFields] = useState<FormField[]>(initialFields)
-  const [templateName, setTemplateName] = useState('Formulario Base Pacientes')
+  const [templateName, setTemplateName] = useState(initialTemplateName || 'Formulario Base Pacientes')
   const [loading, setLoading] = useState(false)
+  const [savedCount] = useState(initialFields.length) // Track how many fields were pre-loaded
   const { toast } = useToast()
 
   // ── Field-level helpers ──────────────────────────────────────────────────
@@ -240,7 +242,7 @@ export function FormBuilder({ initialFields, templateId, institutionId, onSave }
   const addField = () => {
     setFields([...fields, {
       id: crypto.randomUUID(),
-      label: 'Nuevo Campo',
+      label: '',
       type: 'text',
       required: false,
       placeholder: '',
@@ -338,6 +340,35 @@ export function FormBuilder({ initialFields, templateId, institutionId, onSave }
 
   return (
     <div className="space-y-6">
+
+      {/* ── Template Status Banner ── */}
+      {templateId ? (
+        <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 bg-teal-50 border border-teal-200 rounded-xl px-5 py-4">
+          <div className="flex items-center gap-2 text-teal-700">
+            <span className="text-xl">✅</span>
+            <div>
+              <p className="text-sm font-bold text-teal-800">Plantilla activa: <span className="font-black">{initialTemplateName || templateName}</span></p>
+              <p className="text-xs text-teal-600 mt-0.5">
+                {savedCount === 0
+                  ? 'Sin campos personalizados aún. Añade campos abajo y presiona «Publicar Cambios».'
+                  : `${savedCount} campo${savedCount !== 1 ? 's' : ''} personalizado${savedCount !== 1 ? 's' : ''} guardado${savedCount !== 1 ? 's' : ''}. Puedes editar, reordenar o añadir más abajo.`
+                }
+              </p>
+            </div>
+          </div>
+          <span className="sm:ml-auto text-xs bg-teal-100 text-teal-700 border border-teal-200 rounded-full px-3 py-1 font-semibold whitespace-nowrap">
+            {fields.length} campo{fields.length !== 1 ? 's' : ''} en el editor
+          </span>
+        </div>
+      ) : (
+        <div className="flex items-start gap-3 bg-amber-50 border border-amber-200 rounded-xl px-5 py-4">
+          <span className="text-xl mt-0.5">⚠️</span>
+          <div>
+            <p className="text-sm font-bold text-amber-800">Sin plantilla guardada</p>
+            <p className="text-xs text-amber-700 mt-0.5">El formulario público de esta institución está vacío. Añade los campos que necesitas y presiona «Publicar Cambios» para activarlo.</p>
+          </div>
+        </div>
+      )}
 
       {/* Header toolbar */}
       <Card className="border-slate-200">

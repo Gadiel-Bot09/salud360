@@ -35,7 +35,7 @@ export default async function FormsAdminPage({ searchParams }: { searchParams: {
            </h2>
            <p className="text-slate-500 mt-1 max-w-3xl">
              Diseña el formulario que los pacientes llenarán en el Portal Público.
-             Agrega campos específicos como "Tipo de Cita" u "Órden Médica" según las necesidades institucionales.
+             Agrega campos específicos como &quot;Tipo de Cita&quot; u &quot;Órden Médica&quot; según las necesidades institucionales.
            </p>
          </div>
 
@@ -54,11 +54,6 @@ export default async function FormsAdminPage({ searchParams }: { searchParams: {
                         <option key={i.id} value={i.id}>{i.name}</option>
                     ))}
                  </select>
-                 
-                 {/* 
-                   Normally we would use Client Component for onChange to route. 
-                   For pure server-side simplicity without hooks, we can just use inline JS
-                 */}
                  <script dangerouslySetInnerHTML={{__html: `
                     document.currentScript.previousElementSibling.addEventListener('change', function(e) {
                         window.location.href = '/admin/forms?inst=' + e.target.value;
@@ -97,9 +92,46 @@ async function DataLoader({ activeInstitutionId, supabase }: { activeInstitution
     const initialFields = template?.fields_json || []
 
     return (
-        <div className="mt-8">
+        <div className="mt-4 space-y-6">
+
+           {/* ── Current Template Summary (read-only top preview) ── */}
+           {template && initialFields.length > 0 && (
+             <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-sm">
+                <div className="flex items-center justify-between mb-3">
+                   <h3 className="text-sm font-bold text-slate-700 flex items-center gap-2">
+                      <span className="text-base">📋</span>
+                      Campos activos en el portal público
+                   </h3>
+                   <span className="text-xs text-slate-400 font-medium">
+                      {initialFields.length} campo{initialFields.length !== 1 ? 's' : ''} configurado{initialFields.length !== 1 ? 's' : ''}
+                   </span>
+                </div>
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
+                   {initialFields.map((f: any, i: number) => (
+                      <div key={f.id || i} className="flex items-center gap-2 bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-xs">
+                         <span className="shrink-0">
+                            {f.type === 'text' && '✏️'}
+                            {f.type === 'email' && '📧'}
+                            {f.type === 'number' && '🔢'}
+                            {f.type === 'date' && '📅'}
+                            {f.type === 'select' && '🔽'}
+                            {f.type === 'file' && '📎'}
+                            {f.type === 'textarea' && '📝'}
+                         </span>
+                         <span className="font-medium text-slate-700 truncate">{f.label || '(sin nombre)'}</span>
+                         {f.required && <span className="ml-auto text-red-400 font-bold shrink-0">*</span>}
+                      </div>
+                   ))}
+                </div>
+                <p className="text-xs text-slate-400 mt-3">
+                   Estos campos aparecen en el formulario de pacientes <strong>además</strong> de los campos fijos del sistema (identificación, nombre, correo).
+                </p>
+             </div>
+           )}
+
            <FormBuilder 
               initialFields={initialFields} 
+              initialTemplateName={template?.name}
               templateId={template?.id || null} 
               institutionId={activeInstitutionId} 
               onSave={saveFormTemplate} 
