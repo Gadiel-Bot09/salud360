@@ -1,7 +1,15 @@
 'use server'
 
 import { createClient } from '@/lib/supabase/server'
+import { createClient as createAdminClient } from '@supabase/supabase-js'
 import { revalidatePath } from 'next/cache'
+
+// Service role client bypasses RLS — safe here because all operations
+// are protected by the auth check below before any DB write happens.
+const supabaseAdmin = createAdminClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!
+)
 
 /**
  * Saves (upserts) a form template. 
@@ -40,7 +48,7 @@ export async function saveFormTemplate(
   }
 
   // Check if this institution already has a template (upsert logic)
-  const { data: existingTemplate } = await supabase
+  const { data: existingTemplate } = await supabaseAdmin
     .from('form_templates')
     .select('id')
     .eq('institution_id', targetInstitutionId)
@@ -49,13 +57,13 @@ export async function saveFormTemplate(
   let error
 
   if (existingTemplate) {
-    const { error: updateError } = await supabase
+    const { error: updateError } = await supabaseAdmin
       .from('form_templates')
       .update({ name: templateName, fields_json: fields })
       .eq('id', existingTemplate.id)
     error = updateError
   } else {
-    const { error: insertError } = await supabase
+    const { error: insertError } = await supabaseAdmin
       .from('form_templates')
       .insert({
         institution_id: targetInstitutionId,
