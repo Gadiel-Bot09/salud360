@@ -1,0 +1,182 @@
+[
+  {
+    "id": "1ba6494e-3a05-451e-94f2-fafd107958df",
+    "institution_id": "ffa925f3-91d8-4765-8757-389b5192fc78",
+    "name": "Formulario Prueba",
+    "fields_json": {
+      "fields": [
+        {
+          "id": "699f1159-12a5-4e65-864f-2fa449c87fa9",
+          "type": "select",
+          "label": "Tipo de Cita",
+          "required": true,
+          "placeholder": "Selecciona lo que necesitas",
+          "conditionalOptions": [
+            {
+              "value": "Primera Vez",
+              "fields": [
+                {
+                  "id": "92ab6031-2eed-4c5f-994b-5dbdb35306cb",
+                  "type": "date",
+                  "label": "Fecha de Nacimiento",
+                  "required": true,
+                  "placeholder": ""
+                },
+                {
+                  "id": "06d65454-3518-4ad0-9e9f-c61f4660408a",
+                  "type": "text",
+                  "label": "Nombre de un Familiar",
+                  "required": true,
+                  "placeholder": ""
+                },
+                {
+                  "id": "93db20a3-1ea8-438c-989a-4b35d1134f71",
+                  "type": "text",
+                  "label": "Parentesco",
+                  "required": true,
+                  "placeholder": "Ingresa parentesco"
+                },
+                {
+                  "id": "bbd3e31a-c0cc-439a-b9dc-3fce813a476f",
+                  "type": "text",
+                  "label": "Dirección",
+                  "required": true,
+                  "placeholder": "Ingresa dirección"
+                }
+              ]
+            },
+            {
+              "value": "Protesis",
+              "fields": []
+            },
+            {
+              "value": "Cirugía",
+              "fields": []
+            },
+            {
+              "value": "Endodoncia",
+              "fields": []
+            },
+            {
+              "value": "Rehabilitación",
+              "fields": []
+            },
+            {
+              "value": "Odontopediatria",
+              "fields": []
+            },
+            {
+              "value": "Ortodoncia",
+              "fields": []
+            },
+            {
+              "value": "Periodoncia",
+              "fields": []
+            }
+          ],
+          "hasConditionalOptions": true
+        },
+        {
+          "id": "sys-docType",
+          "type": "select",
+          "label": "Tipo de Identificación",
+          "options": [
+            "Cédula de Ciudadanía (CC)",
+            "Tarjeta de Identidad (TI)",
+            "Cédula de Extranjería (CE)",
+            "Registro Civil (RC)",
+            "Pasaporte (PA)"
+          ],
+          "required": true,
+          "systemRole": "documentType"
+        },
+        {
+          "id": "sys-docNum",
+          "type": "text",
+          "label": "Número de Identificación",
+          "required": true,
+          "systemRole": "documentNumber",
+          "placeholder": "Ej: 1102345678"
+        },
+        {
+          "id": "sys-name",
+          "type": "text",
+          "label": "Nombre Completo",
+          "required": true,
+          "systemRole": "fullName",
+          "placeholder": "Ej: Juan Carlos Pérez García"
+        },
+        {
+          "id": "53b0adc8-dc11-4162-84cd-b0d957f05107",
+          "type": "select",
+          "label": "Entidad / EPS",
+          "options": [
+            "Nueva EPS Subsidiado",
+            "Nueva EPS Contributivo",
+            "Particular"
+          ],
+          "required": true,
+          "placeholder": "",
+          "hasConditionalOptions": false
+        },
+        {
+          "id": "sys-email",
+          "type": "email",
+          "label": "Correo de Notificaciones",
+          "required": true,
+          "systemRole": "email",
+          "placeholder": "Para recibir su radicado por correo..."
+        },
+        {
+          "id": "sys-phone",
+          "type": "text",
+          "label": "Teléfono de Contacto",
+          "required": false,
+          "systemRole": "phone",
+          "placeholder": "Ej: 300 123 4567"
+        },
+        {
+          "id": "a650c345-ebaf-4f23-a0b2-fef4f9107fcd",
+          "type": "textarea",
+          "label": "Requerimiento / Solicitud",
+          "required": false,
+          "placeholder": "Descripción Breve De su solicitud",
+          "hasConditionalOptions": false
+        },
+        {
+          "id": "f871a8fc-6537-4abe-9aaa-dd89f37c4271",
+          "type": "file",
+          "label": "Adjunta",
+          "required": false,
+          "placeholder": ""
+        }
+      ],
+      "version": 2,
+      "requestTypes": [
+        {
+          "id": "rt-cita",
+          "label": "Agendamiento de Cita Médica",
+          "conditionalFields": []
+        },
+        {
+          "id": "rt-autorizacion",
+          "label": "Procedimientos",
+          "conditionalFields": []
+        },
+        {
+          "id": "rt-formula",
+          "label": "Cancelación de Cita",
+          "conditionalFields": []
+        },
+        {
+          "id": "rt-pqr",
+          "label": "Historia Clinica",
+          "conditionalFields": []
+        }
+      ]
+    },
+    "is_active": true,
+    "version": 1,
+    "created_at": "2026-04-06T21:37:01.691576+00:00"
+  }
+]

@@ -81,6 +81,10 @@ export async function saveFormTemplate(
     return { success: false, error: 'Error al guardar en base de datos: ' + error.message }
   }
 
+  // Clear admin forms cache
   revalidatePath('/admin/forms')
+  // Clear patient portal cache globally to ensure changes appear instantly
+  revalidatePath('/', 'layout')
+  
   return { success: true }
 }

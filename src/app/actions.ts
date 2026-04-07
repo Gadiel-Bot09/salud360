@@ -2,6 +2,7 @@
 
 import { createClient } from '@supabase/supabase-js'
 import { parseTemplate, DEFAULT_TEMPLATE } from '@/lib/form-template'
+import { unstable_noStore as noStore } from 'next/cache'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -9,6 +10,7 @@ const supabase = createClient(
 )
 
 export async function getInstitutionTemplate(institutionId: string) {
+  noStore()
   if (!institutionId) return DEFAULT_TEMPLATE
 
   const { data: template } = await supabase
@@ -29,6 +31,7 @@ export async function getActiveInstitutions() {
 }
 
 export async function getInstitutionBySlug(slug: string) {
+  noStore()
   if (!slug) return null
   const { data } = await supabase
     .from('institutions')
