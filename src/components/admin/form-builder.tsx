@@ -334,28 +334,70 @@ function RequestTypeCard({
 
 // ─── Form Preview ─────────────────────────────────────────────────────────────
 
-function PreviewInput({ field }: { field: FormField }) {
+function PreviewFieldInteractive({ field }: { field: FormField }) {
+  const [selectedOption, setSelectedOption] = useState('')
   const base = 'w-full border border-slate-300 rounded-lg px-3 py-2 text-sm text-slate-600 bg-white focus:outline-none focus:ring-2 focus:ring-teal-600'
-  if (field.type === 'textarea') return <textarea rows={3} placeholder={field.placeholder} className={`${base} resize-none`} readOnly />
-  if (field.type === 'select' && !field.hasConditionalOptions) return (
-    <select className={base} defaultValue="">
-      <option value="" disabled>{field.placeholder || 'Seleccione...'}</option>
-      {(field.options || []).map((o, i) => <option key={i}>{o}</option>)}
-    </select>
+  const isWide = field.type === 'file' || field.type === 'textarea'
+
+  const activeSubFields = field.hasConditionalOptions
+    ? (field.conditionalOptions?.find((o) => o.value === selectedOption)?.fields ?? [])
+    : []
+
+  return (
+    <>
+      <div className={`space-y-1 ${isWide ? 'col-span-2' : ''}`}>
+        <label className="text-xs font-semibold text-slate-600">
+          {field.label || <span className="text-slate-400 italic">Campo sin etiqueta</span>}
+          {field.required && <span className="text-red-500 ml-1">*</span>}
+        </label>
+        
+        {field.type === 'textarea' ? (
+          <textarea rows={3} placeholder={field.placeholder} className={`${base} resize-none`} readOnly />
+        ) : field.type === 'select' && !field.hasConditionalOptions ? (
+          <select className={base} defaultValue="">
+            <option value="" disabled>{field.placeholder || 'Seleccione...'}</option>
+            {(field.options || []).map((o, i) => <option key={i}>{o}</option>)}
+          </select>
+        ) : field.type === 'select' && field.hasConditionalOptions ? (
+          <select className={base} value={selectedOption} onChange={(e) => setSelectedOption(e.target.value)}>
+            <option value="" disabled>{field.placeholder || 'Seleccione...'}</option>
+            {(field.conditionalOptions || []).map((o, i) => <option key={i} value={o.value}>{o.value}</option>)}
+          </select>
+        ) : field.type === 'file' ? (
+          <div className="border-2 border-dashed border-slate-300 rounded-lg p-4 text-center text-xs text-slate-400 bg-slate-50">
+            <UploadCloud className="h-5 w-5 mx-auto mb-1 text-slate-300" />
+            Seleccionar archivo
+          </div>
+        ) : (
+          <input type={field.type} placeholder={field.placeholder} className={base} readOnly />
+        )}
+      </div>
+
+      {activeSubFields.length > 0 && (
+         <div className="col-span-2 rounded-lg border border-teal-200 bg-teal-50/40 p-3 mt-1 space-y-3 animate-in fade-in zoom-in-95 duration-200">
+          <p className="text-[10px] font-bold text-teal-700 uppercase tracking-wider">Información Adicional — {selectedOption}</p>
+          <div className="grid grid-cols-2 gap-3">
+             {activeSubFields.map(sub => (
+                <div key={sub.id} className="space-y-1">
+                   <label className="text-xs font-semibold text-slate-600">
+                     {sub.label}{sub.required && <span className="text-red-500 ml-1">*</span>}
+                   </label>
+                   {sub.type === 'textarea' ? (
+                     <textarea rows={2} placeholder={sub.placeholder} className={`${base} resize-none text-xs`} readOnly />
+                   ) : sub.type === 'file' ? (
+                     <div className="border-2 border-dashed border-slate-200 rounded p-2 text-center text-[10px] text-slate-400 bg-white">
+                        Archivo
+                     </div>
+                   ) : (
+                     <input type={sub.type} placeholder={sub.placeholder} className={`${base} h-8 text-xs py-1`} readOnly />
+                   )}
+                </div>
+             ))}
+          </div>
+         </div>
+      )}
+    </>
   )
-  if (field.type === 'select' && field.hasConditionalOptions) return (
-    <select className={base} defaultValue="">
-      <option value="" disabled>{field.placeholder || 'Seleccione...'}</option>
-      {(field.conditionalOptions || []).map((o, i) => <option key={i}>{o.value}</option>)}
-    </select>
-  )
-  if (field.type === 'file') return (
-    <div className="border-2 border-dashed border-slate-300 rounded-lg p-4 text-center text-xs text-slate-400 bg-slate-50">
-      <UploadCloud className="h-5 w-5 mx-auto mb-1 text-slate-300" />
-      Seleccionar archivo
-    </div>
-  )
-  return <input type={field.type} placeholder={field.placeholder} className={base} readOnly />
 }
 
 function FormPreview({ template }: { template: FormTemplate }) {
@@ -402,10 +444,7 @@ function FormPreview({ template }: { template: FormTemplate }) {
             <div className="bg-teal-50 border border-teal-200 rounded-xl p-3 space-y-3">
               <p className="text-[10px] font-bold text-teal-700 uppercase tracking-widest">Información para: {selectedType.label}</p>
               {selectedType.conditionalFields.map(cf => (
-                <div key={cf.id} className="space-y-1">
-                  <label className="text-xs font-semibold text-slate-600">{cf.label || <span className="text-slate-400 italic">Campo sin etiqueta</span>}{cf.required && <span className="text-red-500 ml-1">*</span>}</label>
-                  <PreviewInput field={cf} />
-                </div>
+                  <PreviewFieldInteractive key={cf.id} field={cf} />
               ))}
             </div>
           )}
@@ -413,13 +452,7 @@ function FormPreview({ template }: { template: FormTemplate }) {
           {/* Main fields */}
           <div className="grid grid-cols-2 gap-3">
             {template.fields.map(field => (
-              <div key={field.id} className={`space-y-1 ${(field.type === 'file' || field.type === 'textarea') ? 'col-span-2' : ''}`}>
-                <label className="text-xs font-semibold text-slate-600">
-                  {field.label || <span className="text-slate-400 italic">Campo sin etiqueta</span>}
-                  {field.required && <span className="text-red-500 ml-1">*</span>}
-                </label>
-                <PreviewInput field={field} />
-              </div>
+                <PreviewFieldInteractive key={field.id} field={field} />
             ))}
           </div>
 
