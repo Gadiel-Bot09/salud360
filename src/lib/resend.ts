@@ -7,7 +7,8 @@ export async function sendEmailConfirmation(
     toEmail: string,
     radicado: string,
     patientName: string,
-    requestType: string
+    requestType: string,
+    patientData: Record<string, string> = {}
 ) {
     if (!process.env.RESEND_API_KEY) {
         console.warn('RESEND_API_KEY not set. Cannot send email.')
@@ -23,6 +24,26 @@ export async function sendEmailConfirmation(
       <div style="background-color: #f8fafc; border: 1px solid #e2e8f0; padding: 20px; border-radius: 8px; margin: 20px 0; text-align: center;">
          <p style="margin: 0; font-size: 14px; color: #64748b;">Número de Radicado</p>
          <p style="margin: 5px 0 0 0; font-size: 24px; font-weight: bold; letter-spacing: 1px; color: #0f172a;">${radicado}</p>
+      </div>
+
+      <div style="border: 1px solid #e2e8f0; border-radius: 8px; overflow: hidden; margin-bottom: 20px;">
+        <div style="background-color: #f1f5f9; padding: 12px 15px; border-bottom: 1px solid #e2e8f0;">
+          <h3 style="margin: 0; font-size: 15px; color: #334155;">Detalle de la Solicitud</h3>
+        </div>
+        <div style="padding: 15px;">
+          <table style="width: 100%; border-collapse: collapse; font-size: 14px;">
+            <tbody>
+              ${Object.entries(patientData)
+                .filter(([key]) => key !== 'fullName' && key !== 'phone' && key !== 'email' && key !== 'documentType' && key !== 'documentNumber')
+                .map(([key, value]) => `
+                <tr>
+                  <td style="padding: 8px 0; border-bottom: 1px solid #f1f5f9; color: #64748b; width: 40%;"><strong>${key}</strong></td>
+                  <td style="padding: 8px 0; border-bottom: 1px solid #f1f5f9; color: #0f172a; font-weight: 500;">${value || '—'}</td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        </div>
       </div>
 
       <p>Por favor guarde este número para consultar el estado de su trámite.</p>

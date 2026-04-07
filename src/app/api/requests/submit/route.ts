@@ -137,7 +137,7 @@ export async function POST(request: Request) {
 
         // Shoot Email
         try {
-            await sendEmailConfirmation(email, radicado, fullName, requestType)
+            await sendEmailConfirmation(email, radicado, fullName, requestType, patientData)
         } catch(e) { console.error('Email failed, but request succeeded:', e) }
 
         return NextResponse.json({ success: true, radicado })
