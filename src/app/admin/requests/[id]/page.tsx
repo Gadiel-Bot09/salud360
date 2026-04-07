@@ -5,6 +5,7 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
 import { Label } from '@/components/ui/label'
+import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { format } from 'date-fns'
 import { es } from 'date-fns/locale'
@@ -15,7 +16,7 @@ import {
 import Link from 'next/link'
 import { revalidatePath } from 'next/cache'
 import { sendStatusUpdateEmail } from '@/lib/resend'
-import { S3Client, GetObjectCommand } from '@aws-sdk/client-s3'
+import { S3Client, GetObjectCommand, PutObjectCommand } from '@aws-sdk/client-s3'
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner'
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -105,13 +106,68 @@ export default async function RequestDetailPage({ params }: { params: { id: stri
   const statusInfo = STATUS_MAP[request.status] || { label: request.status, color: 'bg-slate-100 text-slate-700 border-slate-200', icon: Tag }
   const StatusIcon = statusInfo.icon
 
+  const patientAttachments = attachmentsWithUrls.filter(a => !a.file_path.includes('/admin/'))
+  const adminAttachments = attachmentsWithUrls.filter(a => a.file_path.includes('/admin/'))
+
   // Server Action
   async function updateStatus(formData: FormData) {
     'use server'
     const newStatus = formData.get('status') as string
     const comment   = formData.get('comment') as string
+    const fileEntries = formData.getAll('attachments') as File[]
+    const validFiles = fileEntries.filter(f => f.size > 0)
+    
     const sb = await createClient()
     const { data: { user } } = await sb.auth.getUser()
+
+    const resendAttachments: Array<{ filename: string, content: Buffer }> = []
+
+    if (validFiles.length > 0) {
+      const s3Client = new S3Client({
+        region: 'us-east-1',
+        endpoint: process.env.MINIO_ENDPOINT,
+        credentials: {
+          accessKeyId: process.env.MINIO_ACCESS_KEY!,
+          secretAccessKey: process.env.MINIO_SECRET_KEY!
+        },
+        forcePathStyle: true
+      })
+      const bucket = process.env.MINIO_BUCKET_NAME!
+
+      for (const file of validFiles) {
+        const fileExt = file.name.split('.').pop()
+        const safeName = `${Math.random().toString(36).substring(7)}.${fileExt}`
+        const uploadPath = `${request.institution_id}/${request.id}/admin/${safeName}`
+        
+        try {
+          const arrayBuffer = await file.arrayBuffer()
+          const buffer = Buffer.from(arrayBuffer)
+          
+          await s3Client.send(new PutObjectCommand({
+            Bucket: bucket,
+            Key: uploadPath,
+            Body: buffer,
+            ContentType: file.type
+          }))
+
+          await sb.from('request_attachments').insert({
+            request_id: request.id,
+            file_name: file.name,
+            file_path: uploadPath,
+            file_type: file.type,
+            file_size: file.size
+          })
+
+          resendAttachments.push({
+            filename: file.name,
+            content: buffer
+          })
+        } catch (e) {
+          console.error("Admin file upload fail:", e)
+        }
+      }
+    }
+
     await sb.from('requests').update({ status: newStatus, updated_at: new Date().toISOString() }).eq('id', request.id)
     await sb.from('request_history').insert({
       request_id: request.id,
@@ -122,7 +178,7 @@ export default async function RequestDetailPage({ params }: { params: { id: stri
       comment: comment || null
     })
     if (['responded', 'closed', 'escalated'].includes(newStatus)) {
-      await sendStatusUpdateEmail(request.patient_email, request.radicado, newStatus, comment)
+      await sendStatusUpdateEmail(request.patient_email, request.radicado, newStatus, comment, resendAttachments)
     }
     revalidatePath(`/admin/requests/${request.id}`)
   }
@@ -206,20 +262,20 @@ export default async function RequestDetailPage({ params }: { params: { id: stri
               </div>
             )}
 
-            {/* Attachments */}
-            {attachmentsWithUrls.length > 0 && (
+            {/* Attachments (Patient) */}
+            {patientAttachments.length > 0 && (
               <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
                 <div className="px-6 py-4 border-b border-slate-100 flex items-center gap-2">
                   <Paperclip className="h-4 w-4 text-teal-600" />
                   <h2 className="text-sm font-bold text-slate-700 uppercase tracking-wider">
-                    Documentos Adjuntos
+                    Documentos del Paciente
                   </h2>
                   <span className="ml-auto text-xs bg-teal-50 text-teal-700 border border-teal-200 rounded-full px-2 py-0.5 font-semibold">
-                    {attachmentsWithUrls.length} archivo{attachmentsWithUrls.length !== 1 ? 's' : ''}
+                    {patientAttachments.length} archivo{patientAttachments.length !== 1 ? 's' : ''}
                   </span>
                 </div>
                 <div className="px-6 py-5 space-y-4">
-                  {attachmentsWithUrls.map((file: any) => {
+                  {patientAttachments.map((file: any) => {
                     const isImage = file.file_type?.startsWith('image/')
                     const isPdf  = file.file_type === 'application/pdf'
                     const sizeMb = (file.file_size / 1024 / 1024).toFixed(2)
@@ -250,6 +306,71 @@ export default async function RequestDetailPage({ params }: { params: { id: stri
                         )}
                         {/* File footer */}
                         <div className="px-4 py-3 flex items-center justify-between bg-white">
+                          <div>
+                            <p className="text-sm font-medium text-slate-800 truncate max-w-xs">{file.file_name}</p>
+                            <p className="text-xs text-slate-400">{sizeMb} MB · {file.file_type}</p>
+                          </div>
+                          {file.signedUrl && (
+                            <a
+                              href={file.signedUrl}
+                              download={file.file_name}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="inline-flex items-center gap-1.5 text-xs font-semibold text-teal-700 bg-teal-50 border border-teal-200 hover:bg-teal-100 px-3 py-1.5 rounded-lg transition-colors"
+                            >
+                              <Download className="h-3.5 w-3.5" />
+                              Descargar
+                            </a>
+                          )}
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* Attachments (Admin) */}
+            {adminAttachments.length > 0 && (
+              <div className="bg-white rounded-2xl border border-teal-200 shadow-sm overflow-hidden bg-teal-50/30">
+                <div className="px-6 py-4 border-b border-teal-100 flex items-center gap-2">
+                  <FileText className="h-4 w-4 text-teal-700" />
+                  <h2 className="text-sm font-bold text-teal-800 uppercase tracking-wider">
+                    Adjuntos de Respuesta (Clínica)
+                  </h2>
+                  <span className="ml-auto text-xs bg-teal-100 text-teal-800 border border-teal-200 rounded-full px-2 py-0.5 font-semibold">
+                    {adminAttachments.length} archivo{adminAttachments.length !== 1 ? 's' : ''}
+                  </span>
+                </div>
+                <div className="px-6 py-5 space-y-4">
+                  {adminAttachments.map((file: any) => {
+                    const isImage = file.file_type?.startsWith('image/')
+                    const isPdf  = file.file_type === 'application/pdf'
+                    const sizeMb = (file.file_size / 1024 / 1024).toFixed(2)
+                    return (
+                      <div key={file.id} className="border border-teal-200 rounded-xl overflow-hidden bg-white">
+                        {isImage && file.signedUrl && (
+                          <div className="relative bg-teal-50 max-h-72 overflow-hidden border-b border-teal-100">
+                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                            <img
+                              src={file.signedUrl}
+                              alt={file.file_name}
+                              className="w-full object-contain max-h-72"
+                            />
+                          </div>
+                        )}
+                        {isPdf && (
+                          <div className="bg-teal-50 border-b border-teal-100 px-4 py-3 flex items-center gap-3">
+                            <div className="bg-teal-100 rounded-lg p-2">
+                              <FileText className="h-5 w-5 text-teal-700" />
+                            </div>
+                            <div>
+                              <p className="text-sm font-semibold text-teal-900">Documento PDF</p>
+                              <p className="text-xs text-teal-700">{sizeMb} MB</p>
+                            </div>
+                          </div>
+                        )}
+                        <div className="px-4 py-3 flex items-center justify-between">
                           <div>
                             <p className="text-sm font-medium text-slate-800 truncate max-w-xs">{file.file_name}</p>
                             <p className="text-xs text-slate-400">{sizeMb} MB · {file.file_type}</p>
@@ -308,8 +429,11 @@ export default async function RequestDetailPage({ params }: { params: { id: stri
                       placeholder="Escriba la respuesta al paciente o notas internas (el paciente recibirá esto por correo si el estado es Respondida)..."
                       className="min-h-[130px] border-slate-200 text-sm resize-none"
                     />
+                  <div className="space-y-2">
+                    <Label className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Adjuntar Archivos (PDF/Imágenes a enviar)</Label>
+                    <Input type="file" name="attachments" multiple accept=".pdf,image/*" className="text-xs text-slate-500 cursor-pointer file:text-teal-700 file:bg-teal-50 file:border-0 file:mr-4 file:px-4 file:py-1 file:rounded-full file:font-semibold hover:file:bg-teal-100" />
                   </div>
-                  <Button type="submit" className="w-full bg-teal-700 hover:bg-teal-800 font-semibold">
+                  <Button type="submit" className="w-full bg-teal-700 hover:bg-teal-800 font-semibold mt-2">
                     <Send className="w-4 h-4 mr-2" />
                     Guardar y Notificar
                   </Button>

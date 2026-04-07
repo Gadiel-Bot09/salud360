@@ -52,7 +52,8 @@ export async function sendStatusUpdateEmail(
     toEmail: string,
     radicado: string,
     newStatus: string,
-    comment?: string
+    comment?: string,
+    attachments?: Array<{ filename: string, content: Buffer }>
 ) {
     if (!process.env.RESEND_API_KEY) return null;
 
@@ -83,6 +84,7 @@ export async function sendStatusUpdateEmail(
             to: [toEmail],
             subject: `Actualización de Solicitud ${radicado}`,
             html: htmlBody,
+            attachments: attachments || []
         })
         return data
     } catch (err) {

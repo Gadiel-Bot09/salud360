@@ -129,6 +129,8 @@ export async function POST(request: Request) {
                     })
                 } catch(uploadError) {
                      console.error('Error uploading file to MinIO:', uploadError)
+                     // If one file fails, we should explicitly abort so the user knows
+                     return NextResponse.json({ error: 'Fallo al subir archivos adjuntos. Verifique la conexión al Storage.' }, { status: 500 })
                 }
             }
         }
