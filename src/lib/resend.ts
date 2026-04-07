@@ -53,7 +53,7 @@ export async function sendEmailConfirmation(
 
     try {
         const { data, error } = await resend.emails.send({
-            from: process.env.RESEND_FROM_EMAIL || 'Salud360 <noreply@salud360.app>',
+            from: process.env.RESEND_FROM_EMAIL || 'Salud360 <noreply@mail.sinuhub.com>',
             to: [toEmail],
             subject: `Solicitud Recibida - Radicado ${radicado}`,
             html: htmlBody,
@@ -101,7 +101,7 @@ export async function sendStatusUpdateEmail(
 
     try {
         const { data } = await resend.emails.send({
-            from: process.env.RESEND_FROM_EMAIL || 'Salud360 <noreply@salud360.app>',
+            from: process.env.RESEND_FROM_EMAIL || 'Salud360 <noreply@mail.sinuhub.com>',
             to: [toEmail],
             subject: `Actualización de Solicitud ${radicado}`,
             html: htmlBody,
@@ -166,7 +166,7 @@ export async function sendWelcomeAdminEmail(
 
     try {
         const { data, error } = await resend.emails.send({
-            from: process.env.RESEND_FROM_EMAIL || 'Salud360 <noreply@salud360.app>',
+            from: process.env.RESEND_FROM_EMAIL || 'Salud360 <noreply@mail.sinuhub.com>',
             to: [toEmail],
             subject: '🏥 Bienvenido a Salud360 — Tus Credenciales de Acceso',
             html: htmlBody,
