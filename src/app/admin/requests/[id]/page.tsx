@@ -15,6 +15,8 @@ import {
 import Link from 'next/link'
 import { revalidatePath } from 'next/cache'
 import { sendStatusUpdateEmail } from '@/lib/resend'
+import { S3Client, GetObjectCommand } from '@aws-sdk/client-s3'
+import { getSignedUrl } from '@aws-sdk/s3-request-presigner'
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -64,13 +66,31 @@ export default async function RequestDetailPage({ params }: { params: { id: stri
     )
   }
 
-  // Generate signed URLs for attachments
+  // Setup S3 Client for Minio
+  const s3 = new S3Client({
+    region: 'us-east-1',
+    endpoint: process.env.MINIO_ENDPOINT,
+    credentials: {
+      accessKeyId: process.env.MINIO_ACCESS_KEY!,
+      secretAccessKey: process.env.MINIO_SECRET_KEY!
+    },
+    forcePathStyle: true
+  })
+  const bucketName = process.env.MINIO_BUCKET_NAME!
+
+  // Generate signed URLs from MinIO
   const attachmentsWithUrls = await Promise.all(
     (request.request_attachments || []).map(async (att: any) => {
-      const { data } = await supabaseAdmin.storage
-        .from('medical_documents')
-        .createSignedUrl(att.file_path, 3600) // 1 hour
-      return { ...att, signedUrl: data?.signedUrl || null }
+      try {
+        const url = await getSignedUrl(s3, new GetObjectCommand({
+            Bucket: bucketName,
+            Key: att.file_path
+        }), { expiresIn: 3600 })
+        return { ...att, signedUrl: url }
+      } catch (e) {
+        console.error('Error signing URL from Minio:', e);
+        return { ...att, signedUrl: null }
+      }
     })
   )
 
@@ -175,22 +195,10 @@ export default async function RequestDetailPage({ params }: { params: { id: stri
                 </div>
                 <div className="px-6 py-5 grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-5">
                   {dynamicFields.map(([key, value]) => {
-                    // Pretty-print the key (cond__ prefix → show sub-field label)
-                    let label = key
-                    if (key.startsWith('cond__')) {
-                      const parts = key.split('__')
-                      label = parts[parts.length - 1] || key
-                    }
-                    // Format label: snake_case or camelCase → Sentence case
-                    label = label
-                      .replace(/([A-Z])/g, ' $1')
-                      .replace(/_/g, ' ')
-                      .replace(/\s+/g, ' ')
-                      .trim()
-                    label = label.charAt(0).toUpperCase() + label.slice(1)
+                    const stringValue = String(value || '—')
                     return (
-                      <div key={key} className={typeof value === 'string' && value.length > 80 ? 'col-span-2' : ''}>
-                        <FieldValue label={label} value={String(value || '—')} />
+                      <div key={key} className={stringValue.length > 80 ? 'col-span-2' : ''}>
+                        <FieldValue label={key} value={stringValue} />
                       </div>
                     )
                   })}

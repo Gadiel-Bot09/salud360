@@ -25,6 +25,7 @@ function FieldRenderer({ field, namePrefix }: { field: FormField; namePrefix?: s
 
   return (
     <>
+      <input type="hidden" name={`label__${inputName}`} value={field.label} />
       <div className={`space-y-2 ${isWide ? 'md:col-span-2' : ''}`}>
         <Label className="flex items-center gap-1 font-medium text-slate-700 text-sm">
           {field.label}
@@ -83,6 +84,7 @@ function FieldRenderer({ field, namePrefix }: { field: FormField; namePrefix?: s
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {activeSubFields.map((sub) => (
               <div key={sub.id} className="space-y-2">
+                <input type="hidden" name={`label__cond__${field.id}__${sub.id}`} value={`${field.label} - ${sub.label}`} />
                 <Label className="flex items-center gap-1 font-medium text-slate-700 text-sm">
                   {sub.label}{sub.required && <span className="text-red-500">*</span>}
                 </Label>

@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { sendEmailConfirmation } from '@/lib/resend'
+import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3'
 
 export async function POST(request: Request) {
     try {
@@ -25,17 +26,21 @@ export async function POST(request: Request) {
         const filesToUpload: File[] = []
         const entries = Array.from(formData.entries())
 
+        const labels: Record<string, string> = {}
         for (const [key, value] of entries) {
-             if (coreKeys.includes(key)) continue
+            if (key.startsWith('label__')) {
+                labels[key.replace('label__', '')] = value as string
+            }
+        }
+
+        for (const [key, value] of entries) {
+             if (coreKeys.includes(key) || key.startsWith('label__')) continue
 
              if (value instanceof File) {
                  if (value.size > 0) filesToUpload.push(value)
-             } else if (key.startsWith('cond__')) {
-                 // Conditional sub-field: cond__{parentFieldId}__{subFieldId}
-                 // Store as "ParentLabel > SubLabel" in patientData using the key directly
-                 patientData[key] = value as string
              } else {
-                 patientData[key] = value as string
+                 const finalKey = labels[key] || key
+                 patientData[finalKey] = value as string
              }
         }
 
@@ -88,16 +93,33 @@ export async function POST(request: Request) {
 
         // File Processing
         if (filesToUpload.length > 0) {
+            const s3 = new S3Client({
+                region: 'us-east-1',
+                endpoint: process.env.MINIO_ENDPOINT,
+                credentials: {
+                    accessKeyId: process.env.MINIO_ACCESS_KEY!,
+                    secretAccessKey: process.env.MINIO_SECRET_KEY!
+                },
+                forcePathStyle: true
+            })
+            const bucketName = process.env.MINIO_BUCKET_NAME!
+
             for (const file of filesToUpload) {
                 const fileExt = file.name.split('.').pop()
                 const safeName = `${Math.random().toString(36).substring(7)}.${fileExt}`
                 const uploadPath = `${institutionId}/${requestId}/${safeName}`
 
-                const { error: uploadError } = await supabase.storage
-                    .from('medical_documents')
-                    .upload(uploadPath, file)
+                try {
+                    const arrayBuffer = await file.arrayBuffer()
+                    const buffer = Buffer.from(arrayBuffer)
+                    
+                    await s3.send(new PutObjectCommand({
+                        Bucket: bucketName,
+                        Key: uploadPath,
+                        Body: buffer,
+                        ContentType: file.type
+                    }))
 
-                if (!uploadError) {
                     await supabase.from('request_attachments').insert({
                         request_id: requestId,
                         file_name: file.name,
@@ -105,8 +127,8 @@ export async function POST(request: Request) {
                         file_type: file.type,
                         file_size: file.size
                     })
-                } else {
-                     console.error('Error uploading file:', uploadError)
+                } catch(uploadError) {
+                     console.error('Error uploading file to MinIO:', uploadError)
                 }
             }
         }
