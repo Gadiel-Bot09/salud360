@@ -429,6 +429,7 @@ export default async function RequestDetailPage({ params }: { params: { id: stri
                       placeholder="Escriba la respuesta al paciente o notas internas (el paciente recibirá esto por correo si el estado es Respondida)..."
                       className="min-h-[130px] border-slate-200 text-sm resize-none"
                     />
+                  </div>
                   <div className="space-y-2">
                     <Label className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Adjuntar Archivos (PDF/Imágenes a enviar)</Label>
                     <Input type="file" name="attachments" multiple accept=".pdf,image/*" className="text-xs text-slate-500 cursor-pointer file:text-teal-700 file:bg-teal-50 file:border-0 file:mr-4 file:px-4 file:py-1 file:rounded-full file:font-semibold hover:file:bg-teal-100" />
