@@ -50,8 +50,8 @@ export default async function RequestDetailPage({ params }: { params: { id: stri
     process.env.SUPABASE_SERVICE_ROLE_KEY!
   )
 
-  // Fetch request with related data
-  const { data: request, error } = await supabase
+  // Fetch request with related data using the Admin client to bypass RLS restrictions on attachments
+  const { data: request, error } = await supabaseAdmin
     .from('requests')
     .select('*, request_history(*), request_attachments(*)')
     .eq('id', params.id)
