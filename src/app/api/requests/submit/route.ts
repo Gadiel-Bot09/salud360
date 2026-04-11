@@ -127,10 +127,10 @@ export async function POST(request: Request) {
                         file_type: file.type,
                         file_size: file.size
                     })
-                } catch(uploadError) {
+                } catch(uploadError: any) {
                      console.error('Error uploading file to MinIO:', uploadError)
-                     // If one file fails, we should explicitly abort so the user knows
-                     return NextResponse.json({ error: 'Fallo al subir archivos adjuntos. Verifique la conexión al Storage.' }, { status: 500 })
+                     // Pass the exact S3 error to the client for debugging
+                     return NextResponse.json({ error: `Fallo Cloud Storage: ${uploadError?.message || 'Unknown'}` }, { status: 500 })
                 }
             }
         }
