@@ -13,6 +13,8 @@ const geistMono = localFont({
   weight: "100 900",
 });
 
+import { Toaster } from "@/components/ui/toaster";
+
 export const metadata: Metadata = {
   title: "Salud360 | Plataforma SaaS de Gestión Médica",
   description: "Agiliza respuestas a tus pacientes y controla múltiples instituciones de salud con las herramientas corporativas de Salud360 en la nube.",
@@ -29,6 +31,7 @@ export default function RootLayout({
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
         {children}
+        <Toaster />
       </body>
     </html>
   );
