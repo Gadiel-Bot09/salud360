@@ -114,6 +114,7 @@ function FieldRenderer({ field, namePrefix }: { field: FormField; namePrefix?: s
 function RequestTypeSection({ template, onChange }: { template: FormTemplate; onChange: (typeLabel: string) => void }) {
   const [selectedId, setSelectedId] = useState('')
   const selectedType = template.requestTypes.find(rt => rt.id === selectedId)
+  const selectedLabel = selectedType?.label || ''
   const base = 'flex w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-700 transition-colors'
 
   const handleChange = (id: string) => {
@@ -124,12 +125,19 @@ function RequestTypeSection({ template, onChange }: { template: FormTemplate; on
 
   return (
     <>
-      {/* Type selector */}
+      {/* Type selector — uses internal name to avoid submitting the raw ID */}
+      {/* A hidden input with name="requestType" always submits the human-readable label */}
+      <input type="hidden" name="requestType" value={selectedLabel} />
       <div className="space-y-2">
         <Label className="font-semibold text-slate-700 text-sm">Trámite a Solicitar <span className="text-red-500">*</span></Label>
         <div className="relative">
-          <select name="requestType" required value={selectedId} onChange={(e) => handleChange(e.target.value)}
-            className={`${base} h-11 appearance-none pr-8`}>
+          <select
+            name="_requestTypeId"
+            required
+            value={selectedId}
+            onChange={(e) => handleChange(e.target.value)}
+            className={`${base} h-11 appearance-none pr-8`}
+          >
             <option value="" disabled>Seleccione el tipo de trámite...</option>
             {template.requestTypes.map(rt => <option key={rt.id} value={rt.id}>{rt.label}</option>)}
           </select>
