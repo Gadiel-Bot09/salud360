@@ -11,7 +11,8 @@ import {
     LogOut,
     Hospital,
     Building2,
-    FileEdit
+    FileEdit,
+    BarChart2
 } from 'lucide-react'
 import { logout } from '@/app/login/actions'
 import { Button } from '@/components/ui/button'
@@ -51,6 +52,10 @@ export default async function AdminLayout({ children }: { children: ReactNode })
                     <Link href="/admin/forms" className="flex items-center space-x-3 px-4 py-3 rounded-lg hover:bg-slate-800 hover:text-white transition">
                         <FileEdit className="h-5 w-5" />
                         <span>Formularios</span>
+                    </Link>
+                    <Link href="/admin/reports" className="flex items-center space-x-3 px-4 py-3 rounded-lg hover:bg-slate-800 hover:text-white transition">
+                        <BarChart2 className="h-5 w-5 text-teal-400" />
+                        <span>Reportes</span>
                     </Link>
                     {userProfile?.role === 'Super Admin' && (
                         <Link href="/admin/institutions" className="flex items-center space-x-3 px-4 py-3 rounded-lg hover:bg-slate-800 hover:text-white transition">
