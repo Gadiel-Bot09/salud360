@@ -178,3 +178,101 @@ export async function sendWelcomeAdminEmail(
         return null
     }
 }
+
+// ── Appointment Confirmation ──────────────────────────────────────────────────
+export async function sendAppointmentConfirmationEmail(
+    toEmail: string,
+    patientName: string,
+    radicado: string,
+    appointment: { date: string; time: string; doctor: string; specialty: string; institution: string }
+) {
+    if (!process.env.RESEND_API_KEY) return null
+    const dateFormatted = new Date(appointment.date + 'T12:00:00').toLocaleDateString('es-CO', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })
+    const html = `<div style="font-family:sans-serif;max-width:600px;margin:0 auto;color:#1e293b;">
+      <div style="background:linear-gradient(135deg,#0f766e,#0369a1);padding:32px 40px;border-radius:12px 12px 0 0;">
+        <h1 style="color:white;margin:0;font-size:22px;">📅 Cita Médica Confirmada</h1>
+        <p style="color:rgba(255,255,255,0.8);margin:8px 0 0 0;font-size:14px;">Salud360 · Sistema de Gestión Médica</p>
+      </div>
+      <div style="background:#f8fafc;padding:32px 40px;border:1px solid #e2e8f0;">
+        <p>Hola <strong>${patientName}</strong>, su cita ha sido <strong style="color:#0f766e;">confirmada exitosamente</strong>.</p>
+        <div style="background:white;border:2px solid #0f766e;border-radius:12px;padding:24px;margin:20px 0;">
+          <table style="width:100%;border-collapse:collapse;font-size:14px;">
+            <tr><td style="padding:10px 0;border-bottom:1px solid #f1f5f9;color:#64748b;width:40%;"><strong>📅 Fecha</strong></td><td style="padding:10px 0;border-bottom:1px solid #f1f5f9;font-weight:600;text-transform:capitalize;">${dateFormatted}</td></tr>
+            <tr><td style="padding:10px 0;border-bottom:1px solid #f1f5f9;color:#64748b;"><strong>🕐 Hora</strong></td><td style="padding:10px 0;border-bottom:1px solid #f1f5f9;font-weight:600;">${appointment.time}</td></tr>
+            <tr><td style="padding:10px 0;border-bottom:1px solid #f1f5f9;color:#64748b;"><strong>👨‍⚕️ Doctor</strong></td><td style="padding:10px 0;border-bottom:1px solid #f1f5f9;font-weight:600;">${appointment.doctor || 'Por asignar'}</td></tr>
+            <tr><td style="padding:10px 0;border-bottom:1px solid #f1f5f9;color:#64748b;"><strong>🏥 Especialidad</strong></td><td style="padding:10px 0;border-bottom:1px solid #f1f5f9;font-weight:600;">${appointment.specialty || '—'}</td></tr>
+            <tr><td style="padding:10px 0;color:#64748b;"><strong>🏢 Institución</strong></td><td style="padding:10px 0;font-weight:600;">${appointment.institution}</td></tr>
+          </table>
+        </div>
+        <div style="background:#fef9c3;border:1px solid #fde047;border-radius:8px;padding:12px 16px;margin-bottom:16px;">
+          <p style="margin:0;color:#854d0e;font-size:13px;">⚠️ Llegue 15 min antes con su documento de identidad. Recibirá recordatorios automáticos 24h y 2h antes.</p>
+        </div>
+        <p style="color:#64748b;font-size:13px;margin:0;">Radicado: <strong>${radicado}</strong></p>
+      </div>
+      <div style="padding:16px 40px;text-align:center;"><p style="margin:0;color:#94a3b8;font-size:12px;">© ${new Date().getFullYear()} Salud360</p></div>
+    </div>`
+    try {
+        const { data, error } = await resend.emails.send({
+            from: process.env.RESEND_FROM_EMAIL || 'Salud360 <noreply@mail.sinuhub.com>',
+            to: [toEmail],
+            subject: `📅 Cita Confirmada — ${dateFormatted} a las ${appointment.time}`,
+            html,
+        })
+        if (error) console.error('Error sending appointment confirmation:', error)
+        return data
+    } catch (err) {
+        console.error('Exception sending appointment confirmation:', err)
+        return null
+    }
+}
+
+// ── Appointment Reminder ──────────────────────────────────────────────────────
+export async function sendAppointmentReminderEmail(
+    toEmail: string,
+    patientName: string,
+    radicado: string,
+    appointment: { date: string; time: string; doctor: string; specialty: string; institution: string },
+    hoursUntil: 24 | 2
+) {
+    if (!process.env.RESEND_API_KEY) return null
+    const isUrgent = hoursUntil === 2
+    const emoji = isUrgent ? '🚨' : '⏰'
+    const timeLabel = isUrgent ? 'en 2 horas' : 'mañana'
+    const dateFormatted = new Date(appointment.date + 'T12:00:00').toLocaleDateString('es-CO', { weekday: 'long', month: 'long', day: 'numeric' })
+    const accentColor = isUrgent ? '#dc2626' : '#0f766e'
+    const html = `<div style="font-family:sans-serif;max-width:600px;margin:0 auto;color:#1e293b;">
+      <div style="background:linear-gradient(135deg,${accentColor},${isUrgent ? '#b91c1c' : '#0369a1'});padding:28px 40px;border-radius:12px 12px 0 0;">
+        <h1 style="color:white;margin:0;font-size:20px;">${emoji} Recordatorio de Cita — ${timeLabel}</h1>
+        <p style="color:rgba(255,255,255,0.85);margin:8px 0 0 0;font-size:14px;">Salud360 · Recordatorio Automático</p>
+      </div>
+      <div style="background:#f8fafc;padding:28px 40px;border:1px solid #e2e8f0;">
+        <p>Hola <strong>${patientName}</strong>, tiene una cita médica <strong>${timeLabel}</strong>:</p>
+        <div style="background:white;border:2px solid ${accentColor};border-radius:12px;padding:20px;margin:20px 0;">
+          <table style="width:100%;border-collapse:collapse;font-size:14px;">
+            <tr><td style="padding:8px 0;border-bottom:1px solid #f1f5f9;color:#64748b;width:40%;"><strong>📅 Fecha</strong></td><td style="padding:8px 0;border-bottom:1px solid #f1f5f9;text-transform:capitalize;font-weight:600;">${dateFormatted}</td></tr>
+            <tr><td style="padding:8px 0;border-bottom:1px solid #f1f5f9;color:#64748b;"><strong>🕐 Hora</strong></td><td style="padding:8px 0;border-bottom:1px solid #f1f5f9;font-weight:700;font-size:18px;color:${accentColor};">${appointment.time}</td></tr>
+            <tr><td style="padding:8px 0;border-bottom:1px solid #f1f5f9;color:#64748b;"><strong>👨‍⚕️ Doctor</strong></td><td style="padding:8px 0;border-bottom:1px solid #f1f5f9;">${appointment.doctor || 'Por asignar'}</td></tr>
+            <tr><td style="padding:8px 0;color:#64748b;"><strong>🏥 Especialidad</strong></td><td style="padding:8px 0;">${appointment.specialty || '—'}</td></tr>
+          </table>
+        </div>
+        ${isUrgent
+            ? '<div style="background:#fef2f2;border:1px solid #fecaca;border-radius:8px;padding:12px 16px;"><p style="margin:0;color:#991b1b;font-size:13px;">🚨 <strong>Su cita es en 2 horas.</strong> Desplácese ahora con su documento de identidad.</p></div>'
+            : '<div style="background:#f0fdf4;border:1px solid #86efac;border-radius:8px;padding:12px 16px;"><p style="margin:0;color:#166534;font-size:13px;">✅ Cita mañana. Recuerde llegar 15 minutos antes con su documento.</p></div>'
+        }
+      </div>
+      <div style="padding:16px 40px;text-align:center;"><p style="margin:0;color:#94a3b8;font-size:12px;">Radicado: ${radicado} · © ${new Date().getFullYear()} Salud360</p></div>
+    </div>`
+    try {
+        const { data, error } = await resend.emails.send({
+            from: process.env.RESEND_FROM_EMAIL || 'Salud360 <noreply@mail.sinuhub.com>',
+            to: [toEmail],
+            subject: `${emoji} Recordatorio: Cita médica ${timeLabel} a las ${appointment.time}`,
+            html,
+        })
+        if (error) console.error('Error sending reminder email:', error)
+        return data
+    } catch (err) {
+        console.error('Exception sending reminder email:', err)
+        return null
+    }
+}

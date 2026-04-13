@@ -15,9 +15,11 @@ import {
 } from 'lucide-react'
 import Link from 'next/link'
 import { revalidatePath } from 'next/cache'
-import { sendStatusUpdateEmail } from '@/lib/resend'
+import { sendStatusUpdateEmail, sendAppointmentConfirmationEmail } from '@/lib/resend'
+import { getResponseTemplates } from '@/app/admin/settings/template-actions'
 import { S3Client, GetObjectCommand, PutObjectCommand } from '@aws-sdk/client-s3'
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner'
+import { StatusManagementForm } from '@/components/admin/status-management-form'
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -107,81 +109,83 @@ export default async function RequestDetailPage({ params }: { params: { id: stri
   const StatusIcon = statusInfo.icon
 
   const patientAttachments = attachmentsWithUrls.filter(a => !a.file_path.includes('/admin/'))
-  const adminAttachments = attachmentsWithUrls.filter(a => a.file_path.includes('/admin/'))
+  const adminAttachments   = attachmentsWithUrls.filter(a =>  a.file_path.includes('/admin/'))
+
+  // Fetch response templates and institution name for UI
+  const [templates, institutionResult] = await Promise.all([
+    getResponseTemplates(),
+    supabaseAdmin.from('institutions').select('name').eq('id', request.institution_id).single()
+  ])
+  const institutionName = institutionResult.data?.name || 'Salud360'
 
   // Server Action
   async function updateStatus(formData: FormData) {
     'use server'
-    const newStatus = formData.get('status') as string
-    const comment   = formData.get('comment') as string
-    const fileEntries = formData.getAll('attachments') as File[]
-    const validFiles = fileEntries.filter(f => f.size > 0)
-    
-    const sb = await createClient()
-    const { data: { user } } = await sb.auth.getUser()
+    const newStatus     = formData.get('status') as string
+    const comment       = formData.get('comment') as string
+    const fileEntries   = formData.getAll('attachments') as File[]
+    const validFiles    = fileEntries.filter(f => f.size > 0)
+    const apptDate      = formData.get('appt_date') as string
+    const apptTime      = formData.get('appt_time') as string
+    const apptDoctor    = formData.get('appt_doctor') as string
+    const apptSpecialty = formData.get('appt_specialty') as string
+
+    const sbAdm = createAdminClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!)
+    const sbRLS = await createClient()
+    const { data: { user } } = await sbRLS.auth.getUser()
 
     const resendAttachments: Array<{ filename: string, content: Buffer }> = []
 
+    // ── Upload admin files to MinIO ─────────────────────────────────────────
     if (validFiles.length > 0) {
       const s3Client = new S3Client({
         region: 'us-east-1',
         endpoint: process.env.MINIO_ENDPOINT,
-        credentials: {
-          accessKeyId: process.env.MINIO_ACCESS_KEY!,
-          secretAccessKey: process.env.MINIO_SECRET_KEY!
-        },
+        credentials: { accessKeyId: process.env.MINIO_ACCESS_KEY!, secretAccessKey: process.env.MINIO_SECRET_KEY! },
         forcePathStyle: true
       })
-      const bucket = process.env.MINIO_BUCKET_NAME!
-
       for (const file of validFiles) {
-        const fileExt = file.name.split('.').pop()
-        const safeName = `${Math.random().toString(36).substring(7)}.${fileExt}`
+        const ext        = file.name.split('.').pop()
+        const safeName   = `${Math.random().toString(36).substring(7)}.${ext}`
         const uploadPath = `${request.institution_id}/${request.id}/admin/${safeName}`
-        
         try {
-          const arrayBuffer = await file.arrayBuffer()
-          const buffer = Buffer.from(arrayBuffer)
-          
-          await s3Client.send(new PutObjectCommand({
-            Bucket: bucket,
-            Key: uploadPath,
-            Body: buffer,
-            ContentType: file.type
-          }))
-
-          await sb.from('request_attachments').insert({
-            request_id: request.id,
-            file_name: file.name,
-            file_path: uploadPath,
-            file_type: file.type,
-            file_size: file.size
-          })
-
-          resendAttachments.push({
-            filename: file.name,
-            content: buffer
-          })
-        } catch (e) {
-          console.error("Admin file upload fail:", e)
-        }
+          const buffer = Buffer.from(await file.arrayBuffer())
+          await s3Client.send(new PutObjectCommand({ Bucket: process.env.MINIO_BUCKET_NAME!, Key: uploadPath, Body: buffer, ContentType: file.type }))
+          await sbAdm.from('request_attachments').insert({ request_id: request.id, file_name: file.name, file_path: uploadPath, file_type: file.type, file_size: file.size })
+          resendAttachments.push({ filename: file.name, content: buffer })
+        } catch (e) { console.error('Admin file upload fail:', e) }
       }
     }
 
-    await sb.from('requests').update({ status: newStatus, updated_at: new Date().toISOString() }).eq('id', request.id)
-    await sb.from('request_history').insert({
+    // ── Save appointment if provided ────────────────────────────────────────
+    if (apptDate && apptTime) {
+      await sbAdm.from('appointments').insert({
+        request_id: request.id, appointment_date: apptDate, appointment_time: apptTime,
+        doctor_name: apptDoctor || null, specialty: apptSpecialty || null,
+        reminder_24h_sent: false, reminder_2h_sent: false
+      })
+      const { data: inst } = await sbAdm.from('institutions').select('name').eq('id', request.institution_id).single()
+      const patientName = request.patient_data_json?.fullName || 'Paciente'
+      await sendAppointmentConfirmationEmail(
+        request.patient_email, patientName, request.radicado,
+        { date: apptDate, time: apptTime, doctor: apptDoctor || '', specialty: apptSpecialty || '', institution: inst?.name || 'Salud360' }
+      )
+    }
+
+    // ── Update status + history ─────────────────────────────────────────────
+    await sbAdm.from('requests').update({ status: newStatus, updated_at: new Date().toISOString() }).eq('id', request.id)
+    await sbAdm.from('request_history').insert({
       request_id: request.id,
-      action: `Estado actualizado a ${STATUS_MAP[newStatus]?.label || newStatus}`,
-      from_status: request.status,
-      to_status: newStatus,
-      user_id: user?.id,
-      comment: comment || null
+      action: `Estado actualizado a ${STATUS_MAP[newStatus]?.label || newStatus}${apptDate ? ` · Cita: ${apptDate} ${apptTime}` : ''}`,
+      from_status: request.status, to_status: newStatus,
+      user_id: user?.id, comment: comment || null
     })
     if (['responded', 'closed', 'escalated'].includes(newStatus)) {
       await sendStatusUpdateEmail(request.patient_email, request.radicado, newStatus, comment, resendAttachments)
     }
     revalidatePath(`/admin/requests/${request.id}`)
   }
+
 
   // Sorted history (newest first)
   const history = [...(request.request_history || [])].sort(
@@ -406,39 +410,16 @@ export default async function RequestDetailPage({ params }: { params: { id: stri
                 <p className="text-teal-200 text-xs mt-0.5">El paciente será notificado por correo al responder o cerrar</p>
               </div>
               <div className="px-6 py-5">
-                <form action={updateStatus} className="space-y-4">
-                  <div className="space-y-2">
-                    <Label className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Nuevo Estado</Label>
-                    <Select name="status" defaultValue={request.status}>
-                      <SelectTrigger className="border-slate-200">
-                        <SelectValue placeholder="Seleccione..." />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="received">🔵 Recibida</SelectItem>
-                        <SelectItem value="processing">🟡 En Trámite</SelectItem>
-                        <SelectItem value="responded">✅ Respondida — Notifica al paciente</SelectItem>
-                        <SelectItem value="closed">🟢 Cerrada</SelectItem>
-                        <SelectItem value="escalated">🔴 Escalada</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="space-y-2">
-                    <Label className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Respuesta / Comentario Interno</Label>
-                    <Textarea
-                      name="comment"
-                      placeholder="Escriba la respuesta al paciente o notas internas (el paciente recibirá esto por correo si el estado es Respondida)..."
-                      className="min-h-[130px] border-slate-200 text-sm resize-none"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Adjuntar Archivos (PDF/Imágenes a enviar)</Label>
-                    <Input type="file" name="attachments" multiple accept=".pdf,image/*" className="text-xs text-slate-500 cursor-pointer file:text-teal-700 file:bg-teal-50 file:border-0 file:mr-4 file:px-4 file:py-1 file:rounded-full file:font-semibold hover:file:bg-teal-100" />
-                  </div>
-                  <Button type="submit" className="w-full bg-teal-700 hover:bg-teal-800 font-semibold mt-2">
-                    <Send className="w-4 h-4 mr-2" />
-                    Guardar y Notificar
-                  </Button>
-                </form>
+                <StatusManagementForm
+                  action={updateStatus}
+                  templates={templates}
+                  currentStatus={request.status}
+                  requestData={{
+                    patientName: fullName,
+                    radicado: request.radicado,
+                    institution: institutionName
+                  }}
+                />
               </div>
             </div>
 

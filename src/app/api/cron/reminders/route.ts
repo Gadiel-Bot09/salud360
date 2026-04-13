@@ -1,46 +1,103 @@
 import { NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
-// import twilio from 'twilio'
+import { createClient } from '@supabase/supabase-js'
+import { sendAppointmentReminderEmail } from '@/lib/resend'
 
-// const client = twilio(process.env.TWILIO_ACCOUNT_SID, process.env.TWILIO_AUTH_TOKEN)
+export const dynamic = 'force-dynamic'
 
 export async function GET(request: Request) {
-    // This endpoint should be protected by a static secret from cron
-    const authHeader = request.headers.get('authorization')
-    if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
-        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
+  // Protect endpoint with CRON_SECRET
+  const authHeader = request.headers.get('authorization')
+  if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  }
 
-    const supabase = await createClient()
+  const supabase = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!
+  )
 
-    try {
-        // Logic: Fetch appointments in the next 24h where reminder_24h_sent = false
-        // Logic: Fetch appointments in the next 2h where reminder_2h_sent = false
+  const now = new Date()
+  let sent24h = 0
+  let sent2h  = 0
+  let errors  = 0
 
-        // For MVP, simulating the logic since Twilio setup requires strict templates 
-        // and phone number validations mapping.
+  try {
+    // ── Window for 24h reminder: cita between 23h and 25h from now ──────────
+    const win24hFrom = new Date(now.getTime() + 23 * 60 * 60 * 1000)
+    const win24hTo   = new Date(now.getTime() + 25 * 60 * 60 * 1000)
 
-        /*
-        const { data: upcoming24h } = await supabase
-           .from('appointments')
-           .select('*, requests(radicado, patient_data_json)')
-           .eq('reminder_24h_sent', false)
-           // .lte('appointment_date', next24h) etc...
-           
-        for(const appt of upcoming24h) {
-           await client.messages.create({
-              from: `whatsapp:${process.env.TWILIO_WHATSAPP_NUMBER}`,
-              to: `whatsapp:+57${appt.requests.patient_data_json.phone}`,
-              body: `Hola, le recordamos su cita mañana... Radicado: ${appt.requests.radicado}`
-           })
-           await supabase.from('appointments').update({ reminder_24h_sent: true }).eq('id', appt.id)
+    // ── Window for 2h reminder: cita between 1h45m and 2h15m from now ───────
+    const win2hFrom  = new Date(now.getTime() + 1 * 60 * 60 * 1000 + 45 * 60 * 1000)
+    const win2hTo    = new Date(now.getTime() + 2 * 60 * 60 * 1000 + 15 * 60 * 1000)
+
+    const toDateStr = (d: Date) => d.toISOString().split('T')[0]
+    const toTimeStr = (d: Date) => d.toTimeString().slice(0, 5) // HH:MM
+
+    // Fetch all pending appointments with related request data
+    const { data: appointments, error: fetchError } = await supabase
+      .from('appointments')
+      .select(`
+        id, appointment_date, appointment_time, doctor_name, specialty,
+        reminder_24h_sent, reminder_2h_sent,
+        requests ( id, radicado, patient_email, patient_data_json, institutions(name) )
+      `)
+      .or('reminder_24h_sent.eq.false,reminder_2h_sent.eq.false')
+
+    if (fetchError) throw fetchError
+
+    for (const appt of (appointments || []) as any[]) {
+      const req         = appt.requests
+      if (!req) continue
+
+      const patientName  = req.patient_data_json?.fullName || 'Paciente'
+      const toEmail      = req.patient_email
+      const institution  = req.institutions?.name || 'Salud360'
+      const appointmentData = {
+        date:      appt.appointment_date,
+        time:      appt.appointment_time?.slice(0, 5) || '—',
+        doctor:    appt.doctor_name || '',
+        specialty: appt.specialty || '',
+        institution
+      }
+
+      // Combine appointment date+time into a single JS Date
+      const apptDateTime = new Date(`${appt.appointment_date}T${appt.appointment_time}`)
+
+      // ── Check 24h window ─────────────────────────────────────────────────
+      if (!appt.reminder_24h_sent && apptDateTime >= win24hFrom && apptDateTime <= win24hTo) {
+        try {
+          await sendAppointmentReminderEmail(toEmail, patientName, req.radicado, appointmentData, 24)
+          await supabase.from('appointments').update({ reminder_24h_sent: true }).eq('id', appt.id)
+          sent24h++
+        } catch (e) {
+          console.error('24h reminder error for', appt.id, e)
+          errors++
         }
-        */
+      }
 
-        console.log('Cron job ran: WhatsApp reminders evaluated.')
-        return NextResponse.json({ success: true, message: 'Reminders processed' })
-    } catch (error) {
-        console.error('Error in WhatsApp Cron:', error)
-        return NextResponse.json({ error: 'Failed' }, { status: 500 })
+      // ── Check 2h window ──────────────────────────────────────────────────
+      if (!appt.reminder_2h_sent && apptDateTime >= win2hFrom && apptDateTime <= win2hTo) {
+        try {
+          await sendAppointmentReminderEmail(toEmail, patientName, req.radicado, appointmentData, 2)
+          await supabase.from('appointments').update({ reminder_2h_sent: true }).eq('id', appt.id)
+          sent2h++
+        } catch (e) {
+          console.error('2h reminder error for', appt.id, e)
+          errors++
+        }
+      }
     }
+
+    console.log(`Cron reminders: 24h=${sent24h}, 2h=${sent2h}, errors=${errors}`)
+    return NextResponse.json({
+      success: true,
+      processed: (appointments || []).length,
+      sent_24h: sent24h,
+      sent_2h:  sent2h,
+      errors
+    })
+  } catch (error: any) {
+    console.error('Cron reminder fatal error:', error)
+    return NextResponse.json({ error: error?.message || 'Failed' }, { status: 500 })
+  }
 }
