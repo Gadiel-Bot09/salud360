@@ -39,9 +39,14 @@ export default async function AppointmentsPage({
             type="date"
             name="date"
             defaultValue={selectedDate}
-            onChange={(e) => e.currentTarget.form?.submit()}
-            className="border border-slate-200 rounded-xl px-3 py-2 text-sm font-medium text-slate-700 focus:outline-none focus:ring-2 focus:ring-teal-500 bg-white shadow-sm cursor-pointer"
+            className="border border-slate-200 rounded-xl px-3 py-2 text-sm font-medium text-slate-700 focus:outline-none focus:ring-2 focus:ring-teal-500 bg-white shadow-sm"
           />
+          <button
+            type="submit"
+            className="bg-teal-700 hover:bg-teal-800 text-white text-sm font-semibold px-4 py-2 rounded-xl transition-colors"
+          >
+            Ver
+          </button>
         </form>
       </div>
 
