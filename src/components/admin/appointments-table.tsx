@@ -1,10 +1,9 @@
 'use client'
 
-import { useState, useTransition, useCallback } from 'react'
+import { useState, useTransition } from 'react'
 import {
   CheckCircle2, XCircle, Clock, RotateCcw, Search,
-  ChevronDown, User, Phone, Mail, Stethoscope, Building2,
-  FileText, CalendarClock
+  ChevronDown, Stethoscope, Building2, CalendarClock
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -37,9 +36,7 @@ export function AppointmentsTable({ appointments: initial }: Props) {
       const res = await markAttendance(id, attended, notes)
       if (res.success) {
         setAppts(prev => prev.map(a =>
-          a.id === id
-            ? { ...a, attended, attended_at: new Date().toISOString(), attendance_notes: notes }
-            : a
+          a.id === id ? { ...a, attended, attended_at: new Date().toISOString(), attendance_notes: notes } : a
         ))
         setExpanded(null)
       }
@@ -50,7 +47,9 @@ export function AppointmentsTable({ appointments: initial }: Props) {
     start(async () => {
       const res = await resetAttendance(id)
       if (res.success) {
-        setAppts(prev => prev.map(a => a.id === id ? { ...a, attended: null, attended_at: null, attendance_notes: null } : a))
+        setAppts(prev => prev.map(a =>
+          a.id === id ? { ...a, attended: null, attended_at: null, attendance_notes: null } : a
+        ))
       }
     })
   }
@@ -62,9 +61,9 @@ export function AppointmentsTable({ appointments: initial }: Props) {
       filter === 'attended' ? a.attended === true :
       a.attended === false
 
-    const name = a.requests?.patient_data_json?.fullName?.toLowerCase() || ''
-    const rad  = a.requests?.radicado?.toLowerCase() || ''
-    const matchSearch = !search || name.includes(search.toLowerCase()) || rad.includes(search.toLowerCase())
+    const matchSearch = !search ||
+      a.patient_name.toLowerCase().includes(search.toLowerCase()) ||
+      a.radicado.toLowerCase().includes(search.toLowerCase())
 
     return matchFilter && matchSearch
   })
@@ -78,7 +77,7 @@ export function AppointmentsTable({ appointments: initial }: Props) {
 
   if (appts.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center py-20 text-center">
+      <div className="flex flex-col items-center justify-center py-20 text-center bg-white rounded-2xl border border-dashed border-slate-300">
         <CalendarClock className="w-14 h-14 text-slate-200 mb-4" />
         <p className="text-slate-500 font-semibold text-lg">Sin citas para esta fecha</p>
         <p className="text-slate-400 text-sm mt-1">Seleccione otra fecha o asigne citas desde las solicitudes.</p>
@@ -91,10 +90,10 @@ export function AppointmentsTable({ appointments: initial }: Props) {
       {/* Summary Cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         {[
-          { label: 'Total', value: counts.all,      color: 'from-slate-600 to-slate-800' },
-          { label: 'Sin Marcar', value: counts.pending,  color: 'from-amber-500 to-amber-700' },
-          { label: 'Asistieron', value: counts.attended, color: 'from-emerald-500 to-emerald-700' },
-          { label: 'No Asistieron', value: counts.absent,   color: 'from-red-500 to-red-700' },
+          { label: 'Total',          value: counts.all,      color: 'from-slate-600 to-slate-800' },
+          { label: 'Sin Marcar',     value: counts.pending,  color: 'from-amber-500 to-amber-700' },
+          { label: 'Asistieron',     value: counts.attended, color: 'from-emerald-500 to-emerald-700' },
+          { label: 'No Asistieron',  value: counts.absent,   color: 'from-red-500 to-red-700' },
         ].map(c => (
           <div key={c.label} className={`bg-gradient-to-br ${c.color} rounded-2xl p-4 text-white shadow-lg`}>
             <p className="text-xs font-semibold uppercase tracking-widest opacity-80">{c.label}</p>
@@ -143,11 +142,8 @@ export function AppointmentsTable({ appointments: initial }: Props) {
         ) : (
           <div className="divide-y divide-slate-100">
             {filtered.map(appt => {
-              const patient = appt.requests?.patient_data_json
-              const name    = patient?.fullName || 'Paciente'
-              const phone   = patient?.phone || '—'
-              const email   = appt.requests?.patient_email || '—'
               const isExpanded = expandedId === appt.id
+              const timeStr = appt.appointment_time?.slice(0, 5) || '--:--'
 
               return (
                 <div key={appt.id} className={`transition-colors ${appt.attended === true ? 'bg-emerald-50/40' : appt.attended === false ? 'bg-red-50/40' : 'bg-white'}`}>
@@ -155,16 +151,16 @@ export function AppointmentsTable({ appointments: initial }: Props) {
                   <div className="flex items-center gap-4 px-5 py-4">
                     {/* Time */}
                     <div className="text-center shrink-0 w-14">
-                      <p className="text-lg font-bold text-teal-700 leading-none">{appt.appointment_time?.slice(0, 5)}</p>
+                      <p className="text-lg font-bold text-teal-700 leading-none">{timeStr}</p>
                       <p className="text-xs text-slate-400 mt-0.5">Hora</p>
                     </div>
 
                     {/* Patient Info */}
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 flex-wrap">
-                        <p className="font-bold text-slate-800">{name}</p>
-                        <span className="text-xs text-slate-400 font-mono">{appt.requests?.radicado}</span>
-                        <span className="text-xs bg-slate-100 text-slate-600 px-2 py-0.5 rounded-full">{appt.requests?.type}</span>
+                        <p className="font-bold text-slate-800">{appt.patient_name}</p>
+                        <span className="text-xs text-slate-400 font-mono">{appt.radicado}</span>
+                        <span className="text-xs bg-slate-100 text-slate-600 px-2 py-0.5 rounded-full">{appt.request_type}</span>
                       </div>
                       <div className="flex items-center gap-4 mt-1 text-xs text-slate-500 flex-wrap">
                         {appt.doctor_name && (
@@ -229,7 +225,7 @@ export function AppointmentsTable({ appointments: initial }: Props) {
                     </div>
                   </div>
 
-                  {/* Expand: confirm attended + notes */}
+                  {/* Expand panel for confirmed attendance + notes */}
                   {isExpanded && appt.attended === null && (
                     <div className="px-5 pb-4 bg-emerald-50 border-t border-emerald-100 animate-in slide-in-from-top-2 duration-200">
                       <div className="flex items-start gap-3 pt-3">
