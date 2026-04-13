@@ -4,7 +4,8 @@ import {
   fetchActivityByUser,
   fetchSLAReport,
   fetchTrendData,
-  fetchPendingCriticals
+  fetchPendingCriticals,
+  fetchAttendanceReport
 } from './actions'
 import { ReportsDashboard } from '@/components/admin/reports-dashboard'
 import { BarChart2 } from 'lucide-react'
@@ -12,15 +13,16 @@ import { BarChart2 } from 'lucide-react'
 export const dynamic = 'force-dynamic'
 
 async function loadAllReports(from?: string, to?: string) {
-  const [byInstitution, byType, byUser, sla, trend, criticals] = await Promise.all([
+  const [byInstitution, byType, byUser, sla, trend, criticals, attendance] = await Promise.all([
     fetchRequestsByInstitution(from, to),
     fetchRequestsByType(from, to),
     fetchActivityByUser(from, to),
     fetchSLAReport(from, to),
     fetchTrendData(from, to),
-    fetchPendingCriticals(5)
+    fetchPendingCriticals(5),
+    fetchAttendanceReport(from, to)
   ])
-  return { byInstitution, byType, byUser, sla, trend, criticals }
+  return { byInstitution, byType, byUser, sla, trend, criticals, attendance }
 }
 
 export default async function ReportsPage() {

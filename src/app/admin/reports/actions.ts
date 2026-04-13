@@ -236,3 +236,45 @@ export async function fetchPendingCriticals(minDays = 5): Promise<PendingCritica
     days_open: Math.floor((Date.now() - new Date(r.created_at).getTime()) / (1000 * 60 * 60 * 24))
   })).sort((a, b) => b.days_open - a.days_open)
 }
+
+// ── 7. Reporte de Asistencia a Citas ─────────────────────────────────────────
+export interface AttendanceReportRow {
+  institution: string
+  total_appointments: number
+  attended: number
+  absent: number
+  pending: number
+  attendance_rate: number
+}
+
+export async function fetchAttendanceReport(from?: string, to?: string): Promise<AttendanceReportRow[]> {
+  const sb = getAdminClient()
+  let query = sb
+    .from('appointments')
+    .select('attended, requests(institutions(name))')
+
+  if (from) query = query.gte('appointment_date', from)
+  if (to)   query = query.lte('appointment_date', to)
+
+  const { data, error } = await query
+  if (error || !data) { console.error(error); return [] }
+
+  const map: Record<string, { total: number; attended: number; absent: number; pending: number }> = {}
+  for (const a of data as any[]) {
+    const name = a.requests?.institutions?.name || 'Sin Institución'
+    if (!map[name]) map[name] = { total: 0, attended: 0, absent: 0, pending: 0 }
+    map[name].total++
+    if (a.attended === true)  map[name].attended++
+    else if (a.attended === false) map[name].absent++
+    else map[name].pending++
+  }
+
+  return Object.entries(map).map(([institution, v]) => ({
+    institution,
+    total_appointments: v.total,
+    attended: v.attended,
+    absent: v.absent,
+    pending: v.pending,
+    attendance_rate: v.total > 0 ? Math.round((v.attended / v.total) * 100) : 0
+  })).sort((a, b) => b.total_appointments - a.total_appointments)
+}

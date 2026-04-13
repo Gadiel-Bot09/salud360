@@ -14,7 +14,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import type {
   InstitutionReport, TypeReport, UserActivityReport,
-  SLAReport, TrendPoint, PendingCritical
+  SLAReport, TrendPoint, PendingCritical, AttendanceReportRow
 } from '@/app/admin/reports/actions'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -25,9 +25,10 @@ interface ReportData {
   sla: SLAReport[]
   trend: TrendPoint[]
   criticals: PendingCritical[]
+  attendance: AttendanceReportRow[]
 }
 
-type TabId = 'institution' | 'type' | 'user' | 'sla' | 'trend' | 'criticals'
+type TabId = 'institution' | 'type' | 'user' | 'sla' | 'trend' | 'criticals' | 'attendance'
 
 const TABS: { id: TabId; label: string; icon: React.ElementType }[] = [
   { id: 'institution', label: 'Por Entidad',      icon: Building2 },
@@ -36,6 +37,7 @@ const TABS: { id: TabId; label: string; icon: React.ElementType }[] = [
   { id: 'sla',         label: 'Tiempos SLA',      icon: Clock },
   { id: 'trend',       label: 'Tendencia',        icon: TrendingUp },
   { id: 'criticals',   label: 'Críticos',         icon: AlertTriangle },
+  { id: 'attendance',  label: 'Asistencia',       icon: Users },
 ]
 
 const STATUS_LABELS: Record<string, string> = {
@@ -444,6 +446,68 @@ export function ReportsDashboard({ initialData, onRefresh }: Props) {
                 <Download className="w-4 h-4 mr-2" /> Exportar CSV
               </Button>
               <Button size="sm" className="bg-red-600 hover:bg-red-700" onClick={() => exportPDF('Pendientes Críticos', ['Radicado','Tipo','Institución','Email','Estado','Días'], rows.map(r => [r.radicado, r.type, r.institution, r.patient_email, STATUS_LABELS[r.status] || r.status, r.days_open]))}>
+                <FileText className="w-4 h-4 mr-2" /> Exportar PDF
+              </Button>
+            </div>
+          </div>
+        )
+      }
+      // ── Attendance ──────────────────────────────────────────────────────────
+      case 'attendance': {
+        const rows = data.attendance
+        const totals = rows.reduce((a, r) => ({ t: a.t + r.total_appointments, at: a.at + r.attended, ab: a.ab + r.absent }), { t: 0, at: 0, ab: 0 })
+        const overallRate = totals.t > 0 ? Math.round(totals.at / totals.t * 100) : 0
+        return (
+          <div className="space-y-6">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              <StatCard label="Total Citas"      value={totals.t}       color="teal" />
+              <StatCard label="Asistieron"        value={totals.at}      color="emerald" />
+              <StatCard label="No Asistieron"     value={totals.ab}      color="red" />
+              <StatCard label="Tasa Asistencia"   value={overallRate + '%'} color={overallRate >= 75 ? 'emerald' : overallRate >= 50 ? 'amber' : 'red'} />
+            </div>
+            {rows.length === 0 ? (
+              <div className="bg-slate-50 border border-dashed border-slate-300 rounded-2xl p-10 text-center">
+                <p className="text-slate-500 font-semibold">Sin datos de asistencia en el período seleccionado.</p>
+                <p className="text-slate-400 text-sm mt-1">Registre asistencias desde el módulo Citas del panel admin.</p>
+              </div>
+            ) : (
+              <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm">
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead className="bg-slate-50 border-y border-slate-200">
+                      <tr>{['Institución','Total Citas','Asistieron','No Asistieron','Sin Marcar','Tasa Asistencia'].map(h => <th key={h} className="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase">{h}</th>)}</tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {rows.map((r, i) => (
+                        <tr key={i} className="hover:bg-slate-50">
+                          <td className="px-4 py-3 font-semibold text-slate-800">{r.institution}</td>
+                          <td className="px-4 py-3 font-bold text-teal-700">{r.total_appointments}</td>
+                          <td className="px-4 py-3 text-emerald-600 font-semibold">{r.attended}</td>
+                          <td className="px-4 py-3 text-red-500 font-semibold">{r.absent}</td>
+                          <td className="px-4 py-3 text-amber-600">{r.pending}</td>
+                          <td className="px-4 py-3">
+                            <div className="flex items-center gap-2">
+                              <div className="flex-1 bg-slate-200 rounded-full h-2 min-w-[80px]">
+                                <div
+                                  className={`h-2 rounded-full ${r.attendance_rate >= 75 ? 'bg-emerald-500' : r.attendance_rate >= 50 ? 'bg-amber-400' : 'bg-red-400'}`}
+                                  style={{ width: `${r.attendance_rate}%` }}
+                                />
+                              </div>
+                              <span className="text-xs font-bold text-slate-700">{r.attendance_rate}%</span>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+            <div className="flex gap-3">
+              <Button size="sm" variant="outline" onClick={() => exportCSV('reporte_asistencia.csv', rows as any)}>
+                <Download className="w-4 h-4 mr-2" /> Exportar CSV
+              </Button>
+              <Button size="sm" className="bg-teal-700 hover:bg-teal-800" onClick={() => exportPDF('Asistencia a Citas', ['Institución','Total','Asistieron','No Asistieron','Sin Marcar','Tasa%'], rows.map(r => [r.institution, r.total_appointments, r.attended, r.absent, r.pending, r.attendance_rate + '%']))}>
                 <FileText className="w-4 h-4 mr-2" /> Exportar PDF
               </Button>
             </div>
