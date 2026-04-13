@@ -181,7 +181,7 @@ export function AppointmentsTable({ appointments: initial }: Props) {
                           </span>
                           {appt.attended_at && (
                             <span className="text-xs text-slate-400">
-                              — {new Date(appt.attended_at).toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' })}
+                              — {new Date(appt.attended_at).toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit', timeZone: 'America/Bogota' })}
                             </span>
                           )}
                           {appt.attendance_notes && (

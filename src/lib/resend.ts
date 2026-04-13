@@ -187,7 +187,7 @@ export async function sendAppointmentConfirmationEmail(
     appointment: { date: string; time: string; doctor: string; specialty: string; institution: string }
 ) {
     if (!process.env.RESEND_API_KEY) return null
-    const dateFormatted = new Date(appointment.date + 'T12:00:00').toLocaleDateString('es-CO', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })
+    const dateFormatted = new Date(appointment.date + 'T12:00:00-05:00').toLocaleDateString('es-CO', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', timeZone: 'America/Bogota' })
     const html = `<div style="font-family:sans-serif;max-width:600px;margin:0 auto;color:#1e293b;">
       <div style="background:linear-gradient(135deg,#0f766e,#0369a1);padding:32px 40px;border-radius:12px 12px 0 0;">
         <h1 style="color:white;margin:0;font-size:22px;">📅 Cita Médica Confirmada</h1>
@@ -238,7 +238,7 @@ export async function sendAppointmentReminderEmail(
     const isUrgent = hoursUntil === 2
     const emoji = isUrgent ? '🚨' : '⏰'
     const timeLabel = isUrgent ? 'en 2 horas' : 'mañana'
-    const dateFormatted = new Date(appointment.date + 'T12:00:00').toLocaleDateString('es-CO', { weekday: 'long', month: 'long', day: 'numeric' })
+    const dateFormatted = new Date(appointment.date + 'T12:00:00-05:00').toLocaleDateString('es-CO', { weekday: 'long', month: 'long', day: 'numeric', timeZone: 'America/Bogota' })
     const accentColor = isUrgent ? '#dc2626' : '#0f766e'
     const html = `<div style="font-family:sans-serif;max-width:600px;margin:0 auto;color:#1e293b;">
       <div style="background:linear-gradient(135deg,${accentColor},${isUrgent ? '#b91c1c' : '#0369a1'});padding:28px 40px;border-radius:12px 12px 0 0;">
