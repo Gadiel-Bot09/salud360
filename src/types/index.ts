@@ -16,8 +16,8 @@ export interface Institution {
   colors?: {
     primary: string;
     secondary: string;
-  };
   settings_json?: Record<string, any>;
+  privacy_policy?: string;
   created_at: string;
 }
 

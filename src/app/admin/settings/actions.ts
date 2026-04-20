@@ -42,6 +42,7 @@ export async function updateInstitutionBranding(formData: FormData) {
   const phone = formData.get('phone') as string | null
   const contactEmail = formData.get('contact_email') as string | null
   const website = formData.get('website') as string | null
+  const privacyPolicy = formData.get('privacy_policy') as string | null
 
   if (!institutionId) return { success: false, error: 'ID de institución requerido.' }
 
@@ -61,6 +62,7 @@ export async function updateInstitutionBranding(formData: FormData) {
       phone: phone || null,
       contact_email: contactEmail || null,
       website: website || null,
+      privacy_policy: privacyPolicy || null,
     })
     .eq('id', institutionId)
 

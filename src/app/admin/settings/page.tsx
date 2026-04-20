@@ -23,7 +23,7 @@ export default async function SettingsPage() {
   if (userProfile?.institution_id) {
     const { data } = await supabase
       .from('institutions')
-      .select('id, name, slug, logo_url, colors, tagline, description, address, phone, contact_email, website')
+      .select('id, name, slug, logo_url, colors, tagline, description, address, phone, contact_email, website, privacy_policy')
       .eq('id', userProfile.institution_id)
       .single()
     institution = data

@@ -1,12 +1,13 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { useToast } from '@/hooks/use-toast'
 import { Loader2, UploadCloud, ShieldCheck, ChevronDown, Building2, FileText, X } from 'lucide-react'
 import type { FormField, FormTemplate } from '@/lib/form-template'
+import Link from 'next/link'
 
 interface BrandColors {
   primary: string
@@ -417,13 +418,42 @@ export function RequestForm({
 }) {
   const [submitting, setSubmitting] = useState(false)
   const [successRadicado, setSuccessRadicado] = useState<string | null>(null)
+  
+  // CAPTCHA State
+  const [captchaA, setCaptchaA] = useState(0)
+  const [captchaB, setCaptchaB] = useState(0)
+  const [captchaInput, setCaptchaInput] = useState('')
+  const [captchaError, setCaptchaError] = useState(false)
+
   const { toast } = useToast()
 
   const brandColors: BrandColors = externalColors ?? { primary: '#0f766e', secondary: '#134e4a' }
   const initial = institutionName?.charAt(0)?.toUpperCase() || 'I'
 
+  // Initialize CAPTCHA
+  useEffect(() => {
+    setCaptchaA(Math.floor(Math.random() * 10) + 1)
+    setCaptchaB(Math.floor(Math.random() * 10) + 1)
+  }, [])
+
+  function regenerateCaptcha() {
+    setCaptchaA(Math.floor(Math.random() * 10) + 1)
+    setCaptchaB(Math.floor(Math.random() * 10) + 1)
+    setCaptchaInput('')
+  }
+
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
+    
+    // Validate CAPTCHA
+    if (parseInt(captchaInput) !== (captchaA + captchaB)) {
+      setCaptchaError(true)
+      regenerateCaptcha()
+      toast({ title: 'Error de Verificación', description: 'El CAPTCHA matemático es incorrecto. Inténtalo de nuevo.', variant: 'destructive' })
+      return
+    }
+    setCaptchaError(false)
+
     setSubmitting(true)
     const formData = new FormData(e.currentTarget)
     formData.append('institutionId', institutionId)
@@ -478,6 +508,8 @@ export function RequestForm({
     )
   }
 
+  const slug = typeof window !== 'undefined' ? window.location.pathname.split('/').pop() : ''
+
   // ─── Form ──────────────────────────────────────────────────────────────────
   return (
     <form onSubmit={handleSubmit} className="space-y-6 animate-in fade-in zoom-in-95 duration-500">
@@ -523,6 +555,52 @@ export function RequestForm({
           {template.fields.map(field => (
             <FieldRenderer key={field.id} field={field} brandColors={brandColors} />
           ))}
+        </div>
+      </div>
+
+      <div className="border-t border-slate-100 pt-6 space-y-5">
+        {/* Terminos y privacidad Checkbox */}
+        <div className="flex items-start gap-3 bg-slate-50 p-4 rounded-xl border border-slate-100">
+          <input
+            type="checkbox"
+            id="privacy_policy"
+            name="privacy_policy"
+            required
+            className="mt-1 h-4 w-4 rounded border-slate-300 text-teal-600 focus:ring-teal-600 cursor-pointer"
+            style={{ accentColor: brandColors.primary }}
+          />
+          <Label htmlFor="privacy_policy" className="text-xs text-slate-600 leading-relaxed cursor-pointer font-medium">
+            He leído y acepto la{' '}
+            <Link 
+              href={`/portal/${slug}/privacy`} 
+              target="_blank" 
+              className="underline font-bold hover:opacity-80 transition-opacity"
+              style={{ color: brandColors.primary }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              política de tratamiento de datos personales
+            </Link>{' '}
+            en cumplimiento con la normatividad colombiana (Ley 1581 de 2012). Entiendo que estos datos serán usados para procesar mi solicitud de salud.
+          </Label>
+        </div>
+
+        {/* Captcha Matemático Nativo */}
+        <div className={`flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 p-4 rounded-xl border ${captchaError ? 'border-red-300 bg-red-50' : 'border-slate-200 bg-white'}`}>
+           <div className="flex flex-col">
+             <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1">Verificación Antispam</span>
+             <p className="text-sm font-semibold text-slate-800">
+               ¿Cuánto es <span className="text-lg mx-1" style={{ color: brandColors.primary }}>{captchaA} + {captchaB}</span>?
+             </p>
+           </div>
+           <Input
+             type="number"
+             required
+             value={captchaInput}
+             onChange={(e) => setCaptchaInput(e.target.value)}
+             placeholder="="
+             className={`w-full sm:w-24 text-center text-lg font-bold ${captchaError ? 'border-red-400 focus-visible:ring-red-400' : ''}`}
+             style={!captchaError ? { '--tw-ring-color': brandColors.primary } as React.CSSProperties : undefined}
+           />
         </div>
       </div>
 

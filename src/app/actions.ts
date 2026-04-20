@@ -35,7 +35,7 @@ export async function getInstitutionBySlug(slug: string) {
   if (!slug) return null
   const { data } = await supabase
     .from('institutions')
-    .select('id, name, slug, logo_url, colors, tagline, description, address, phone, contact_email, website')
+    .select('id, name, slug, logo_url, colors, tagline, description, address, phone, contact_email, website, privacy_policy')
     .eq('slug', slug)
     .single()
   return data

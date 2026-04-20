@@ -23,6 +23,7 @@ interface Institution {
   contact_email: string | null
   website: string | null
   colors: { primary: string; secondary: string } | null
+  privacy_policy: string | null
 }
 
 interface Props {
@@ -310,6 +311,21 @@ function BrandingSection({ institution, siteUrl }: { institution: Institution; s
                 <Globe className="h-3.5 w-3.5 text-slate-400" /> Sitio Web
               </Label>
               <Input id="website" name="website" type="url" defaultValue={institution.website || ''} placeholder="https://www.clinica.com" />
+            </div>
+            
+            <div className="space-y-2 md:col-span-2 pt-4 border-t border-slate-100">
+              <Label htmlFor="privacy_policy" className="flex items-center gap-1.5">
+                <FileText className="h-4 w-4 text-teal-600" /> Política de Tratamiento de Datos
+              </Label>
+              <p className="text-xs text-slate-500 mb-2">
+                Este texto será visible para los pacientes antes de enviar cualquier solicitud, en cumplimiento con la ley de protección de datos personales.
+              </p>
+              <textarea
+                id="privacy_policy" name="privacy_policy"
+                defaultValue={institution.privacy_policy || ''}
+                rows={10} placeholder="Escriba o pegue la política de tratamiento de datos personales de la institución aquí..."
+                className="flex w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-600 resize-y"
+              />
             </div>
           </div>
         </div>
