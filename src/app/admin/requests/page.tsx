@@ -22,7 +22,7 @@ export default async function RequestsPage() {
     const { data: requests, error } = await supabase
         .from('requests')
         .select('*, request_attachments(id)')
-        .order('created_at', { ascending: false })
+        .order('created_at', { ascending: true })
 
     if (error) {
         console.error('Error fetching requests:', error)

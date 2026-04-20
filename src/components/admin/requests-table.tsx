@@ -13,8 +13,8 @@ import {
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Eye, FileText, Search, X, Paperclip } from 'lucide-react'
-import { format } from 'date-fns'
+import { Eye, FileText, Search, X, Paperclip, AlertTriangle } from 'lucide-react'
+import { format, differenceInDays } from 'date-fns'
 import { es } from 'date-fns/locale'
 import Link from 'next/link'
 import { ExportButtons } from './export-buttons'
@@ -133,30 +133,42 @@ export function RequestsTable({ initialData }: { initialData: any[] }) {
                                 </TableCell>
                             </TableRow>
                         ) : (
-                            filtered.map((req) => (
-                                <TableRow key={req.id} className="hover:bg-slate-50 transition-colors">
-                                    <TableCell className="font-medium">
-                                        {req.radicado}
-                                        <div className="mt-1">{getPriorityBadge(req.priority)}</div>
-                                    </TableCell>
-                                    <TableCell className="text-slate-600">
-                                        {format(new Date(req.created_at), "d MMM, yyyy", { locale: es })}
-                                    </TableCell>
-                                    <TableCell>
-                                        <div className="font-medium text-slate-900">
-                                            {req.patient_data_json?.fullName || <span className="text-slate-400 italic text-xs">Sin nombre</span>}
-                                        </div>
-                                        <div className="text-xs text-slate-500 mt-0.5">{req.patient_document_type} {req.patient_document_number}</div>
-                                    </TableCell>
-                                    <TableCell>
-                                        <div className="flex items-center space-x-2">
-                                            <FileText className="h-4 w-4 text-slate-400" />
-                                            <span>{req.type}</span>
-                                        </div>
-                                    </TableCell>
-                                    <TableCell>
-                                        {getStatusBadge(req.status)}
-                                    </TableCell>
+                            filtered.map((req) => {
+                                // Indicator logic for requests older than 5 days without response
+                                const isPending = req.status === 'received' || req.status === 'processing' || req.status === 'escalated'
+                                const daysElapsed = differenceInDays(new Date(), new Date(req.created_at))
+                                const isDelayed = isPending && daysElapsed > 5
+
+                                return (
+                                    <TableRow key={req.id} className="hover:bg-slate-50 transition-colors">
+                                        <TableCell className="font-medium">
+                                            {req.radicado}
+                                            <div className="mt-1">{getPriorityBadge(req.priority)}</div>
+                                        </TableCell>
+                                        <TableCell className="text-slate-600 relative">
+                                            {format(new Date(req.created_at), "d MMM, yyyy", { locale: es })}
+                                            {isDelayed && (
+                                                <div className="mt-1 flex items-center gap-1 text-red-600 bg-red-50 text-[10px] font-bold px-1.5 py-0.5 rounded-sm w-max border border-red-100">
+                                                    <AlertTriangle className="h-3 w-3" />
+                                                    +{daysElapsed} días en espera
+                                                </div>
+                                            )}
+                                        </TableCell>
+                                        <TableCell>
+                                            <div className="font-medium text-slate-900">
+                                                {req.patient_data_json?.fullName || <span className="text-slate-400 italic text-xs">Sin nombre</span>}
+                                            </div>
+                                            <div className="text-xs text-slate-500 mt-0.5">{req.patient_document_type} {req.patient_document_number}</div>
+                                        </TableCell>
+                                        <TableCell>
+                                            <div className="flex items-center space-x-2">
+                                                <FileText className="h-4 w-4 text-slate-400" />
+                                                <span>{req.type}</span>
+                                            </div>
+                                        </TableCell>
+                                        <TableCell>
+                                            {getStatusBadge(req.status)}
+                                        </TableCell>
                                     <TableCell className="text-right">
                                         <div className="flex items-center justify-end gap-2">
                                             {(req.request_attachments?.length > 0 || req.attachments_count > 0) && (
@@ -172,7 +184,8 @@ export function RequestsTable({ initialData }: { initialData: any[] }) {
                                         </div>
                                     </TableCell>
                                 </TableRow>
-                            ))
+                                )
+                            })
                         )}
                     </TableBody>
                 </Table>
