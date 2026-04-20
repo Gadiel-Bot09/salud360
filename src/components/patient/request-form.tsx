@@ -5,12 +5,159 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { useToast } from '@/hooks/use-toast'
-import { Loader2, UploadCloud, ShieldCheck, ChevronDown, Building2 } from 'lucide-react'
+import { Loader2, UploadCloud, ShieldCheck, ChevronDown, Building2, FileText, X } from 'lucide-react'
 import type { FormField, FormTemplate } from '@/lib/form-template'
 
 interface BrandColors {
   primary: string
   secondary: string
+}
+
+// ─── Single Labeled File Drop Zone ────────────────────────────────────────────
+// Used when the admin has configured document labels (e.g. "Historia Clínica", "Autorización")
+
+function LabeledFileZone({
+  label, inputName, required, brandColors, multiple,
+}: {
+  label: string
+  inputName: string
+  required: boolean
+  brandColors: BrandColors
+  multiple?: boolean
+}) {
+  const [files, setFiles] = useState<File[]>([])
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files) setFiles(Array.from(e.target.files))
+  }
+
+  const removeFile = (idx: number) => {
+    setFiles(prev => prev.filter((_, i) => i !== idx))
+  }
+
+  return (
+    <div className="space-y-1.5">
+      {/* Tracks the human-readable label for this input in the API */}
+      <input type="hidden" name={`filelabel__${inputName}`} value={label} />
+
+      <p className="text-xs font-semibold text-slate-700 flex items-center gap-1">
+        <FileText className="h-3 w-3 opacity-60" /> {label}
+        {required && <span className="text-red-500 ml-0.5">*</span>}
+      </p>
+
+      <label
+        className="flex flex-col items-center justify-center gap-2 py-4 px-3 rounded-xl border-2 border-dashed cursor-pointer hover:opacity-80 transition-all"
+        style={{ borderColor: `${brandColors.primary}45`, background: `${brandColors.primary}07` }}
+      >
+        <div className="w-8 h-8 rounded-full flex items-center justify-center shrink-0"
+          style={{ background: `${brandColors.primary}18` }}>
+          <UploadCloud className="w-4 h-4" style={{ color: brandColors.primary }} />
+        </div>
+        <p className="text-xs text-slate-500 text-center leading-relaxed">
+          {multiple ? 'Clic o arrastre (múltiples archivos)' : 'Clic o arrastre un archivo'}
+        </p>
+        <input
+          type="file"
+          name={inputName}
+          required={required && files.length === 0}
+          multiple={multiple}
+          onChange={handleChange}
+          className="sr-only"
+        />
+      </label>
+
+      {/* Preview list of selected files */}
+      {files.length > 0 && (
+        <ul className="space-y-1 mt-1">
+          {files.map((f, i) => (
+            <li key={i}
+              className="flex items-center gap-2 text-xs rounded-lg px-2.5 py-1.5 border"
+              style={{ background: `${brandColors.primary}07`, borderColor: `${brandColors.primary}22` }}
+            >
+              <FileText className="h-3 w-3 shrink-0" style={{ color: brandColors.primary }} />
+              <span className="truncate flex-1 text-slate-700 font-medium">{f.name}</span>
+              <span className="text-slate-400 shrink-0">{(f.size / 1024).toFixed(0)} KB</span>
+              <button
+                type="button"
+                onClick={() => removeFile(i)}
+                className="shrink-0 text-slate-300 hover:text-red-400 transition-colors ml-1"
+              >
+                <X className="h-3 w-3" />
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  )
+}
+
+// ─── Simple File Drop Zone ────────────────────────────────────────────────────
+// Used when there are no labels — single or multiple based on allowMultipleFiles
+
+function SimpleFileZone({
+  inputName, required, brandColors, multiple,
+}: {
+  inputName: string
+  required: boolean
+  brandColors: BrandColors
+  multiple?: boolean
+}) {
+  const [files, setFiles] = useState<File[]>([])
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files) setFiles(Array.from(e.target.files))
+  }
+
+  const removeFile = (idx: number) => {
+    setFiles(prev => prev.filter((_, i) => i !== idx))
+  }
+
+  return (
+    <div className="space-y-2">
+      <label
+        className="flex flex-col items-center justify-center gap-2 p-6 rounded-xl border-2 border-dashed cursor-pointer hover:opacity-80 transition-all"
+        style={{ borderColor: `${brandColors.primary}40`, background: `${brandColors.primary}06` }}
+      >
+        <div className="w-10 h-10 rounded-full flex items-center justify-center"
+          style={{ background: `${brandColors.primary}18` }}>
+          <UploadCloud className="w-5 h-5" style={{ color: brandColors.primary }} />
+        </div>
+        <p className="text-sm text-slate-500 font-medium">Arrastre un documento o haga clic</p>
+        {multiple && <p className="text-xs text-slate-400">Puede seleccionar múltiples archivos</p>}
+        <input
+          type="file"
+          name={inputName}
+          required={required && files.length === 0}
+          multiple={multiple}
+          onChange={handleChange}
+          className="sr-only"
+        />
+      </label>
+
+      {files.length > 0 && (
+        <ul className="space-y-1">
+          {files.map((f, i) => (
+            <li key={i}
+              className="flex items-center gap-2 text-xs rounded-lg px-2.5 py-1.5 border"
+              style={{ background: `${brandColors.primary}07`, borderColor: `${brandColors.primary}22` }}
+            >
+              <FileText className="h-3 w-3 shrink-0" style={{ color: brandColors.primary }} />
+              <span className="truncate flex-1 text-slate-700 font-medium">{f.name}</span>
+              <span className="text-slate-400 shrink-0">{(f.size / 1024).toFixed(0)} KB</span>
+              <button
+                type="button"
+                onClick={() => removeFile(i)}
+                className="shrink-0 text-slate-300 hover:text-red-400 transition-colors ml-1"
+              >
+                <X className="h-3 w-3" />
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  )
 }
 
 // ─── Field Renderer ────────────────────────────────────────────────────────────
@@ -33,6 +180,11 @@ function FieldRenderer({
 
   const isWide = field.type === 'file' || field.type === 'textarea'
 
+  // When admin has defined document labels, options[] holds them (e.g. ["Historia Clínica", "Autorización"])
+  const fileLabels = field.type === 'file' && field.options && field.options.length > 0
+    ? field.options.filter(Boolean)
+    : []
+
   return (
     <>
       <input type="hidden" name={`label__${inputName}`} value={field.label} />
@@ -45,7 +197,7 @@ function FieldRenderer({
         {field.type === 'text' && (
           <Input
             name={inputName} required={field.required} placeholder={field.placeholder}
-            className="h-10 focus-visible:ring-[--brand-primary]"
+            className="h-10"
             style={{ '--tw-ring-color': brandColors.primary } as React.CSSProperties}
           />
         )}
@@ -109,22 +261,36 @@ function FieldRenderer({
           </div>
         )}
 
-        {field.type === 'file' && (
-          <div
-            className="border-2 border-dashed rounded-xl p-6 flex flex-col items-center justify-center text-center hover:bg-slate-50 transition-colors cursor-pointer"
-            style={{ borderColor: `${brandColors.primary}40` }}
-          >
-            <div className="w-10 h-10 rounded-full flex items-center justify-center mb-2"
-              style={{ background: `${brandColors.primary}18` }}>
-              <UploadCloud className="w-5 h-5" style={{ color: brandColors.primary }} />
-            </div>
-            <span className="text-sm text-slate-500 font-medium mb-2">Arrastre un documento o haga clic</span>
-            <input
-              type="file" name={inputName} required={field.required}
-              className="block w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold"
-              style={{ '--file-btn-bg': `${brandColors.primary}18`, '--file-btn-color': brandColors.primary } as React.CSSProperties}
-            />
+        {/* ── File field — THREE modes ─────────────────────────────────────────
+            1. Labels defined → one LabeledFileZone per label (separate inputs)
+            2. allowMultipleFiles, no labels → SimpleFileZone with multiple
+            3. No labels, no multiple → SimpleFileZone single
+        ────────────────────────────────────────────────────────────────────── */}
+        {field.type === 'file' && fileLabels.length > 0 && (
+          <div className="space-y-3 rounded-xl border border-slate-100 bg-slate-50/60 p-3">
+            <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">
+              Documentos requeridos
+            </p>
+            {fileLabels.map((lbl, idx) => (
+              <LabeledFileZone
+                key={idx}
+                label={lbl}
+                inputName={`${inputName}__lbl${idx}`}
+                required={field.required}
+                brandColors={brandColors}
+                multiple={field.allowMultipleFiles}
+              />
+            ))}
           </div>
+        )}
+
+        {field.type === 'file' && fileLabels.length === 0 && (
+          <SimpleFileZone
+            inputName={inputName}
+            required={field.required}
+            brandColors={brandColors}
+            multiple={field.allowMultipleFiles}
+          />
         )}
       </div>
 
@@ -153,8 +319,11 @@ function FieldRenderer({
                     className={`${base} h-auto resize-none`} />
                 )}
                 {sub.type === 'file' && (
-                  <input type="file" name={`cond__${field.id}__${sub.id}`} required={sub.required}
-                    className="block w-full text-sm text-slate-500 file:mr-3 file:py-1.5 file:px-3 file:rounded-full file:border-0 file:text-xs file:font-semibold" />
+                  <SimpleFileZone
+                    inputName={`cond__${field.id}__${sub.id}`}
+                    required={sub.required}
+                    brandColors={brandColors}
+                  />
                 )}
               </div>
             ))}
@@ -184,6 +353,9 @@ function RequestTypeSection({
     onChange(label)
   }
 
+  const base = `flex w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm transition-colors
+    focus:outline-none focus:ring-2 focus:border-transparent`
+
   return (
     <>
       <input type="hidden" name="requestType" value={selectedLabel} />
@@ -197,7 +369,7 @@ function RequestTypeSection({
             required
             value={selectedId}
             onChange={(e) => handleChange(e.target.value)}
-            className="flex w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm h-11 appearance-none pr-8 focus:outline-none focus:ring-2 focus:border-transparent transition-colors"
+            className={`${base} h-11 appearance-none pr-8`}
             style={{ '--tw-ring-color': brandColors.primary } as React.CSSProperties}
           >
             <option value="" disabled>Seleccione el tipo de trámite...</option>

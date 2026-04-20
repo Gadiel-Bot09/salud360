@@ -23,21 +23,32 @@ export async function POST(request: Request) {
 
         // 2. Dynamic JSON Fields Extraction (Any non-core field except files)
         const patientData: Record<string, string> = {}
-        const filesToUpload: File[] = []
+        // filesToUpload stores { file, label? } so we can save the document label in the attachment record
+        const filesToUpload: { file: File; docLabel?: string }[] = []
         const entries = Array.from(formData.entries())
 
+        // Collect human-readable labels for form fields: label__<inputName> = "Nombre Campo"
         const labels: Record<string, string> = {}
+        // Collect document labels for labeled file zones: filelabel__<inputName> = "Historia Clínica"
+        const fileLabels: Record<string, string> = {}
+
         for (const [key, value] of entries) {
             if (key.startsWith('label__')) {
                 labels[key.replace('label__', '')] = value as string
             }
+            if (key.startsWith('filelabel__')) {
+                fileLabels[key.replace('filelabel__', '')] = value as string
+            }
         }
 
         for (const [key, value] of entries) {
-             if (coreKeys.includes(key) || key.startsWith('label__')) continue
+             if (coreKeys.includes(key) || key.startsWith('label__') || key.startsWith('filelabel__') || key === '_requestTypeId') continue
 
              if (value instanceof File) {
-                 if (value.size > 0) filesToUpload.push(value)
+                 if (value.size > 0) {
+                     // Look up the document label for this input name (e.g. "Historia Clínica")
+                     filesToUpload.push({ file: value, docLabel: fileLabels[key] })
+                 }
              } else {
                  const finalKey = labels[key] || key
                  patientData[finalKey] = value as string
@@ -104,7 +115,7 @@ export async function POST(request: Request) {
             })
             const bucketName = process.env.MINIO_BUCKET_NAME!
 
-            for (const file of filesToUpload) {
+            for (const { file, docLabel } of filesToUpload) {
                 const fileExt = file.name.split('.').pop()
                 const safeName = `${Math.random().toString(36).substring(7)}.${fileExt}`
                 const uploadPath = `${institutionId}/${requestId}/${safeName}`
@@ -122,14 +133,13 @@ export async function POST(request: Request) {
 
                     await supabase.from('request_attachments').insert({
                         request_id: requestId,
-                        file_name: file.name,
+                        file_name: docLabel ? `[${docLabel}] ${file.name}` : file.name,
                         file_path: uploadPath,
                         file_type: file.type,
                         file_size: file.size
                     })
                 } catch(uploadError: any) {
                      console.error('Error uploading file to MinIO:', uploadError)
-                     // Pass the exact S3 error to the client for debugging
                      return NextResponse.json({ error: `Fallo Cloud Storage: ${uploadError?.message || 'Unknown'}` }, { status: 500 })
                 }
             }
