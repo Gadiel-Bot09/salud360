@@ -36,6 +36,12 @@ export async function updateInstitutionBranding(formData: FormData) {
   const slug = formData.get('slug') as string
   const primaryColor = formData.get('primaryColor') as string
   const secondaryColor = formData.get('secondaryColor') as string
+  const tagline = formData.get('tagline') as string | null
+  const description = formData.get('description') as string | null
+  const address = formData.get('address') as string | null
+  const phone = formData.get('phone') as string | null
+  const contactEmail = formData.get('contact_email') as string | null
+  const website = formData.get('website') as string | null
 
   if (!institutionId) return { success: false, error: 'ID de institución requerido.' }
 
@@ -49,6 +55,12 @@ export async function updateInstitutionBranding(formData: FormData) {
       logo_url: logoUrl || null,
       slug: cleanSlug,
       colors: { primary: primaryColor, secondary: secondaryColor },
+      tagline: tagline || null,
+      description: description || null,
+      address: address || null,
+      phone: phone || null,
+      contact_email: contactEmail || null,
+      website: website || null,
     })
     .eq('id', institutionId)
 

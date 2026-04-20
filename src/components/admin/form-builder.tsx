@@ -192,21 +192,31 @@ function FieldCard({
             </div>
           </div>
 
-          {/* Simple options for simple select */}
-          {field.type === 'select' && !field.hasConditionalOptions && (
+          {/* Allow multiple files checkbox */}
+          {field.type === 'file' && (
+            <div className="flex items-center gap-2 pt-2 pb-2">
+              <Checkbox checked={field.allowMultipleFiles} onCheckedChange={(v) => onUpdate({ allowMultipleFiles: !!v })} id={`req-mult-${field.id}`} />
+              <label htmlFor={`req-mult-${field.id}`} className="text-sm font-medium text-slate-700 cursor-pointer">Permitir subir múltiples archivos</label>
+            </div>
+          )}
+
+          {/* Simple options for simple select OR file tags */}
+          {((field.type === 'select' && !field.hasConditionalOptions) || field.type === 'file') && (
             <div className="space-y-2">
-              <Label className="text-xs text-slate-500 uppercase tracking-wider">Opciones de la lista</Label>
+              <Label className="text-xs text-slate-500 uppercase tracking-wider">
+                {field.type === 'file' ? 'Etiquetas de documento (opcional)' : 'Opciones de la lista'}
+              </Label>
               {(field.options || []).map((opt, i) => (
                 <div key={i} className="flex gap-2">
-                  <Input value={opt} onChange={(e) => updateOption(i, e.target.value)} className="h-8 text-sm flex-1" placeholder={`Opción ${i + 1}`} />
+                  <Input value={opt} onChange={(e) => updateOption(i, e.target.value)} className="h-8 text-sm flex-1" placeholder={field.type === 'file' ? `Ej: Historia Clínica` : `Opción ${i + 1}`} />
                   <button onClick={() => removeOption(i)} className="text-slate-300 hover:text-red-500"><X className="h-4 w-4" /></button>
                 </div>
               ))}
               <div className="flex gap-2 flex-wrap">
                 <Button type="button" variant="outline" size="sm" onClick={addOption} className="text-xs h-8">
-                  <Plus className="h-3 w-3 mr-1" /> Agregar opción
+                  <Plus className="h-3 w-3 mr-1" /> {field.type === 'file' ? 'Agregar etiqueta' : 'Agregar opción'}
                 </Button>
-                {allowConditional && (
+                {allowConditional && field.type !== 'file' && (
                   <Button type="button" variant="outline" size="sm" onClick={() => onUpdate({ hasConditionalOptions: true, options: undefined })} className="text-xs h-8 border-violet-200 text-violet-700 hover:bg-violet-50">
                     <GitBranch className="h-3 w-3 mr-1" /> Convertir a opciones con subcampos
                   </Button>

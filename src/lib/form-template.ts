@@ -32,6 +32,7 @@ export interface FormField {
   options?: string[]
   hasConditionalOptions?: boolean
   conditionalOptions?: ConditionalOption[]
+  allowMultipleFiles?: boolean // Controla si permite <input multiple>
 }
 
 export interface RequestType {

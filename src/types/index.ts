@@ -5,7 +5,14 @@ export type RequestStatus = 'received' | 'processing' | 'responded' | 'closed' |
 export interface Institution {
   id: string;
   name: string;
+  slug?: string;
   logo_url?: string;
+  tagline?: string;
+  description?: string;
+  address?: string;
+  phone?: string;
+  contact_email?: string;
+  website?: string;
   colors?: {
     primary: string;
     secondary: string;
