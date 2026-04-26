@@ -1,0 +1,17 @@
+{
+  "name": "Salud360 | Plataforma Médica",
+  "short_name": "Salud360",
+  "description": "Plataforma SaaS de Gestión Médica",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#4f46e5",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "/favicon.ico",
+      "sizes": "any",
+      "type": "image/x-icon"
+    }
+  ]
+}
