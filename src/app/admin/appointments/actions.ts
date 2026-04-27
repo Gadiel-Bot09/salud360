@@ -162,7 +162,7 @@ export async function sendManualWhatsAppReminder(appointmentId: string): Promise
       .from('appointments')
       .select(`
         id, appointment_date, appointment_time, doctor_name, specialty,
-        requests ( radicado, patient_data_json, institutions(name) )
+        requests ( radicado, patient_data_json, institutions(name, evolution_instance_name, evolution_connected) )
       `)
       .eq('id', appointmentId)
       .single()
@@ -180,13 +180,20 @@ export async function sendManualWhatsAppReminder(appointmentId: string): Promise
     }
 
     const institution = req.institutions?.name || 'Salud360'
+    const instanceName = req.institutions?.evolution_instance_name
+    const isConnected = req.institutions?.evolution_connected
+
+    if (!instanceName || !isConnected) {
+      return { success: false, error: `La clínica ${institution} no tiene su WhatsApp conectado.` }
+    }
+
     const dateStr = appt.appointment_date
     const timeStr = appt.appointment_time?.slice(0, 5) || '—'
     const doctorStr = appt.doctor_name ? `con el especialista ${appt.doctor_name}` : ''
 
     const text = `Hola ${fullName},\n\nEste es un recordatorio de tu cita médica programada en *${institution}* para el *${dateStr}* a las *${timeStr}* ${doctorStr}.\n\nPor favor, recuerda llegar con 15 minutos de antelación.\n\nAtentamente,\nEquipo de ${institution}`
 
-    const res = await sendWhatsAppMessage(process.env.EVOLUTION_INSTANCE_NAME || 'default', {
+    const res = await sendWhatsAppMessage(instanceName, {
       number: phone.replace(/\D/g, ''),
       text
     })

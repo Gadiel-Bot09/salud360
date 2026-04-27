@@ -44,7 +44,7 @@ export async function GET(request: Request) {
       .select(`
         id, appointment_date, appointment_time, doctor_name, specialty,
         reminder_24h_sent, reminder_2h_sent,
-        requests ( id, radicado, patient_email, patient_data_json, institutions(name) )
+        requests ( id, radicado, patient_email, patient_data_json, institutions(name, evolution_instance_name, evolution_connected) )
       `)
       .or('reminder_24h_sent.eq.false,reminder_2h_sent.eq.false')
 
@@ -58,6 +58,8 @@ export async function GET(request: Request) {
       const patientPhone = req.patient_data_json?.phone
       const toEmail      = req.patient_email
       const institution  = req.institutions?.name || 'Salud360'
+      const instanceName = req.institutions?.evolution_instance_name
+      const isConnected  = req.institutions?.evolution_connected
       const appointmentData = {
         date:      appt.appointment_date,
         time:      appt.appointment_time?.slice(0, 5) || '—',
@@ -76,11 +78,11 @@ export async function GET(request: Request) {
         try {
           await sendAppointmentReminderEmail(toEmail, patientName, req.radicado, appointmentData, 24)
           
-          if (patientPhone && patientPhone !== '—') {
+          if (patientPhone && patientPhone !== '—' && isConnected && instanceName) {
             const timeStr = appt.appointment_time?.slice(0, 5) || '—'
             const doctorStr = appt.doctor_name ? `con el especialista ${appt.doctor_name}` : ''
             const text = `Hola ${patientName},\n\nTe recordamos que mañana tienes una cita médica en *${institution}* a las *${timeStr}* ${doctorStr}.\n\nPor favor, llega con 15 minutos de antelación.\n\nAtentamente,\nEquipo de ${institution}`
-            await sendWhatsAppMessage(process.env.EVOLUTION_INSTANCE_NAME || 'default', {
+            await sendWhatsAppMessage(instanceName, {
               number: patientPhone.replace(/\D/g, ''),
               text
             })
@@ -99,11 +101,11 @@ export async function GET(request: Request) {
         try {
           await sendAppointmentReminderEmail(toEmail, patientName, req.radicado, appointmentData, 2)
           
-          if (patientPhone && patientPhone !== '—') {
+          if (patientPhone && patientPhone !== '—' && isConnected && instanceName) {
             const timeStr = appt.appointment_time?.slice(0, 5) || '—'
             const doctorStr = appt.doctor_name ? `con el especialista ${appt.doctor_name}` : ''
             const text = `Hola ${patientName},\n\nEste es un recordatorio final para tu cita médica de hoy en *${institution}* a las *${timeStr}* ${doctorStr}.\n\nTe esperamos pronto.\n\nAtentamente,\nEquipo de ${institution}`
-            await sendWhatsAppMessage(process.env.EVOLUTION_INSTANCE_NAME || 'default', {
+            await sendWhatsAppMessage(instanceName, {
               number: patientPhone.replace(/\D/g, ''),
               text
             })

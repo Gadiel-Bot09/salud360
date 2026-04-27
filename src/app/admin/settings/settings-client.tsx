@@ -1,14 +1,15 @@
 'use client'
 
-import { useState, useTransition } from 'react'
+import { useState, useTransition, useEffect, useRef } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { changePassword, updateInstitutionBranding } from './actions'
+import { useToast } from '@/hooks/use-toast'
 import {
   Settings, KeyRound, Building2, Link2, CheckCircle2,
   AlertCircle, Loader2, Palette, Globe, MapPin, Phone,
-  Mail, FileText, Eye, Sparkles,
+  Mail, FileText, Eye, Sparkles, Smartphone, QrCode
 } from 'lucide-react'
 
 interface Institution {
@@ -24,6 +25,8 @@ interface Institution {
   website: string | null
   colors: { primary: string; secondary: string } | null
   privacy_policy: string | null
+  evolution_instance_name: string | null
+  evolution_connected: boolean
 }
 
 interface Props {
@@ -82,6 +85,128 @@ function PasswordSection() {
           {pending ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Actualizando...</> : 'Actualizar Contraseña'}
         </Button>
       </form>
+    </section>
+  )
+}
+
+// ── WhatsApp Connection Section ──────────────────────────────────────────────
+function WhatsAppConnectionSection({ institution }: { institution: Institution }) {
+  const [status, setStatus] = useState<'idle'|'loading'|'qr_ready'|'connected'>(institution.evolution_connected ? 'connected' : 'idle')
+  const [qrBase64, setQrBase64] = useState<string | null>(null)
+  const [instanceName, setInstanceName] = useState<string | null>(institution.evolution_instance_name)
+  const pollingRef = useRef<NodeJS.Timeout | null>(null)
+  const { toast } = useToast()
+
+  const handleConnect = async () => {
+    setStatus('loading')
+    try {
+      const res = await fetch('/api/evolution/create', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ institutionId: institution.id })
+      })
+      const data = await res.json()
+      if (data.success && data.base64) {
+        setQrBase64(data.base64)
+        setInstanceName(data.instanceName)
+        setStatus('qr_ready')
+        startPolling(data.instanceName)
+      } else {
+        toast({ title: 'Error', description: data.error || 'No se pudo generar QR', variant: 'destructive' })
+        setStatus('idle')
+      }
+    } catch (err: any) {
+      setStatus('idle')
+      toast({ title: 'Error', description: err.message, variant: 'destructive' })
+    }
+  }
+
+  const startPolling = (iName: string) => {
+    if (pollingRef.current) clearInterval(pollingRef.current)
+    pollingRef.current = setInterval(async () => {
+      const res = await fetch('/api/evolution/status', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ institutionId: institution.id, instanceName: iName })
+      })
+      const data = await res.json()
+      if (data.connected) {
+        setStatus('connected')
+        setQrBase64(null)
+        if (pollingRef.current) clearInterval(pollingRef.current)
+        toast({ title: '¡Conectado!', description: 'WhatsApp vinculado exitosamente.' })
+      }
+    }, 3000)
+  }
+
+  const handleDisconnect = async () => {
+    setStatus('loading')
+    try {
+      await fetch('/api/evolution/logout', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ institutionId: institution.id, instanceName })
+      })
+      setStatus('idle')
+      setInstanceName(null)
+      toast({ title: 'Desconectado', description: 'La instancia ha sido eliminada.' })
+    } catch (err) {
+      setStatus('connected')
+    }
+  }
+
+  useEffect(() => {
+    return () => { if (pollingRef.current) clearInterval(pollingRef.current) }
+  }, [])
+
+  return (
+    <section className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+      <div className="flex items-center gap-3 px-6 py-4 border-b border-slate-100 bg-slate-50">
+        <Smartphone className="h-5 w-5 text-green-600" />
+        <div>
+          <h3 className="font-semibold text-slate-800">Conexión de WhatsApp</h3>
+          <p className="text-xs text-slate-500">Vincula un número para enviar notificaciones automatizadas.</p>
+        </div>
+      </div>
+      <div className="p-6">
+        {status === 'connected' ? (
+          <div className="flex flex-col sm:flex-row items-center gap-4 bg-green-50 border border-green-200 p-5 rounded-xl">
+            <div className="w-12 h-12 bg-green-100 text-green-600 rounded-full flex items-center justify-center shrink-0">
+              <CheckCircle2 className="h-6 w-6" />
+            </div>
+            <div className="flex-1">
+              <p className="font-semibold text-green-800">WhatsApp Conectado</p>
+              <p className="text-sm text-green-700 mt-1">El sistema enviará recordatorios desde esta cuenta.</p>
+              <p className="text-xs font-mono text-green-600 mt-1 opacity-70">Instancia: {instanceName}</p>
+            </div>
+            <Button variant="outline" onClick={handleDisconnect} className="text-red-600 border-red-200 hover:bg-red-50 hover:text-red-700">
+              Desconectar
+            </Button>
+          </div>
+        ) : (
+          <div className="text-center space-y-4">
+            {status === 'qr_ready' && qrBase64 ? (
+              <div className="animate-in fade-in zoom-in duration-300">
+                <p className="text-sm text-slate-600 mb-3 font-medium">Escanea este código con tu WhatsApp (Dispositivos Vinculados)</p>
+                <img src={qrBase64} alt="QR Code" className="w-48 h-48 mx-auto border-2 border-slate-100 rounded-xl shadow-sm" />
+                <p className="text-xs text-slate-400 mt-3 flex items-center justify-center gap-2">
+                  <Loader2 className="h-3 w-3 animate-spin" /> Esperando conexión...
+                </p>
+              </div>
+            ) : (
+              <div className="py-4">
+                <QrCode className="h-12 w-12 text-slate-200 mx-auto mb-3" />
+                <p className="text-slate-600 mb-4 max-w-sm mx-auto text-sm">
+                  Al conectar, Salud360 enviará mensajes a tus pacientes recordando sus citas automáticamente.
+                </p>
+                <Button onClick={handleConnect} disabled={status === 'loading'} className="bg-green-600 hover:bg-green-700">
+                  {status === 'loading' ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Procesando...</> : 'Generar Código QR'}
+                </Button>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
     </section>
   )
 }
@@ -369,7 +494,10 @@ export function SettingsClient({ userEmail, userRole, institution, siteUrl }: Pr
 
       {/* Institution Branding — only if assigned to one */}
       {institution ? (
-        <BrandingSection institution={institution} siteUrl={siteUrl} />
+        <>
+          <BrandingSection institution={institution} siteUrl={siteUrl} />
+          <WhatsAppConnectionSection institution={institution} />
+        </>
       ) : (
         <section className="bg-white rounded-2xl border border-slate-200 shadow-sm p-8 text-center">
           <Building2 className="h-12 w-12 text-slate-200 mx-auto mb-3" />
