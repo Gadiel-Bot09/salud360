@@ -3,11 +3,12 @@
 import { useState, useTransition } from 'react'
 import {
   CheckCircle2, XCircle, Clock, RotateCcw, Search,
-  ChevronDown, Stethoscope, Building2, CalendarClock
+  ChevronDown, Stethoscope, Building2, CalendarClock, MessageCircle
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { markAttendance, resetAttendance, type AppointmentWithPatient } from '@/app/admin/appointments/actions'
+import { markAttendance, resetAttendance, sendManualWhatsAppReminder, type AppointmentWithPatient } from '@/app/admin/appointments/actions'
+import { useToast } from '@/components/ui/use-toast'
 
 type FilterState = 'all' | 'pending' | 'attended' | 'absent'
 
@@ -29,6 +30,18 @@ export function AppointmentsTable({ appointments: initial }: Props) {
   const [notesMap, setNotesMap]   = useState<Record<string, string>>({})
   const [expandedId, setExpanded] = useState<string | null>(null)
   const [isPending, start]        = useTransition()
+  const { toast } = useToast()
+
+  const handleSendWhatsApp = (id: string) => {
+    start(async () => {
+      const res = await sendManualWhatsAppReminder(id)
+      if (res.success) {
+        toast({ title: 'Mensaje enviado', description: 'El recordatorio se envió por WhatsApp al paciente.', variant: 'default' })
+      } else {
+        toast({ title: 'Error al enviar', description: res.error || 'No se pudo enviar el mensaje.', variant: 'destructive' })
+      }
+    })
+  }
 
   const handleMark = (id: string, attended: boolean) => {
     const notes = notesMap[id] || ''
@@ -163,6 +176,11 @@ export function AppointmentsTable({ appointments: initial }: Props) {
                         <span className="text-xs bg-slate-100 text-slate-600 px-2 py-0.5 rounded-full">{appt.request_type}</span>
                       </div>
                       <div className="flex items-center gap-4 mt-1 text-xs text-slate-500 flex-wrap">
+                        {appt.patient_phone && appt.patient_phone !== '—' && (
+                          <span className="flex items-center gap-1 font-mono">
+                            📞 {appt.patient_phone}
+                          </span>
+                        )}
                         {appt.doctor_name && (
                           <span className="flex items-center gap-1">
                             <Stethoscope className="w-3 h-3" /> {appt.doctor_name}
@@ -193,6 +211,14 @@ export function AppointmentsTable({ appointments: initial }: Props) {
 
                     {/* Actions */}
                     <div className="flex items-center gap-2 shrink-0">
+                      <button
+                        onClick={() => handleSendWhatsApp(appt.id)}
+                        disabled={isPending || appt.patient_phone === '—'}
+                        className="flex items-center justify-center px-3 py-1.5 rounded-lg text-xs font-semibold bg-green-50 hover:bg-green-100 text-green-700 transition-colors disabled:opacity-50"
+                        title={appt.patient_phone === '—' ? 'Sin teléfono' : 'Enviar WhatsApp de recordatorio'}
+                      >
+                        <MessageCircle className="w-3.5 h-3.5 mr-1" /> WhatsApp
+                      </button>
                       {appt.attended === null ? (
                         <>
                           <button

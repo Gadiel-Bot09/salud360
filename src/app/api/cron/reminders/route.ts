@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { sendAppointmentReminderEmail } from '@/lib/resend'
+import { sendWhatsAppMessage } from '@/lib/evolution'
 
 export const dynamic = 'force-dynamic'
 
@@ -54,6 +55,7 @@ export async function GET(request: Request) {
       if (!req) continue
 
       const patientName  = req.patient_data_json?.fullName || 'Paciente'
+      const patientPhone = req.patient_data_json?.phone
       const toEmail      = req.patient_email
       const institution  = req.institutions?.name || 'Salud360'
       const appointmentData = {
@@ -73,6 +75,17 @@ export async function GET(request: Request) {
       if (!appt.reminder_24h_sent && apptDateTime >= win24hFrom && apptDateTime <= win24hTo) {
         try {
           await sendAppointmentReminderEmail(toEmail, patientName, req.radicado, appointmentData, 24)
+          
+          if (patientPhone && patientPhone !== '—') {
+            const timeStr = appt.appointment_time?.slice(0, 5) || '—'
+            const doctorStr = appt.doctor_name ? `con el especialista ${appt.doctor_name}` : ''
+            const text = `Hola ${patientName},\n\nTe recordamos que mañana tienes una cita médica en *${institution}* a las *${timeStr}* ${doctorStr}.\n\nPor favor, llega con 15 minutos de antelación.\n\nAtentamente,\nEquipo de ${institution}`
+            await sendWhatsAppMessage('default', {
+              number: patientPhone.replace(/\D/g, ''),
+              text
+            })
+          }
+
           await supabase.from('appointments').update({ reminder_24h_sent: true }).eq('id', appt.id)
           sent24h++
         } catch (e) {
@@ -85,6 +98,17 @@ export async function GET(request: Request) {
       if (!appt.reminder_2h_sent && apptDateTime >= win2hFrom && apptDateTime <= win2hTo) {
         try {
           await sendAppointmentReminderEmail(toEmail, patientName, req.radicado, appointmentData, 2)
+          
+          if (patientPhone && patientPhone !== '—') {
+            const timeStr = appt.appointment_time?.slice(0, 5) || '—'
+            const doctorStr = appt.doctor_name ? `con el especialista ${appt.doctor_name}` : ''
+            const text = `Hola ${patientName},\n\nEste es un recordatorio final para tu cita médica de hoy en *${institution}* a las *${timeStr}* ${doctorStr}.\n\nTe esperamos pronto.\n\nAtentamente,\nEquipo de ${institution}`
+            await sendWhatsAppMessage('default', {
+              number: patientPhone.replace(/\D/g, ''),
+              text
+            })
+          }
+
           await supabase.from('appointments').update({ reminder_2h_sent: true }).eq('id', appt.id)
           sent2h++
         } catch (e) {

@@ -3,6 +3,7 @@
 import { createClient as createAdminClient } from '@supabase/supabase-js'
 import { createClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
+import { sendWhatsAppMessage } from '@/lib/evolution'
 
 function sb() {
   return createAdminClient(
@@ -25,6 +26,7 @@ export interface AppointmentWithPatient {
   reminder_24h_sent: boolean
   reminder_2h_sent: boolean
   patient_name: string
+  patient_phone: string
   patient_email: string
   radicado: string
   request_type: string
@@ -97,6 +99,7 @@ export async function getAppointmentsByDate(date: string): Promise<AppointmentWi
         reminder_24h_sent: appt.reminder_24h_sent ?? false,
         reminder_2h_sent:  appt.reminder_2h_sent  ?? false,
         patient_name:     patientJson.fullName || 'Paciente',
+        patient_phone:    patientJson.phone || '—',
         patient_email:    req.patient_email || patientJson.email || '—',
         radicado:         req.radicado      || '—',
         request_type:     req.type          || '—',
@@ -149,5 +152,52 @@ export async function resetAttendance(appointmentId: string): Promise<{ success:
     return { success: true }
   } catch {
     return { success: false }
+  }
+}
+
+export async function sendManualWhatsAppReminder(appointmentId: string): Promise<{ success: boolean; error?: string }> {
+  try {
+    const supabase = sb()
+    const { data: appt, error: apptError } = await supabase
+      .from('appointments')
+      .select(`
+        id, appointment_date, appointment_time, doctor_name, specialty,
+        requests ( radicado, patient_data_json, institutions(name) )
+      `)
+      .eq('id', appointmentId)
+      .single()
+
+    if (apptError || !appt || !appt.requests) {
+      return { success: false, error: 'Cita no encontrada' }
+    }
+
+    const req = appt.requests as any
+    const phone = req.patient_data_json?.phone
+    const fullName = req.patient_data_json?.fullName || 'Paciente'
+    
+    if (!phone || phone === '—') {
+      return { success: false, error: 'El paciente no tiene un teléfono registrado' }
+    }
+
+    const institution = req.institutions?.name || 'Salud360'
+    const dateStr = appt.appointment_date
+    const timeStr = appt.appointment_time?.slice(0, 5) || '—'
+    const doctorStr = appt.doctor_name ? `con el especialista ${appt.doctor_name}` : ''
+
+    const text = `Hola ${fullName},\n\nEste es un recordatorio de tu cita médica programada en *${institution}* para el *${dateStr}* a las *${timeStr}* ${doctorStr}.\n\nPor favor, recuerda llegar con 15 minutos de antelación.\n\nAtentamente,\nEquipo de ${institution}`
+
+    const res = await sendWhatsAppMessage('default', {
+      number: phone.replace(/\D/g, ''),
+      text
+    })
+
+    if (!res) {
+      return { success: false, error: 'Fallo la conexión con Evolution API' }
+    }
+
+    return { success: true }
+  } catch (err: any) {
+    console.error('sendManualWhatsAppReminder exception:', err)
+    return { success: false, error: err?.message || 'Error desconocido' }
   }
 }
