@@ -186,7 +186,7 @@ export async function sendManualWhatsAppReminder(appointmentId: string): Promise
 
     const text = `Hola ${fullName},\n\nEste es un recordatorio de tu cita médica programada en *${institution}* para el *${dateStr}* a las *${timeStr}* ${doctorStr}.\n\nPor favor, recuerda llegar con 15 minutos de antelación.\n\nAtentamente,\nEquipo de ${institution}`
 
-    const res = await sendWhatsAppMessage('default', {
+    const res = await sendWhatsAppMessage(process.env.EVOLUTION_INSTANCE_NAME || 'default', {
       number: phone.replace(/\D/g, ''),
       text
     })

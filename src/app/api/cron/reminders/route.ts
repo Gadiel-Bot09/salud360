@@ -80,7 +80,7 @@ export async function GET(request: Request) {
             const timeStr = appt.appointment_time?.slice(0, 5) || '—'
             const doctorStr = appt.doctor_name ? `con el especialista ${appt.doctor_name}` : ''
             const text = `Hola ${patientName},\n\nTe recordamos que mañana tienes una cita médica en *${institution}* a las *${timeStr}* ${doctorStr}.\n\nPor favor, llega con 15 minutos de antelación.\n\nAtentamente,\nEquipo de ${institution}`
-            await sendWhatsAppMessage('default', {
+            await sendWhatsAppMessage(process.env.EVOLUTION_INSTANCE_NAME || 'default', {
               number: patientPhone.replace(/\D/g, ''),
               text
             })
@@ -103,7 +103,7 @@ export async function GET(request: Request) {
             const timeStr = appt.appointment_time?.slice(0, 5) || '—'
             const doctorStr = appt.doctor_name ? `con el especialista ${appt.doctor_name}` : ''
             const text = `Hola ${patientName},\n\nEste es un recordatorio final para tu cita médica de hoy en *${institution}* a las *${timeStr}* ${doctorStr}.\n\nTe esperamos pronto.\n\nAtentamente,\nEquipo de ${institution}`
-            await sendWhatsAppMessage('default', {
+            await sendWhatsAppMessage(process.env.EVOLUTION_INSTANCE_NAME || 'default', {
               number: patientPhone.replace(/\D/g, ''),
               text
             })
