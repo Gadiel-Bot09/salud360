@@ -16,38 +16,53 @@ export async function sendEmailConfirmation(
     }
 
     const htmlBody = `
-    <div style="font-family: sans-serif; max-w: 600px; margin: 0 auto; color: #333;">
-      <h2 style="color: #0f766e;">Confirmación de Solicitud - Salud360</h2>
-      <p>Hola <strong>${patientName}</strong>,</p>
-      <p>Hemos recibido satisfactoriamente su solicitud de <strong>${requestType}</strong>.</p>
+    <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; color: #1e293b;">
+      <div style="background: linear-gradient(135deg, #0f766e, #0369a1); padding: 32px 40px; border-radius: 12px 12px 0 0;">
+        <h1 style="color: white; margin: 0; font-size: 24px;">✅ Solicitud Radicada</h1>
+        <p style="color: rgba(255,255,255,0.8); margin: 8px 0 0 0; font-size: 14px;">Salud360 · Portal del Paciente</p>
+      </div>
       
-      <div style="background-color: #f8fafc; border: 1px solid #e2e8f0; padding: 20px; border-radius: 8px; margin: 20px 0; text-align: center;">
-         <p style="margin: 0; font-size: 14px; color: #64748b;">Número de Radicado</p>
-         <p style="margin: 5px 0 0 0; font-size: 24px; font-weight: bold; letter-spacing: 1px; color: #0f172a;">${radicado}</p>
-      </div>
-
-      <div style="border: 1px solid #e2e8f0; border-radius: 8px; overflow: hidden; margin-bottom: 20px;">
-        <div style="background-color: #f1f5f9; padding: 12px 15px; border-bottom: 1px solid #e2e8f0;">
-          <h3 style="margin: 0; font-size: 15px; color: #334155;">Detalle de la Solicitud</h3>
+      <div style="background: #f8fafc; padding: 32px 40px; border: 1px solid #e2e8f0; border-top: none; border-radius: 0 0 12px 12px;">
+        <p style="margin: 0 0 16px 0;">Hola <strong>${patientName}</strong>,</p>
+        <p style="margin: 0 0 20px 0;">Hemos recibido satisfactoriamente su solicitud de <strong style="color: #0f766e;">${requestType}</strong>.</p>
+        
+        <div style="background: white; border: 2px solid #e2e8f0; border-radius: 10px; padding: 24px; margin: 20px 0; text-align: center;">
+          <p style="margin: 0 0 8px 0; font-size: 13px; color: #64748b; text-transform: uppercase; letter-spacing: 1px; font-weight: 600;">Número de Radicado</p>
+          <div style="background: #f1f5f9; border-radius: 8px; padding: 12px 16px; display: inline-block;">
+            <p style="margin: 0; color: #0f766e; font-family: monospace; font-size: 22px; font-weight: bold; letter-spacing: 1px;">${radicado}</p>
+          </div>
         </div>
-        <div style="padding: 15px;">
-          <table style="width: 100%; border-collapse: collapse; font-size: 14px;">
-            <tbody>
-              ${Object.entries(patientData)
-                .filter(([key]) => key !== 'fullName' && key !== 'phone' && key !== 'email' && key !== 'documentType' && key !== 'documentNumber')
-                .map(([key, value]) => `
-                <tr>
-                  <td style="padding: 8px 0; border-bottom: 1px solid #f1f5f9; color: #64748b; width: 40%;"><strong>${key}</strong></td>
-                  <td style="padding: 8px 0; border-bottom: 1px solid #f1f5f9; color: #0f172a; font-weight: 500;">${value || '—'}</td>
-                </tr>
-              `).join('')}
-            </tbody>
-          </table>
-        </div>
-      </div>
 
-      <p>Por favor guarde este número para consultar el estado de su trámite.</p>
-      <p>Estaremos en contacto pronto,<br/>Equipo Salud360</p>
+        <div style="background: white; border: 1px solid #e2e8f0; border-radius: 10px; overflow: hidden; margin-bottom: 24px;">
+          <div style="background: #f1f5f9; padding: 12px 20px; border-bottom: 1px solid #e2e8f0;">
+            <h3 style="margin: 0; font-size: 14px; color: #475569; text-transform: uppercase; letter-spacing: 0.5px;">Detalle de la Solicitud</h3>
+          </div>
+          <div style="padding: 20px;">
+            <table style="width: 100%; border-collapse: collapse; font-size: 14px;">
+              <tbody>
+                ${Object.entries(patientData)
+                  .filter(([key]) => !['fullName', 'phone', 'email', 'documentType', 'documentNumber', 'privacy_policy'].includes(key) && !key.startsWith('_'))
+                  .map(([key, value]) => `
+                  <tr>
+                    <td style="padding: 10px 0; border-bottom: 1px solid #f1f5f9; color: #64748b; width: 45%;"><strong>${key}</strong></td>
+                    <td style="padding: 10px 0; border-bottom: 1px solid #f1f5f9; color: #0f172a; font-weight: 500;">${value || '—'}</td>
+                  </tr>
+                `).join('')}
+              </tbody>
+            </table>
+          </div>
+        </div>
+        
+        <div style="background: #fef9c3; border: 1px solid #fde047; border-radius: 8px; padding: 12px 16px; margin-bottom: 24px;">
+          <p style="margin: 0; color: #854d0e; font-size: 13px;">⚠️ <strong>Importante:</strong> Por favor guarde el número de radicado para consultar el estado de su trámite posteriormente.</p>
+        </div>
+        
+        <p style="margin: 0; color: #475569; font-size: 14px;">Estaremos en contacto pronto con usted.</p>
+      </div>
+      
+      <div style="padding: 16px 40px; text-align: center;">
+        <p style="margin: 0; color: #94a3b8; font-size: 12px;">© ${new Date().getFullYear()} Salud360 · Sistema de Gestión Médica</p>
+      </div>
     </div>
   `
 
@@ -86,16 +101,40 @@ export async function sendStatusUpdateEmail(
     }
 
     const htmlBody = `
-    <div style="font-family: sans-serif; max-w: 600px; margin: 0 auto; color: #333;">
-      <h2 style="color: #0f766e;">Actualización de Estado - Salud360</h2>
-      <p>El estado de su radicado <strong>${radicado}</strong> ha sido actualizado.</p>
+    <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; color: #1e293b;">
+      <div style="background: linear-gradient(135deg, #0f766e, #0369a1); padding: 32px 40px; border-radius: 12px 12px 0 0;">
+        <h1 style="color: white; margin: 0; font-size: 24px;">🔄 Actualización de Solicitud</h1>
+        <p style="color: rgba(255,255,255,0.8); margin: 8px 0 0 0; font-size: 14px;">Salud360 · Portal del Paciente</p>
+      </div>
       
-      <p>Nuevo Estado: <strong style="color: #0284c7;">${statusMap[newStatus] || newStatus}</strong></p>
-      
-      ${comment ? `<div style="background-color: #f1f5f9; padding: 15px; border-left: 4px solid #0ea5e9; margin: 15px 0;"><p style="margin:0">${comment}</p></div>` : ''}
+      <div style="background: #f8fafc; padding: 32px 40px; border: 1px solid #e2e8f0; border-top: none; border-radius: 0 0 12px 12px;">
+        <p style="margin: 0 0 16px 0;">El estado de su radicado <strong>${radicado}</strong> ha sido actualizado.</p>
+        
+        <div style="background: white; border: 2px solid #e2e8f0; border-radius: 10px; padding: 24px; margin: 20px 0; text-align: center;">
+          <p style="margin: 0 0 8px 0; font-size: 13px; color: #64748b; text-transform: uppercase; letter-spacing: 1px; font-weight: 600;">Nuevo Estado</p>
+          <div style="background: #f0f9ff; border-radius: 8px; padding: 12px 16px; display: inline-block;">
+            <p style="margin: 0; color: #0284c7; font-size: 20px; font-weight: bold; letter-spacing: 1px;">${statusMap[newStatus] || newStatus}</p>
+          </div>
+        </div>
+        
+        ${comment ? `
+        <div style="background: white; border: 1px solid #e2e8f0; border-radius: 10px; overflow: hidden; margin-bottom: 24px;">
+          <div style="background: #f1f5f9; padding: 12px 20px; border-bottom: 1px solid #e2e8f0;">
+            <h3 style="margin: 0; font-size: 14px; color: #475569; text-transform: uppercase; letter-spacing: 0.5px;">Mensaje Adjunto</h3>
+          </div>
+          <div style="padding: 20px; color: #334155; font-size: 14px;">
+            <p style="margin:0">${comment.replace(/\\n/g, '<br/>')}</p>
+          </div>
+        </div>
+        ` : ''}
 
-      <p>Puede consultar más detalles en el portal.</p>
-      <p>Atentamente,<br/>Equipo Salud360</p>
+        <p style="margin: 0 0 8px 0; color: #475569; font-size: 14px;">Puede consultar más detalles ingresando al portal de servicios médicos.</p>
+        <p style="margin: 0; color: #475569; font-size: 14px;">Atentamente,<br/><strong>Equipo Salud360</strong></p>
+      </div>
+      
+      <div style="padding: 16px 40px; text-align: center;">
+        <p style="margin: 0; color: #94a3b8; font-size: 12px;">© ${new Date().getFullYear()} Salud360 · Sistema de Gestión Médica</p>
+      </div>
     </div>
   `
 
