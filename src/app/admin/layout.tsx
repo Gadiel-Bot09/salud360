@@ -27,7 +27,11 @@ export default async function AdminLayout({ children }: { children: ReactNode })
         redirect('/login')
     }
     
-    const { data: userProfile } = await supabase.from('users').select('role').eq('id', user.id).single()
+    const { data: userProfile } = await supabase.from('users').select('role_id, roles(name, permissions, is_system)').eq('id', user.id).single()
+    const roleName = userProfile?.roles?.name || '';
+    const permissions = (userProfile?.roles?.permissions as string[]) || [];
+    const isSuperAdmin = roleName === 'Super Admin';
+    const hasPerm = (p: string) => isSuperAdmin || permissions.includes('*') || permissions.includes(p);
 
     return (
         <div className="flex h-screen overflow-hidden bg-slate-50">
@@ -42,36 +46,54 @@ export default async function AdminLayout({ children }: { children: ReactNode })
                         <BarChart3 className="h-5 w-5 text-teal-400" />
                         <span>Dashboard</span>
                     </Link>
-                    <Link href="/admin/requests" className="flex items-center space-x-3 px-4 py-3 rounded-lg hover:bg-slate-800 hover:text-white transition">
-                        <Inbox className="h-5 w-5" />
-                        <span>Solicitudes</span>
-                    </Link>
-                    <Link href="/admin/users" className="flex items-center space-x-3 px-4 py-3 rounded-lg hover:bg-slate-800 hover:text-white transition">
-                        <Users className="h-5 w-5" />
-                        <span>Usuarios</span>
-                    </Link>
-                    <Link href="/admin/forms" className="flex items-center space-x-3 px-4 py-3 rounded-lg hover:bg-slate-800 hover:text-white transition">
-                        <FileEdit className="h-5 w-5" />
-                        <span>Formularios</span>
-                    </Link>
-                    <Link href="/admin/reports" className="flex items-center space-x-3 px-4 py-3 rounded-lg hover:bg-slate-800 hover:text-white transition">
-                        <BarChart2 className="h-5 w-5 text-teal-400" />
-                        <span>Reportes</span>
-                    </Link>
-                    <Link href="/admin/appointments" className="flex items-center space-x-3 px-4 py-3 rounded-lg hover:bg-slate-800 hover:text-white transition">
-                        <CalendarDays className="h-5 w-5 text-teal-400" />
-                        <span>Citas</span>
-                    </Link>
-                    {userProfile?.role === 'Super Admin' && (
+                    {hasPerm('requests.view') && (
+                        <Link href="/admin/requests" className="flex items-center space-x-3 px-4 py-3 rounded-lg hover:bg-slate-800 hover:text-white transition">
+                            <Inbox className="h-5 w-5" />
+                            <span>Solicitudes</span>
+                        </Link>
+                    )}
+                    {hasPerm('users.manage') && (
+                        <Link href="/admin/users" className="flex items-center space-x-3 px-4 py-3 rounded-lg hover:bg-slate-800 hover:text-white transition">
+                            <Users className="h-5 w-5" />
+                            <span>Usuarios</span>
+                        </Link>
+                    )}
+                    {hasPerm('roles.manage') && (
+                        <Link href="/admin/roles" className="flex items-center space-x-3 px-4 py-3 rounded-lg hover:bg-slate-800 hover:text-white transition">
+                            <Users className="h-5 w-5" />
+                            <span>Roles</span>
+                        </Link>
+                    )}
+                    {hasPerm('forms.manage') && (
+                        <Link href="/admin/forms" className="flex items-center space-x-3 px-4 py-3 rounded-lg hover:bg-slate-800 hover:text-white transition">
+                            <FileEdit className="h-5 w-5" />
+                            <span>Formularios</span>
+                        </Link>
+                    )}
+                    {hasPerm('reports.view') && (
+                        <Link href="/admin/reports" className="flex items-center space-x-3 px-4 py-3 rounded-lg hover:bg-slate-800 hover:text-white transition">
+                            <BarChart2 className="h-5 w-5 text-teal-400" />
+                            <span>Reportes</span>
+                        </Link>
+                    )}
+                    {hasPerm('appointments.view') && (
+                        <Link href="/admin/appointments" className="flex items-center space-x-3 px-4 py-3 rounded-lg hover:bg-slate-800 hover:text-white transition">
+                            <CalendarDays className="h-5 w-5 text-teal-400" />
+                            <span>Citas</span>
+                        </Link>
+                    )}
+                    {isSuperAdmin && (
                         <Link href="/admin/institutions" className="flex items-center space-x-3 px-4 py-3 rounded-lg hover:bg-slate-800 hover:text-white transition">
                             <Building2 className="h-5 w-5" />
                             <span>Instituciones</span>
                         </Link>
                     )}
-                    <Link href="/admin/settings" className="flex items-center space-x-3 px-4 py-3 rounded-lg hover:bg-slate-800 hover:text-white transition">
-                        <Settings className="h-5 w-5" />
-                        <span>Configuración</span>
-                    </Link>
+                    {hasPerm('settings.manage') && (
+                        <Link href="/admin/settings" className="flex items-center space-x-3 px-4 py-3 rounded-lg hover:bg-slate-800 hover:text-white transition">
+                            <Settings className="h-5 w-5" />
+                            <span>Configuración</span>
+                        </Link>
+                    )}
                 </nav>
 
                 <div className="w-full px-4 mt-auto">

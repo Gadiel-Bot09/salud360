@@ -14,7 +14,7 @@ const supabaseAdmin = createClient(
 
 export async function inviteAdminUser(formData: FormData) {
   const email = formData.get('email') as string
-  const role = formData.get('role') as string
+  const roleId = formData.get('role_id') as string
   const institutionId = formData.get('institutionId') as string || null
 
   // Ensure current user is authenticated
@@ -22,14 +22,18 @@ export async function inviteAdminUser(formData: FormData) {
   const { data: { user } } = await authClient.auth.getUser()
   if (!user) return { success: false, error: 'No autorizado' }
 
-  const { data: myProfile } = await supabaseAdmin.from('users').select('role, institution_id').eq('id', user.id).single()
+  const { data: myProfile } = await supabaseAdmin.from('users').select('role_id, institution_id, roles(name)').eq('id', user.id).single()
+  const isSuperAdmin = myProfile?.roles?.name === 'Super Admin'
   
-  if (myProfile?.role !== 'Super Admin' && role === 'Super Admin') {
+  const { data: roleData } = await supabaseAdmin.from('roles').select('name').eq('id', roleId).single()
+  const roleName = roleData?.name || 'Desconocido'
+
+  if (!isSuperAdmin && roleName === 'Super Admin') {
       return { success: false, error: 'No puedes crear Super Administradores.' }
   }
 
   // Determine which institution to assign based on the inviter's role
-  const assignedInstitution = myProfile?.role === 'Super Admin' ? institutionId || null : myProfile?.institution_id
+  const assignedInstitution = isSuperAdmin ? institutionId || null : myProfile?.institution_id
 
   // Get institution name for the welcome email
   let institutionName: string | null = null
@@ -58,7 +62,7 @@ export async function inviteAdminUser(formData: FormData) {
   const { error: dbError } = await supabaseAdmin.from('users').insert({
     id: newAuthUser.user.id,
     email,
-    role,
+    role_id: roleId,
     institution_id: assignedInstitution,
     active: true,
   })
@@ -74,7 +78,7 @@ export async function inviteAdminUser(formData: FormData) {
   const proto = process.env.NODE_ENV === 'production' ? 'https' : 'http'
   const loginUrl = `${proto}://${host}/login`
 
-  await sendWelcomeAdminEmail(email, tempPassword, role, institutionName, loginUrl)
+  await sendWelcomeAdminEmail(email, tempPassword, roleName, institutionName, loginUrl)
 
   revalidatePath('/admin/users')
   

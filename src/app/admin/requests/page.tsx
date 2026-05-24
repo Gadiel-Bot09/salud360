@@ -11,11 +11,11 @@ export default async function RequestsPage() {
     const { data: { user } } = await supabase.auth.getUser()
     const { data: userProfile } = await supabase
         .from('users')
-        .select('role, institution_id, institutions(name)')
+        .select('role_id, institution_id, roles(name), institutions(name)')
         .eq('id', user?.id ?? '')
         .single()
 
-    const isGlobal = userProfile?.role === 'Super Admin'
+    const isGlobal = userProfile?.roles?.name === 'Super Admin'
     const institutionName = (userProfile?.institutions as any)?.name || ''
 
     // Fetch requests with attachments — RLS will automatically scope to institution if not Super Admin

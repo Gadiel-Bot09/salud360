@@ -11,9 +11,9 @@ export default async function DashboardPage() {
     // Fetch user profile to detect Context (Global vs Single-Institution)
     const supabase = await createClient()
     const { data: { user } } = await supabase.auth.getUser()
-    const { data: userProfile } = await supabase.from('users').select('role, institutions(name)').eq('id', user?.id).single()
+    const { data: userProfile } = await supabase.from('users').select('role_id, roles(name), institutions(name)').eq('id', user?.id).single()
 
-    const isGlobal = userProfile?.role === 'Super Admin'
+    const isGlobal = userProfile?.roles?.name === 'Super Admin'
     // Safe typing since we did a join `institutions(name)`
     const institutionName = (userProfile?.institutions as any)?.name || 'Red Desconocida'
 

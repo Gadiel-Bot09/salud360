@@ -13,9 +13,9 @@ export default async function InstitutionsPage() {
 
   // Verify Role
   const { data: { user } } = await supabase.auth.getUser()
-  const { data: userProfile } = await supabase.from('users').select('role').eq('id', user?.id).single()
+  const { data: userProfile } = await supabase.from('users').select('role_id, roles(name)').eq('id', user?.id).single()
 
-  if (userProfile?.role !== 'Super Admin') {
+  if (userProfile?.roles?.name !== 'Super Admin') {
     return (
       <div className="p-8 text-center mt-12">
         <h2 className="text-2xl font-bold text-red-600 mb-2">Acceso Denegado</h2>

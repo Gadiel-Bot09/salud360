@@ -103,9 +103,9 @@ export async function fetchActivityByUser(from?: string, to?: string): Promise<U
   if (error || !history) { console.error(error); return [] }
 
   const userIds = [...new Set((history as any[]).map(h => h.user_id))]
-  const { data: users } = await sb.from('users').select('id, email, role').in('id', userIds)
+  const { data: users } = await sb.from('users').select('id, email, roles(name)').in('id', userIds)
   const userMap: Record<string, { email: string; role: string }> = {}
-  for (const u of (users || []) as any[]) userMap[u.id] = { email: u.email, role: u.role }
+  for (const u of (users || []) as any[]) userMap[u.id] = { email: u.email, role: u.roles?.name || 'Desconocido' }
 
   const map: Record<string, UserActivityReport> = {}
   for (const h of history as any[]) {

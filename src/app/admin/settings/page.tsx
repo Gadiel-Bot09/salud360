@@ -14,7 +14,7 @@ export default async function SettingsPage() {
 
   const { data: userProfile } = await supabase
     .from('users')
-    .select('role, institution_id')
+    .select('role_id, institution_id, roles(name)')
     .eq('id', user?.id ?? '')
     .single()
 
@@ -53,7 +53,7 @@ export default async function SettingsPage() {
         </h2>
         <SettingsClient
           userEmail={user?.email ?? ''}
-          userRole={userProfile?.role ?? 'Gestor'}
+          userRole={userProfile?.roles?.name ?? 'Gestor'}
           institution={institution}
           siteUrl={siteUrl}
         />

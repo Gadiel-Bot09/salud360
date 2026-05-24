@@ -11,9 +11,10 @@ import { inviteAdminUser } from './actions'
 interface InviteFormProps {
   canCreateSuperAdmin: boolean
   institutions: { id: string; name: string }[] | null
+  roles: { id: string; name: string; is_system: boolean }[]
 }
 
-export function InviteUserForm({ canCreateSuperAdmin, institutions }: InviteFormProps) {
+export function InviteUserForm({ canCreateSuperAdmin, institutions, roles }: InviteFormProps) {
   const [pending, startTransition] = useTransition()
   const [result, setResult] = useState<{
     success: boolean
@@ -102,21 +103,16 @@ export function InviteUserForm({ canCreateSuperAdmin, institutions }: InviteForm
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="role">Nivel de Acceso</Label>
+            <Label htmlFor="role_id">Nivel de Acceso (Rol)</Label>
             <select
-              id="role"
-              name="role"
+              id="role_id"
+              name="role_id"
               required
               className="flex h-10 w-full items-center justify-between rounded-md border border-slate-200 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-700"
             >
-              <option value="Gestor">Gestor / Asesor</option>
-              <option value="Auditor">Auditor (Solo Lectura)</option>
-              {canCreateSuperAdmin && (
-                <>
-                  <option value="Admin Institución">Líder Institución</option>
-                  <option value="Super Admin">Super Admin (Dueño)</option>
-                </>
-              )}
+              {roles.map(r => (
+                <option key={r.id} value={r.id}>{r.name} {r.is_system ? '(Sistema)' : '(Personalizado)'}</option>
+              ))}
             </select>
           </div>
 

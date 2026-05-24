@@ -11,7 +11,7 @@ export default async function UsersPage() {
   const supabase = await createClient()
 
   const { data: { user } } = await supabase.auth.getUser()
-  const { data: userProfile } = await supabase.from('users').select('role, institution_id').eq('id', user?.id).single()
+  const { data: userProfile } = await supabase.from('users').select('role_id, institution_id, roles(name)').eq('id', user?.id).single()
 
   if (!userProfile) {
      return <div className="p-8">No autorizado. Perfil de usuario no encontrado.</div>
@@ -19,12 +19,21 @@ export default async function UsersPage() {
 
   const { data: users } = await supabase
     .from('users')
-    .select(`id, email, role, active, created_at, institutions ( id, name )`)
+    .select(`id, email, active, created_at, role_id, roles(name), institutions(id, name)`)
     .order('created_at', { ascending: false })
 
-  const { data: institutions } = userProfile.role === 'Super Admin' 
+  const isSuperAdmin = userProfile.roles?.name === 'Super Admin'
+
+  const { data: institutions } = isSuperAdmin
      ? await supabase.from('institutions').select('id, name') 
      : { data: null }
+
+  // Obtener roles disponibles para asignar
+  let rolesQuery = supabase.from('roles').select('id, name, is_system')
+  if (!isSuperAdmin) {
+     rolesQuery = rolesQuery.or(`institution_id.eq.${userProfile.institution_id},is_system.eq.true`)
+  }
+  const { data: availableRoles } = await rolesQuery.neq('name', 'Paciente').order('name')
 
   return (
     <div className="p-6 md:p-8 max-w-7xl mx-auto space-y-8">
@@ -43,8 +52,9 @@ export default async function UsersPage() {
         {/* Invite Form — Client Component that shows generated password */}
         <div className="lg:col-span-1">
           <InviteUserForm
-            canCreateSuperAdmin={userProfile.role === 'Super Admin'}
+            canCreateSuperAdmin={isSuperAdmin}
             institutions={institutions}
+            roles={availableRoles || []}
           />
         </div>
 
@@ -87,9 +97,9 @@ export default async function UsersPage() {
                                        <Badge variant="outline" className="bg-white">{u.institutions.name}</Badge> 
                                      : <span className="text-xs text-slate-400 font-medium">GLOBAL SYSTEM</span>}
                                  </TableCell>
-                                 <TableCell>
-                                    <Badge className={`${u.role === 'Super Admin' ? 'bg-indigo-600' : 'bg-slate-100 text-slate-700 hover:bg-slate-100'}`}>
-                                       {u.role}
+                                  <TableCell>
+                                    <Badge className={`${u.roles?.name === 'Super Admin' ? 'bg-indigo-600' : 'bg-slate-100 text-slate-700 hover:bg-slate-100'}`}>
+                                       {u.roles?.name || 'Desconocido'}
                                     </Badge>
                                  </TableCell>
                                  <TableCell>

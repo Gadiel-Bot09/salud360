@@ -10,18 +10,20 @@ export default async function FormsAdminPage({ searchParams }: { searchParams: {
   const supabase = await createClient()
 
   const { data: { user } } = await supabase.auth.getUser()
-  const { data: userProfile } = await supabase.from('users').select('role, institution_id').eq('id', user?.id).single()
+  const { data: userProfile } = await supabase.from('users').select('role_id, institution_id, roles(name)').eq('id', user?.id).single()
+
+  const isSuperAdmin = userProfile?.roles?.name === 'Super Admin'
 
   // Determine active institution context
   let activeInstitutionId = userProfile?.institution_id
 
   // If Super Admin, they can pick from query params, or default to nothing requiring selection
-  if (userProfile?.role === 'Super Admin') {
+  if (isSuperAdmin) {
       activeInstitutionId = searchParams.inst || null
   }
 
   // Fetch Institutions exclusively if Super Admin (for dropdown selector)
-  const { data: institutions } = userProfile?.role === 'Super Admin' 
+  const { data: institutions } = isSuperAdmin 
        ? await supabase.from('institutions').select('id, name') 
        : { data: null }
 
@@ -42,7 +44,7 @@ export default async function FormsAdminPage({ searchParams }: { searchParams: {
          </div>
 
          {/* Super Admin Context Switcher */}
-         {userProfile?.role === 'Super Admin' && (
+         {isSuperAdmin && (
              <div className="w-full md:w-auto bg-white p-4 border rounded-xl shadow-sm space-y-2">
                  <label className="text-xs font-bold uppercase tracking-wider text-slate-500 flex items-center gap-1">
                     <Building2 className="w-3 h-3" /> Contexto Global (Dueño)
@@ -71,7 +73,7 @@ export default async function FormsAdminPage({ searchParams }: { searchParams: {
              <FileEdit className="w-12 h-12 text-slate-300 mx-auto mb-4" />
              <h3 className="text-xl font-bold text-slate-800">Institución No Seleccionada</h3>
              <p className="text-slate-500 mt-2">
-                {userProfile?.role === 'Super Admin' 
+                {isSuperAdmin 
                    ? 'Por favor, selecciona una clínica en el menú superior para empezar a fabricar su cuestionario privado.' 
                    : 'Comunícate con Soporte Técnico para que asocien tu perfil a una organización.'}
              </p>
