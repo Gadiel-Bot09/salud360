@@ -112,11 +112,15 @@ export default async function RequestDetailPage({ params }: { params: { id: stri
   const adminAttachments   = attachmentsWithUrls.filter(a =>  a.file_path.includes('/admin/'))
 
   // Fetch response templates and institution name for UI
-  const [templates, institutionResult] = await Promise.all([
+  const [templates, institutionResult, specialtiesRes, doctorsRes] = await Promise.all([
     getResponseTemplates(),
-    supabaseAdmin.from('institutions').select('name').eq('id', request.institution_id).single()
+    supabaseAdmin.from('institutions').select('name').eq('id', request.institution_id).single(),
+    supabaseAdmin.from('specialties').select('*').eq('institution_id', request.institution_id).eq('active', true),
+    supabaseAdmin.from('doctors').select('*').eq('institution_id', request.institution_id).eq('active', true)
   ])
   const institutionName = institutionResult.data?.name || 'Salud360'
+  const specialties = specialtiesRes.data || []
+  const doctors = doctorsRes.data || []
 
   // Server Action
   async function updateStatus(formData: FormData) {
@@ -417,8 +421,11 @@ export default async function RequestDetailPage({ params }: { params: { id: stri
                   requestData={{
                     patientName: fullName,
                     radicado: request.radicado,
-                    institution: institutionName
+                    institution: institutionName,
+                    institutionId: request.institution_id
                   }}
+                  doctors={doctors}
+                  specialties={specialties}
                 />
               </div>
             </div>

@@ -6,8 +6,10 @@ import { Label } from '@/components/ui/label'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { Send, FileText, CalendarPlus, ChevronDown, ChevronUp, Variable } from 'lucide-react'
+import { Send, FileText, CalendarPlus, ChevronDown, ChevronUp } from 'lucide-react'
 import type { ResponseTemplate } from '@/app/admin/settings/template-actions'
+import { CatalogManager } from './catalog-manager'
+import type { Doctor, Specialty } from '@/app/admin/requests/catalog-actions'
 
 const VARIABLES: Record<string, string> = {
   '{{nombre_paciente}}': '',
@@ -27,10 +29,13 @@ interface Props {
     patientName: string
     radicado: string
     institution: string
+    institutionId: string
   }
+  doctors: Doctor[]
+  specialties: Specialty[]
 }
 
-export function StatusManagementForm({ action, templates, currentStatus, requestData }: Props) {
+export function StatusManagementForm({ action, templates, currentStatus, requestData, doctors, specialties }: Props) {
   const [comment, setComment]         = useState('')
   const [showAppt, setShowAppt]       = useState(false)
   const [apptDate, setApptDate]       = useState('')
@@ -58,8 +63,8 @@ export function StatusManagementForm({ action, templates, currentStatus, request
       {/* Hidden fields for appointment */}
       <input type="hidden" name="appt_date"      value={apptDate} />
       <input type="hidden" name="appt_time"      value={apptTime} />
-      <input type="hidden" name="appt_doctor"    value={apptDoctor} />
-      <input type="hidden" name="appt_specialty" value={apptSpecialty} />
+      <input type="hidden" name="appt_doctor"    value={apptDoctor === 'none' ? '' : apptDoctor} />
+      <input type="hidden" name="appt_specialty" value={apptSpecialty === 'none' ? '' : apptSpecialty} />
 
       {/* Status selector */}
       <div className="space-y-2">
@@ -155,22 +160,35 @@ export function StatusManagementForm({ action, templates, currentStatus, request
             </div>
           </div>
           <div className="space-y-1">
-            <Label className="text-xs font-semibold text-slate-600">Doctor / Médico</Label>
-            <Input
-              value={apptDoctor}
-              onChange={e => setApptDoctor(e.target.value)}
-              placeholder="Ej. Dr. García Rodríguez"
-              className="h-9 text-sm border-teal-200 bg-white"
-            />
+            <div className="flex justify-between items-end">
+              <Label className="text-xs font-semibold text-slate-600">Doctor / Médico</Label>
+              <CatalogManager institutionId={requestData.institutionId} doctors={doctors} specialties={specialties} />
+            </div>
+            <Select value={apptDoctor} onValueChange={setApptDoctor}>
+              <SelectTrigger className="h-9 text-sm border-teal-200 bg-white">
+                <SelectValue placeholder="Seleccione un médico..." />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none" disabled className="hidden">Seleccione...</SelectItem>
+                {doctors.map(d => (
+                  <SelectItem key={d.id} value={d.name}>{d.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
           <div className="space-y-1">
             <Label className="text-xs font-semibold text-slate-600">Especialidad</Label>
-            <Input
-              value={apptSpecialty}
-              onChange={e => setApptSpec(e.target.value)}
-              placeholder="Ej. Cardiología, Ortopedia..."
-              className="h-9 text-sm border-teal-200 bg-white"
-            />
+            <Select value={apptSpecialty} onValueChange={setApptSpec}>
+              <SelectTrigger className="h-9 text-sm border-teal-200 bg-white">
+                <SelectValue placeholder="Seleccione una especialidad..." />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none" disabled className="hidden">Seleccione...</SelectItem>
+                {specialties.map(s => (
+                  <SelectItem key={s.id} value={s.name}>{s.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
           {apptDate && (
             <p className="text-xs text-teal-600 flex items-center gap-1.5">
