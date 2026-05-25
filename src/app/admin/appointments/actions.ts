@@ -33,16 +33,35 @@ export interface AppointmentWithPatient {
   institution_name: string
 }
 
+async function getAuthFilter() {
+  const authClient = await createClient()
+  const { data: { user } } = await authClient.auth.getUser()
+  if (!user) return null
+  const supabase = sb()
+  const { data: myProfile } = await supabase.from('users').select('institution_id, roles(name)').eq('id', user.id).single()
+  
+  const isSuperAdmin = myProfile?.roles?.name === 'Super Admin'
+  return { isSuperAdmin, institutionId: myProfile?.institution_id }
+}
+
 export async function getAppointmentsByDate(date: string): Promise<AppointmentWithPatient[]> {
   try {
     const supabase = sb()
+    const filter = await getAuthFilter()
+    if (!filter) return []
 
     // Step 1: Fetch appointments for the date
-    const { data: appointments, error: apptError } = await supabase
+    let query = supabase
       .from('appointments')
-      .select('*')
+      .select('*, requests!inner(institution_id)')
       .eq('appointment_date', date)
       .order('appointment_time', { ascending: true })
+
+    if (!filter.isSuperAdmin && filter.institutionId) {
+      query = query.eq('requests.institution_id', filter.institutionId)
+    }
+
+    const { data: appointments, error: apptError } = await query
 
     if (apptError) {
       console.error('Error fetching appointments:', apptError)
