@@ -9,7 +9,7 @@ export type TrackResult = {
   multipleResults?: any[];
 }
 
-export async function trackRequest(prevState: any, formData: FormData): Promise<TrackResult> {
+export async function trackRequest(slug: string, prevState: any, formData: FormData): Promise<TrackResult> {
   const radicado       = (formData.get('radicado') as string || '').trim().toUpperCase()
   const documentNumber = (formData.get('documentNumber') as string || '').trim()
 
@@ -21,6 +21,17 @@ export async function trackRequest(prevState: any, formData: FormData): Promise<
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.SUPABASE_SERVICE_ROLE_KEY!
   )
+
+  // 1. Resolve institution ID by slug
+  const { data: inst } = await supabase
+    .from('institutions')
+    .select('id')
+    .eq('slug', slug)
+    .single()
+
+  if (!inst) {
+    return { success: false, message: 'Institución no encontrada.' }
+  }
 
   const BASE_SELECT = `
     id, radicado, type, status, created_at, patient_data_json,
@@ -34,10 +45,11 @@ export async function trackRequest(prevState: any, formData: FormData): Promise<
       .select(BASE_SELECT)
       .eq('radicado', radicado)
       .eq('patient_document_number', documentNumber)
+      .eq('institution_id', inst.id)
       .single()
 
     if (error || !request) {
-      return { success: false, message: 'No se encontró ninguna solicitud con ese radicado y número de documento. Verifique los datos.' }
+      return { success: false, message: 'No se encontró ninguna solicitud con ese radicado y número de documento en esta institución.' }
     }
 
     return { success: true, data: withSortedHistory(request) }
@@ -49,10 +61,11 @@ export async function trackRequest(prevState: any, formData: FormData): Promise<
       .from('requests')
       .select(BASE_SELECT)
       .eq('radicado', radicado)
+      .eq('institution_id', inst.id)
       .single()
 
     if (error || !request) {
-      return { success: false, message: `No se encontró ninguna solicitud con el radicado ${radicado}.` }
+      return { success: false, message: `No se encontró ninguna solicitud con el radicado ${radicado} en esta institución.` }
     }
 
     return { success: true, data: withSortedHistory(request) }
@@ -63,10 +76,11 @@ export async function trackRequest(prevState: any, formData: FormData): Promise<
     .from('requests')
     .select(BASE_SELECT)
     .eq('patient_document_number', documentNumber)
+    .eq('institution_id', inst.id)
     .order('created_at', { ascending: false })
 
   if (error || !requests || requests.length === 0) {
-    return { success: false, message: `No se encontraron solicitudes para el documento ${documentNumber}.` }
+    return { success: false, message: `No se encontraron solicitudes para el documento ${documentNumber} en esta institución.` }
   }
 
   if (requests.length === 1) {

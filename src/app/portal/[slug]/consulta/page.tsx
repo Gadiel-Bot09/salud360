@@ -11,6 +11,7 @@ import { trackRequest, TrackResult } from './actions'
 import { format } from 'date-fns'
 import { es } from 'date-fns/locale'
 import Link from 'next/link'
+import { useParams } from 'next/navigation'
 
 const STATUS_MAP: Record<string, { label: string; color: string; icon: React.ElementType }> = {
   received:   { label: 'Recibida',   color: 'bg-blue-100 text-blue-700 border-blue-200',     icon: Clock },
@@ -88,6 +89,7 @@ function RequestTimeline({ data }: { data: any }) {
 }
 
 export default function ConsultaPage() {
+  const params = useParams() as { slug: string }
   const [loading, setLoading]   = useState(false)
   const [result, setResult]     = useState<TrackResult | null>(null)
   const [selected, setSelected] = useState<any | null>(null)
@@ -99,7 +101,7 @@ export default function ConsultaPage() {
     setSelected(null)
     const formData = new FormData(e.currentTarget)
     try {
-      const response = await trackRequest(null, formData)
+      const response = await trackRequest(params.slug, null, formData)
       setResult(response)
       // If single result, auto-select it
       if (response.success && response.data) setSelected(response.data)
@@ -116,7 +118,7 @@ export default function ConsultaPage() {
 
         {/* Header */}
         <div className="mb-6">
-          <Link href="/" className="text-teal-700 hover:text-teal-900 flex items-center gap-2 mb-4 font-medium transition-colors text-sm">
+          <Link href={`/portal/${params.slug}`} className="text-teal-700 hover:text-teal-900 flex items-center gap-2 mb-4 font-medium transition-colors text-sm">
             <ArrowLeft className="w-4 h-4" /> Volver al Inicio
           </Link>
           <h1 className="text-3xl font-bold text-slate-800 tracking-tight">Consultar Estado de Trámite</h1>

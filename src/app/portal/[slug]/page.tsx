@@ -133,7 +133,7 @@ export default async function PortalPage({ params }: { params: { slug: string } 
           {/* CTA — consult radicado */}
           <div className="mt-7">
             <Link
-              href="/consulta"
+              href={`/portal/${params.slug}/consulta`}
               className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full text-sm font-semibold transition-all shadow-lg hover:shadow-xl hover:-translate-y-0.5 active:translate-y-0"
               style={{
                 background: 'rgba(255,255,255,0.95)',
