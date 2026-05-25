@@ -32,7 +32,7 @@ export default async function UsersPage() {
   // Obtener roles disponibles para asignar
   let rolesQuery = supabase.from('roles').select('id, name, is_system')
   if (!isSuperAdmin) {
-     rolesQuery = rolesQuery.or(`institution_id.eq.${userProfile.institution_id},is_system.eq.true`)
+     rolesQuery = rolesQuery.or(`institution_id.eq.${userProfile.institution_id},is_system.eq.true`).neq('name', 'Super Admin')
   }
   const { data: availableRoles } = await rolesQuery.neq('name', 'Paciente').order('name')
 
