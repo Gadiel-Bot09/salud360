@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Loader2, Search, ArrowLeft, FileText, ChevronRight, CheckCircle2, Clock, AlertTriangle, Send } from 'lucide-react'
 import { trackRequest, TrackResult } from './actions'
-import { format } from 'date-fns'
+import { formatCO } from '@/lib/utils'
 import { es } from 'date-fns/locale'
 import Link from 'next/link'
 import { useParams } from 'next/navigation'
@@ -48,7 +48,7 @@ function RequestTimeline({ data }: { data: any }) {
             <p className="text-xs text-slate-500 uppercase tracking-wider font-semibold mb-2">Estado Actual</p>
             <StatusBadge status={data.status} />
             <p className="text-xs text-slate-400 mt-2">
-              Radicada el {format(new Date(data.created_at), "d 'de' MMMM yyyy", { locale: es })}
+              Radicada el {formatCO(new Date(data.created_at), "d 'de' MMMM yyyy")}
             </p>
           </div>
         </div>
@@ -70,7 +70,7 @@ function RequestTimeline({ data }: { data: any }) {
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-2">
                     <h4 className="font-bold text-slate-800">{hist.action}</h4>
                     <time className="text-xs font-semibold text-slate-500 bg-slate-100 px-2 py-1 rounded shrink-0">
-                      {format(new Date(hist.created_at), "d MMM yyyy, HH:mm", { locale: es })}
+                      {formatCO(new Date(hist.created_at), "d MMM yyyy, HH:mm")}
                     </time>
                   </div>
                   {hist.comment && (
@@ -211,7 +211,7 @@ export default function ConsultaPage() {
                     <span className="font-mono text-sm font-bold text-teal-700">{r.radicado}</span>
                     <p className="text-slate-600 text-sm mt-0.5">{r.type}</p>
                     <p className="text-xs text-slate-400 mt-1">
-                      {format(new Date(r.created_at), "d 'de' MMMM yyyy", { locale: es })}
+                      {formatCO(new Date(r.created_at), "d 'de' MMMM yyyy")}
                     </p>
                   </div>
                   <div className="flex items-center gap-2 shrink-0">

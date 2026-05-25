@@ -14,7 +14,8 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Eye, FileText, Search, X, Paperclip, AlertTriangle } from 'lucide-react'
-import { format, differenceInDays } from 'date-fns'
+import { formatCO } from '@/lib/utils'
+import { differenceInDays } from 'date-fns'
 import { es } from 'date-fns/locale'
 import Link from 'next/link'
 import { ExportButtons } from './export-buttons'
@@ -146,7 +147,7 @@ export function RequestsTable({ initialData }: { initialData: any[] }) {
                                             <div className="mt-1">{getPriorityBadge(req.priority)}</div>
                                         </TableCell>
                                         <TableCell className="text-slate-600 relative">
-                                            {format(new Date(req.created_at), "d MMM, yyyy", { locale: es })}
+                                            {formatCO(new Date(req.created_at), "d MMM, yyyy")}
                                             {isDelayed && (
                                                 <div className="mt-1 flex items-center gap-1 text-red-600 bg-red-50 text-[10px] font-bold px-1.5 py-0.5 rounded-sm w-max border border-red-100">
                                                     <AlertTriangle className="h-3 w-3" />

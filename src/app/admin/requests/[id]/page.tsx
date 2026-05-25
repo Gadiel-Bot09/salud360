@@ -7,7 +7,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { Label } from '@/components/ui/label'
 import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { format } from 'date-fns'
+import { formatCO } from '@/lib/utils'
 import { es } from 'date-fns/locale'
 import {
   ArrowLeft, Send, User, Mail, Phone, FileText,
@@ -217,7 +217,7 @@ export default async function RequestDetailPage({ params }: { params: { id: stri
               </span>
             </div>
             <p className="text-sm text-slate-500 mt-1">
-              Radicada el {format(new Date(request.created_at), "d 'de' MMMM, yyyy 'a las' HH:mm", { locale: es })}
+              Radicada el {formatCO(new Date(request.created_at), "d 'de' MMMM, yyyy 'a las' HH:mm")}
               {' · '}{request.type}
             </p>
           </div>
@@ -449,7 +449,7 @@ export default async function RequestDetailPage({ params }: { params: { id: stri
                           <div>
                             <p className="text-sm font-semibold text-slate-800">{hist.action}</p>
                             <time className="text-xs text-slate-400 block mb-1">
-                              {format(new Date(hist.created_at), "d MMM yyyy · HH:mm", { locale: es })}
+                              {formatCO(new Date(hist.created_at), "d MMM yyyy · HH:mm")}
                             </time>
                             {hist.comment && (
                               <p className="text-xs text-slate-600 bg-slate-50 border border-slate-100 rounded-lg px-3 py-2 mt-1">

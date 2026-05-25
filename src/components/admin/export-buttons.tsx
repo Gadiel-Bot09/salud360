@@ -3,8 +3,7 @@
 import { useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { FileSpreadsheet, FileText, Download, Loader2 } from 'lucide-react'
-import { format } from 'date-fns'
-import { es } from 'date-fns/locale'
+import { formatCO } from '@/lib/utils'
 
 interface RequestRow {
   radicado: string
@@ -34,7 +33,7 @@ const PRIORITY_LABELS: Record<string, string> = {
 function buildRows(data: RequestRow[]) {
   return data.map((req) => ({
     Radicado: req.radicado,
-    Fecha: format(new Date(req.created_at), 'd MMM yyyy HH:mm', { locale: es }),
+    Fecha: formatCO(new Date(req.created_at), 'd MMM yyyy HH:mm'),
     Paciente: req.patient_data_json?.fullName || 'N/A',
     'Tipo Doc.': req.patient_document_type,
     'Nro. Doc.': req.patient_document_number,
@@ -58,7 +57,7 @@ async function exportToExcel(data: RequestRow[]) {
 
   const wb = utils.book_new()
   utils.book_append_sheet(wb, ws, 'Radicados')
-  writeFile(wb, `Salud360_Radicados_${format(new Date(), 'yyyyMMdd_HHmm')}.xlsx`)
+  writeFile(wb, `Salud360_Radicados_${formatCO(new Date(), 'yyyyMMdd_HHmm')}.xlsx`)
 }
 
 // ── PDF Export ────────────────────────────────────────────────────────────────
@@ -78,7 +77,7 @@ async function exportToPDF(data: RequestRow[]) {
   doc.text('Salud360 — Reporte de Solicitudes', 40, 32)
   doc.setFontSize(10)
   doc.setFont('helvetica', 'normal')
-  doc.text(`Generado el ${format(new Date(), "d 'de' MMMM yyyy 'a las' HH:mm", { locale: es })}`, 40, 46)
+  doc.text(`Generado el ${formatCO(new Date(), "d 'de' MMMM yyyy 'a las' HH:mm")}`, 40, 46)
 
   const rows = buildRows(data)
   const head = [Object.keys(rows[0])]
@@ -107,7 +106,7 @@ async function exportToPDF(data: RequestRow[]) {
     )
   }
 
-  doc.save(`Salud360_Radicados_${format(new Date(), 'yyyyMMdd_HHmm')}.pdf`)
+  doc.save(`Salud360_Radicados_${formatCO(new Date(), 'yyyyMMdd_HHmm')}.pdf`)
 }
 
 // ── Component ─────────────────────────────────────────────────────────────────
