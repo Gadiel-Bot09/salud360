@@ -6,6 +6,7 @@ import { toggleUserStatus } from './actions'
 import { Users, ShieldCheck } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { InviteUserForm } from './invite-form'
+import { EditEmailModal } from './edit-email-modal'
 
 export default async function UsersPage() {
   const supabase = await createClient()
@@ -109,18 +110,21 @@ export default async function UsersPage() {
                                      </div>
                                  </TableCell>
                                  <TableCell className="text-right">
-                                    <form action={async () => {
-                                       'use server'
-                                       await toggleUserStatus(u.id, u.active)
-                                    }}>
-                                       <Button
-                                         variant={u.active ? 'outline' : 'default'}
-                                         size="sm"
-                                         className={!u.active ? 'bg-teal-600 hover:bg-teal-700 text-white' : 'border-red-200 text-red-600 hover:bg-red-50'}
-                                       >
-                                          {u.active ? 'Suspender' : 'Reactivar'}
-                                       </Button>
-                                    </form>
+                                     <div className="flex items-center justify-end gap-2">
+                                        {isSuperAdmin && <EditEmailModal userId={u.id} currentEmail={u.email} />}
+                                        <form action={async () => {
+                                           'use server'
+                                           await toggleUserStatus(u.id, u.active)
+                                        }}>
+                                           <Button
+                                             variant={u.active ? 'outline' : 'default'}
+                                             size="sm"
+                                             className={!u.active ? 'bg-teal-600 hover:bg-teal-700 text-white' : 'border-red-200 text-red-600 hover:bg-red-50'}
+                                           >
+                                              {u.active ? 'Suspender' : 'Reactivar'}
+                                           </Button>
+                                        </form>
+                                     </div>
                                  </TableCell>
                               </TableRow>
                            ))

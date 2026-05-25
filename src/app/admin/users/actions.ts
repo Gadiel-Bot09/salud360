@@ -99,3 +99,34 @@ export async function toggleUserStatus(userId: string, currentStatus: boolean) {
    revalidatePath('/admin/users')
    return { success: true }
 }
+
+export async function updateUserEmail(userId: string, newEmail: string) {
+   // Ensure current user is authenticated and is Super Admin
+   const authClient = await createServerClient()
+   const { data: { user } } = await authClient.auth.getUser()
+   if (!user) return { success: false, error: 'No autorizado' }
+
+   const { data: myProfile } = await supabaseAdmin.from('users').select('roles(name)').eq('id', user.id).single()
+   if (myProfile?.roles?.name !== 'Super Admin') {
+      return { success: false, error: 'Solo los Super Administradores pueden cambiar correos.' }
+   }
+
+   // 1. Update in Auth (auth.users)
+   const { error: authError } = await supabaseAdmin.auth.admin.updateUserById(userId, { email: newEmail })
+   if (authError) {
+      if (authError.message.includes('already exists')) {
+         return { success: false, error: 'Este correo ya está en uso por otra cuenta.' }
+      }
+      return { success: false, error: authError.message }
+   }
+
+   // 2. Update in public.users
+   const { error: dbError } = await supabaseAdmin.from('users').update({ email: newEmail }).eq('id', userId)
+   if (dbError) {
+      return { success: false, error: 'Correo actualizado en Auth, pero falló en la base de datos pública: ' + dbError.message }
+   }
+
+   revalidatePath('/admin/users')
+   return { success: true }
+}
+
