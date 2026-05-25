@@ -341,7 +341,7 @@ function RequestTypeSection({
   template, onChange, brandColors,
 }: {
   template: FormTemplate
-  onChange: (typeLabel: string) => void
+  onChange: (type: import('@/lib/form-template').RequestType | undefined) => void
   brandColors: BrandColors
 }) {
   const [selectedId, setSelectedId] = useState('')
@@ -350,8 +350,8 @@ function RequestTypeSection({
 
   const handleChange = (id: string) => {
     setSelectedId(id)
-    const label = template.requestTypes.find(rt => rt.id === id)?.label || ''
-    onChange(label)
+    const type = template.requestTypes.find(rt => rt.id === id)
+    onChange(type)
   }
 
   const base = `flex w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm transition-colors
@@ -418,6 +418,7 @@ export function RequestForm({
 }) {
   const [submitting, setSubmitting] = useState(false)
   const [successRadicado, setSuccessRadicado] = useState<string | null>(null)
+  const [selectedRequestType, setSelectedRequestType] = useState<import('@/lib/form-template').RequestType | undefined>(undefined)
   
   // CAPTCHA State
   const [captchaA, setCaptchaA] = useState(0)
@@ -541,7 +542,7 @@ export function RequestForm({
 
         {/* Request type selector + conditional fields */}
         {template.requestTypes.length > 0 && (
-          <RequestTypeSection template={template} onChange={() => {}} brandColors={brandColors} />
+          <RequestTypeSection template={template} onChange={setSelectedRequestType} brandColors={brandColors} />
         )}
       </div>
 
@@ -552,9 +553,10 @@ export function RequestForm({
           <h3 className="text-base font-semibold text-slate-700">Información del Solicitante</h3>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {template.fields.map(field => (
-            <FieldRenderer key={field.id} field={field} brandColors={brandColors} />
-          ))}
+          {template.fields.map(field => {
+            if (selectedRequestType?.onlySystemFields && !field.systemRole) return null;
+            return <FieldRenderer key={field.id} field={field} brandColors={brandColors} />
+          })}
         </div>
       </div>
 

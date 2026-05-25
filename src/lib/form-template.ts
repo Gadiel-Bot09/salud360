@@ -39,6 +39,7 @@ export interface RequestType {
   id: string
   label: string
   conditionalFields: FormField[]
+  onlySystemFields?: boolean
 }
 
 export interface FormTemplate {

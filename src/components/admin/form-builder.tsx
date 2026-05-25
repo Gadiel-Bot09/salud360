@@ -322,6 +322,12 @@ function RequestTypeCard({
             <Label className="text-xs text-slate-500">Nombre del trámite</Label>
             <Input value={type.label} onChange={(e) => onUpdate({ label: e.target.value })} placeholder="Ej: Agendamiento de Cita Médica" className="h-9" />
           </div>
+          <div className="flex items-center gap-2 pt-2 pb-1">
+            <Checkbox checked={type.onlySystemFields} onCheckedChange={(v) => onUpdate({ onlySystemFields: !!v })} id={`req-simpl-${type.id}`} />
+            <label htmlFor={`req-simpl-${type.id}`} className="text-sm font-medium text-slate-700 cursor-pointer leading-tight">
+              Formulario Simplificado <span className="block text-xs font-normal text-slate-500">Oculta los campos generales del formulario y solo pide los datos de identidad y los campos adicionales configurados abajo. Ideal para cancelar o reprogramar.</span>
+            </label>
+          </div>
           <div className="space-y-3">
             <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Campos adicionales que aparecen al seleccionar este trámite</p>
             {type.conditionalFields.map((cf, i) => (
@@ -461,9 +467,10 @@ function FormPreview({ template }: { template: FormTemplate }) {
 
           {/* Main fields */}
           <div className="grid grid-cols-2 gap-3">
-            {template.fields.map(field => (
-                <PreviewFieldInteractive key={field.id} field={field} />
-            ))}
+            {template.fields.map(field => {
+                if (selectedType?.onlySystemFields && !field.systemRole) return null;
+                return <PreviewFieldInteractive key={field.id} field={field} />
+            })}
           </div>
 
           {/* Submit button */}
