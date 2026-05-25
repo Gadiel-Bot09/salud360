@@ -1,12 +1,24 @@
 'use server'
 
 import { createClient as createAdminClient } from '@supabase/supabase-js'
+import { createClient as createAuthClient } from '@/lib/supabase/server'
 
 function getAdminClient() {
   return createAdminClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.SUPABASE_SERVICE_ROLE_KEY!
   )
+}
+
+async function getAuthFilter() {
+  const authClient = await createAuthClient()
+  const { data: { user } } = await authClient.auth.getUser()
+  if (!user) return null
+  const sb = getAdminClient()
+  const { data: myProfile } = await sb.from('users').select('institution_id, roles(name)').eq('id', user.id).single()
+  
+  const isSuperAdmin = myProfile?.roles?.name === 'Super Admin'
+  return { isSuperAdmin, institutionId: myProfile?.institution_id }
 }
 
 // ── 1. Solicitudes por Entidad ────────────────────────────────────────────────
@@ -21,13 +33,19 @@ export interface InstitutionReport {
 }
 
 export async function fetchRequestsByInstitution(from?: string, to?: string): Promise<InstitutionReport[]> {
+  const filter = await getAuthFilter()
+  if (!filter) return []
+  
   const sb = getAdminClient()
   let query = sb
     .from('requests')
-    .select('status, institutions(name)')
+    .select('status, institution_id, institutions(name)')
 
   if (from) query = query.gte('created_at', from)
   if (to)   query = query.lte('created_at', to + 'T23:59:59Z')
+  if (!filter.isSuperAdmin && filter.institutionId) {
+    query = query.eq('institution_id', filter.institutionId)
+  }
 
   const { data, error } = await query
   if (error || !data) { console.error(error); return [] }
@@ -52,10 +70,16 @@ export interface TypeReport {
 }
 
 export async function fetchRequestsByType(from?: string, to?: string): Promise<TypeReport[]> {
+  const filter = await getAuthFilter()
+  if (!filter) return []
+
   const sb = getAdminClient()
-  let query = sb.from('requests').select('type, status, created_at, updated_at')
+  let query = sb.from('requests').select('type, status, created_at, updated_at, institution_id')
   if (from) query = query.gte('created_at', from)
   if (to)   query = query.lte('created_at', to + 'T23:59:59Z')
+  if (!filter.isSuperAdmin && filter.institutionId) {
+    query = query.eq('institution_id', filter.institutionId)
+  }
 
   const { data, error } = await query
   if (error || !data) { console.error(error); return [] }
@@ -90,14 +114,20 @@ export interface UserActivityReport {
 }
 
 export async function fetchActivityByUser(from?: string, to?: string): Promise<UserActivityReport[]> {
+  const filter = await getAuthFilter()
+  if (!filter) return []
+
   const sb = getAdminClient()
   let query = sb
     .from('request_history')
-    .select('user_id, action, comment, to_status, created_at')
+    .select('user_id, action, comment, to_status, created_at, requests!inner(institution_id)')
     .not('user_id', 'is', null)
 
   if (from) query = query.gte('created_at', from)
   if (to)   query = query.lte('created_at', to + 'T23:59:59Z')
+  if (!filter.isSuperAdmin && filter.institutionId) {
+    query = query.eq('requests.institution_id', filter.institutionId)
+  }
 
   const { data: history, error } = await query
   if (error || !history) { console.error(error); return [] }
@@ -135,13 +165,19 @@ export interface SLAReport {
 }
 
 export async function fetchSLAReport(from?: string, to?: string): Promise<SLAReport[]> {
+  const filter = await getAuthFilter()
+  if (!filter) return []
+
   const sb = getAdminClient()
   let query = sb.from('requests')
-    .select('status, created_at, updated_at, institutions(name)')
+    .select('status, created_at, updated_at, institution_id, institutions(name)')
     .in('status', ['responded', 'closed'])
 
   if (from) query = query.gte('created_at', from)
   if (to)   query = query.lte('created_at', to + 'T23:59:59Z')
+  if (!filter.isSuperAdmin && filter.institutionId) {
+    query = query.eq('institution_id', filter.institutionId)
+  }
 
   const { data, error } = await query
   if (error || !data) { console.error(error); return [] }
@@ -174,14 +210,23 @@ export interface TrendPoint {
 }
 
 export async function fetchTrendData(from?: string, to?: string): Promise<TrendPoint[]> {
+  const filter = await getAuthFilter()
+  if (!filter) return []
+
   const sb = getAdminClient()
   const defaultFrom = from || new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
   const defaultTo   = to   || new Date().toISOString().split('T')[0]
 
-  const { data, error } = await sb.from('requests')
-    .select('created_at, status')
+  let query = sb.from('requests')
+    .select('created_at, status, institution_id')
     .gte('created_at', defaultFrom)
     .lte('created_at', defaultTo + 'T23:59:59Z')
+    
+  if (!filter.isSuperAdmin && filter.institutionId) {
+    query = query.eq('institution_id', filter.institutionId)
+  }
+
+  const { data, error } = await query
 
   if (error || !data) { console.error(error); return [] }
 
@@ -216,14 +261,23 @@ export interface PendingCritical {
 }
 
 export async function fetchPendingCriticals(minDays = 5): Promise<PendingCritical[]> {
+  const filter = await getAuthFilter()
+  if (!filter) return []
+
   const sb = getAdminClient()
   const cutoff = new Date(Date.now() - minDays * 24 * 60 * 60 * 1000).toISOString()
 
-  const { data, error } = await sb.from('requests')
-    .select('radicado, type, patient_email, status, created_at, institutions(name)')
+  let query = sb.from('requests')
+    .select('radicado, type, patient_email, status, created_at, institution_id, institutions(name)')
     .in('status', ['received', 'processing', 'escalated'])
     .lte('created_at', cutoff)
     .order('created_at', { ascending: true })
+
+  if (!filter.isSuperAdmin && filter.institutionId) {
+    query = query.eq('institution_id', filter.institutionId)
+  }
+
+  const { data, error } = await query
 
   if (error || !data) { console.error(error); return [] }
 
@@ -248,20 +302,27 @@ export interface AttendanceReportRow {
 }
 
 export async function fetchAttendanceReport(from?: string, to?: string): Promise<AttendanceReportRow[]> {
+  const filter = await getAuthFilter()
+  if (!filter) return []
+
   const sb = getAdminClient()
   let query = sb
     .from('appointments')
-    .select('attended, requests(institutions(name))')
+    .select('attended, requests!inner(institution_id, institutions(name))')
 
   if (from) query = query.gte('appointment_date', from)
   if (to)   query = query.lte('appointment_date', to)
+
+  if (!filter.isSuperAdmin && filter.institutionId) {
+    query = query.eq('requests.institution_id', filter.institutionId)
+  }
 
   const { data, error } = await query
   if (error || !data) { console.error(error); return [] }
 
   const map: Record<string, { total: number; attended: number; absent: number; pending: number }> = {}
   for (const a of data as any[]) {
-    const name = a.requests?.institutions?.name || 'Sin Institución'
+    const name = (a.requests as any)?.institutions?.name || 'Sin Institución'
     if (!map[name]) map[name] = { total: 0, attended: 0, absent: 0, pending: 0 }
     map[name].total++
     if (a.attended === true)  map[name].attended++
