@@ -32,7 +32,8 @@ export async function changePassword(formData: FormData) {
 export async function updateInstitutionBranding(formData: FormData) {
   const institutionId = formData.get('institutionId') as string
   const name = formData.get('name') as string
-  const logoUrl = formData.get('logo_url') as string | null
+  let logoUrl = formData.get('logo_url') as string | null
+  const logoFile = formData.get('logo_file') as File | null
   const slug = formData.get('slug') as string
   const primaryColor = formData.get('primaryColor') as string
   const secondaryColor = formData.get('secondaryColor') as string
@@ -43,6 +44,37 @@ export async function updateInstitutionBranding(formData: FormData) {
   const contactEmail = formData.get('contact_email') as string | null
   const website = formData.get('website') as string | null
   const privacyPolicy = formData.get('privacy_policy') as string | null
+
+  if (!institutionId) return { success: false, error: 'ID de institución requerido.' }
+
+  if (logoFile && logoFile.size > 0) {
+    const { S3Client, PutObjectCommand } = await import('@aws-sdk/client-s3')
+    const s3 = new S3Client({
+      region: 'us-east-1',
+      endpoint: process.env.MINIO_ENDPOINT,
+      credentials: {
+        accessKeyId: process.env.MINIO_ACCESS_KEY!,
+        secretAccessKey: process.env.MINIO_SECRET_KEY!
+      },
+      forcePathStyle: true
+    })
+    
+    const fileExt = logoFile.name.split('.').pop()
+    const safeName = `logo-${Math.random().toString(36).substring(7)}.${fileExt}`
+    const uploadPath = `institutions/${institutionId}/${safeName}`
+    
+    const arrayBuffer = await logoFile.arrayBuffer()
+    const buffer = Buffer.from(arrayBuffer)
+    
+    await s3.send(new PutObjectCommand({
+      Bucket: process.env.MINIO_BUCKET_NAME!,
+      Key: uploadPath,
+      Body: buffer,
+      ContentType: logoFile.type
+    }))
+    
+    logoUrl = `${process.env.MINIO_ENDPOINT}/${process.env.MINIO_BUCKET_NAME}/${uploadPath}`
+  }
 
   if (!institutionId) return { success: false, error: 'ID de institución requerido.' }
 

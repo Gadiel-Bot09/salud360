@@ -329,12 +329,20 @@ function BrandingSection({ institution, siteUrl }: { institution: Institution; s
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="logo_url">URL del Logo</Label>
-                <Input
-                  id="logo_url" name="logo_url" type="url"
-                  value={logoUrl} onChange={(e) => setLogoUrl(e.target.value)}
-                  placeholder="https://..." 
-                />
+                <Label htmlFor="logo_file">Logo Institucional</Label>
+                <div className="flex flex-col gap-2">
+                  <Input
+                    id="logo_file" name="logo_file" type="file" accept="image/*"
+                    onChange={(e) => {
+                      if (e.target.files?.[0]) {
+                        const fileUrl = URL.createObjectURL(e.target.files[0]);
+                        setLogoUrl(fileUrl);
+                      }
+                    }}
+                    className="cursor-pointer file:mr-4 file:py-1 file:px-3 file:rounded-full file:border-0 file:text-xs file:font-semibold file:bg-teal-50 file:text-teal-700 hover:file:bg-teal-100"
+                  />
+                  <input type="hidden" name="logo_url" value={institution.logo_url || ''} />
+                </div>
               </div>
 
               {/* Color Primary */}
