@@ -443,7 +443,11 @@ export function RequestForm({
     const parent = template.fields.find(f => f.id === field.visibilityCondition!.fieldId)
     if (!parent) return true
     const parentName = parent.systemRole || parent.id
-    return formValues[parentName] === field.visibilityCondition.equalsValue
+    
+    const parentValue = formValues[parentName]?.trim().toLowerCase() || ''
+    const expectedValues = field.visibilityCondition.equalsValue.split(',').map(v => v.trim().toLowerCase())
+    
+    return expectedValues.includes(parentValue)
   }
 
   const brandColors: BrandColors = externalColors ?? { primary: '#0f766e', secondary: '#134e4a' }

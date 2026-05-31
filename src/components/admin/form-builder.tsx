@@ -293,7 +293,7 @@ function FieldCard({
                      <Input 
                        value={field.visibilityCondition?.equalsValue || ''} 
                        onChange={(e) => onUpdate({ visibilityCondition: { ...field.visibilityCondition!, equalsValue: e.target.value } })}
-                       placeholder="Ej: Mutual Ser"
+                       placeholder="Ej: Mutual Ser, FOMAG"
                        className="h-9 text-sm bg-white"
                      />
                   </div>
@@ -467,7 +467,9 @@ function FormPreview({ template }: { template: FormTemplate }) {
     const parent = template.fields.find(f => f.id === field.visibilityCondition!.fieldId)
     if (!parent) return true
     const parentName = parent.systemRole || parent.id
-    return formValues[parentName] === field.visibilityCondition.equalsValue
+    const parentValue = formValues[parentName]?.trim().toLowerCase() || ''
+    const expectedValues = field.visibilityCondition.equalsValue.split(',').map(v => v.trim().toLowerCase())
+    return expectedValues.includes(parentValue)
   }
 
   return (
