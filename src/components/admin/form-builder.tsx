@@ -92,13 +92,14 @@ function SubFieldEditor({ sub, onUpdate, onRemove }: {
 // ─── Field Card ────────────────────────────────────────────────────────────────
 
 function FieldCard({
-  field, isFirst, isLast, allowConditional = true,
+  field, isFirst, isLast, allowConditional = true, allFields,
   onUpdate, onRemove, onMoveUp, onMoveDown
 }: {
   field: FormField
   isFirst: boolean
   isLast: boolean
   allowConditional?: boolean
+  allFields: FormField[]
   onUpdate: (u: Partial<FormField>) => void
   onRemove: () => void
   onMoveUp: () => void
@@ -266,6 +267,39 @@ function FieldCard({
               )}
             </div>
           )}
+
+          {/* Visibility Logic */}
+          <div className="space-y-3 pt-4 border-t border-slate-100">
+             <div className="flex items-center justify-between">
+                <Label className="text-sm font-semibold text-slate-700">Lógica de Visibilidad</Label>
+             </div>
+             <div className="flex flex-col sm:flex-row gap-3 bg-slate-50 border border-slate-200 rounded-lg p-3">
+                <div className="flex-1 space-y-1">
+                   <Label className="text-xs text-slate-500">Mostrar solo si el campo...</Label>
+                   <select 
+                     value={field.visibilityCondition?.fieldId || ''} 
+                     onChange={(e) => onUpdate({ visibilityCondition: e.target.value ? { fieldId: e.target.value, equalsValue: field.visibilityCondition?.equalsValue || '' } : undefined })}
+                     className="flex h-9 w-full rounded-md border border-slate-200 bg-white px-3 text-sm focus:outline-none focus:ring-2 focus:ring-teal-700"
+                   >
+                      <option value="">(Mostrar Siempre)</option>
+                      {allFields.filter(f => f.id !== field.id).map(f => (
+                        <option key={f.id} value={f.id}>{f.label || 'Campo sin etiqueta'}</option>
+                      ))}
+                   </select>
+                </div>
+                {field.visibilityCondition?.fieldId && (
+                  <div className="flex-1 space-y-1">
+                     <Label className="text-xs text-slate-500">Es igual a...</Label>
+                     <Input 
+                       value={field.visibilityCondition?.equalsValue || ''} 
+                       onChange={(e) => onUpdate({ visibilityCondition: { ...field.visibilityCondition!, equalsValue: e.target.value } })}
+                       placeholder="Ej: Mutual Ser"
+                       className="h-9 text-sm bg-white"
+                     />
+                  </div>
+                )}
+             </div>
+          </div>
         </div>
       )}
     </div>
@@ -275,11 +309,12 @@ function FieldCard({
 // ─── Request Type Card ────────────────────────────────────────────────────────
 
 function RequestTypeCard({
-  type, isFirst, isLast,
+  type, isFirst, isLast, allFields,
   onUpdate, onRemove, onMoveUp, onMoveDown
 }: {
   type: RequestType
   isFirst: boolean; isLast: boolean
+  allFields: FormField[]
   onUpdate: (u: Partial<RequestType>) => void
   onRemove: () => void
   onMoveUp: () => void; onMoveDown: () => void
@@ -333,6 +368,7 @@ function RequestTypeCard({
             {type.conditionalFields.map((cf, i) => (
               <FieldCard key={cf.id} field={cf} isFirst={i === 0} isLast={i === type.conditionalFields.length - 1}
                 allowConditional={false}
+                allFields={allFields}
                 onUpdate={(u) => updateCF(i, u)}
                 onRemove={() => removeCF(i)}
                 onMoveUp={() => moveCF(i, -1)}
@@ -368,14 +404,14 @@ function PreviewFieldInteractive({ field }: { field: FormField }) {
         </label>
         
         {field.type === 'textarea' ? (
-          <textarea rows={3} placeholder={field.placeholder} className={`${base} resize-none`} readOnly />
+          <textarea name={field.systemRole || field.id} rows={3} placeholder={field.placeholder} className={`${base} resize-none`} readOnly />
         ) : field.type === 'select' && !field.hasConditionalOptions ? (
-          <select className={base} defaultValue="">
+          <select name={field.systemRole || field.id} className={base} defaultValue="">
             <option value="" disabled>{field.placeholder || 'Seleccione...'}</option>
             {(field.options || []).map((o, i) => <option key={i}>{o}</option>)}
           </select>
         ) : field.type === 'select' && field.hasConditionalOptions ? (
-          <select className={base} value={selectedOption} onChange={(e) => setSelectedOption(e.target.value)}>
+          <select name={field.systemRole || field.id} className={base} value={selectedOption} onChange={(e) => setSelectedOption(e.target.value)}>
             <option value="" disabled>{field.placeholder || 'Seleccione...'}</option>
             {(field.conditionalOptions || []).map((o, i) => <option key={i} value={o.value}>{o.value}</option>)}
           </select>
@@ -385,7 +421,7 @@ function PreviewFieldInteractive({ field }: { field: FormField }) {
             Seleccionar archivo
           </div>
         ) : (
-          <input type={field.type} placeholder={field.placeholder} className={base} readOnly />
+          <input name={field.systemRole || field.id} type={field.type} placeholder={field.placeholder} className={base} readOnly={field.type !== 'date' && field.type !== 'number'} />
         )}
       </div>
 
@@ -418,14 +454,28 @@ function PreviewFieldInteractive({ field }: { field: FormField }) {
 
 function FormPreview({ template }: { template: FormTemplate }) {
   const [selectedTypeId, setSelectedTypeId] = useState('')
+  const [formValues, setFormValues] = useState<Record<string, string>>({})
   const selectedType = template.requestTypes.find(rt => rt.id === selectedTypeId)
+
+  const handleFormChange = (e: React.ChangeEvent<HTMLFormElement>) => {
+    const target = e.target as HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement
+    setFormValues(prev => ({ ...prev, [target.name]: target.value }))
+  }
+
+  const shouldShow = (field: FormField) => {
+    if (!field.visibilityCondition) return true
+    const parent = template.fields.find(f => f.id === field.visibilityCondition!.fieldId)
+    if (!parent) return true
+    const parentName = parent.systemRole || parent.id
+    return formValues[parentName] === field.visibilityCondition.equalsValue
+  }
 
   return (
     <div className="bg-slate-100 rounded-2xl p-4 h-full overflow-y-auto">
       <div className="text-center mb-3">
         <span className="text-xs font-semibold text-slate-400 uppercase tracking-widest">👁️ Vista Previa del Paciente</span>
       </div>
-      <div className="bg-white rounded-xl shadow-lg border border-slate-200 overflow-hidden max-w-lg mx-auto">
+      <form onChange={handleFormChange} className="bg-white rounded-xl shadow-lg border border-slate-200 overflow-hidden max-w-lg mx-auto">
         {/* Mock institution header */}
         <div className="bg-gradient-to-r from-teal-700 to-teal-900 px-5 py-4">
           <div className="flex items-center gap-3">
@@ -459,9 +509,10 @@ function FormPreview({ template }: { template: FormTemplate }) {
           {selectedType && selectedType.conditionalFields.length > 0 && (
             <div className="bg-teal-50 border border-teal-200 rounded-xl p-3 space-y-3">
               <p className="text-[10px] font-bold text-teal-700 uppercase tracking-widest">Información para: {selectedType.label}</p>
-              {selectedType.conditionalFields.map(cf => (
-                  <PreviewFieldInteractive key={cf.id} field={cf} />
-              ))}
+              {selectedType.conditionalFields.map(cf => {
+                  if (!shouldShow(cf)) return null
+                  return <PreviewFieldInteractive key={cf.id} field={cf} />
+              })}
             </div>
           )}
 
@@ -469,16 +520,17 @@ function FormPreview({ template }: { template: FormTemplate }) {
           <div className="grid grid-cols-2 gap-3">
             {template.fields.map(field => {
                 if (selectedType?.onlySystemFields && !field.systemRole) return null;
+                if (!shouldShow(field)) return null;
                 return <PreviewFieldInteractive key={field.id} field={field} />
             })}
           </div>
 
           {/* Submit button */}
-          <button className="w-full bg-teal-700 hover:bg-teal-800 text-white py-3 rounded-lg text-sm font-semibold transition-colors mt-2">
+          <button type="button" className="w-full bg-teal-700 hover:bg-teal-800 text-white py-3 rounded-lg text-sm font-semibold transition-colors mt-2">
             Radicar Solicitud Médica
           </button>
         </div>
-      </div>
+      </form>
     </div>
   )
 }
@@ -612,6 +664,7 @@ export function FormBuilder({ initialTemplate, initialTemplateName, templateId, 
                   </p>
                   {fields.map((field, i) => (
                     <FieldCard key={field.id} field={field} isFirst={i === 0} isLast={i === fields.length - 1}
+                      allFields={fields}
                       onUpdate={(u) => updateField(i, u)}
                       onRemove={() => removeField(i)}
                       onMoveUp={() => moveField(i, -1)}
@@ -631,6 +684,7 @@ export function FormBuilder({ initialTemplate, initialTemplateName, templateId, 
                   </p>
                   {types.map((type, i) => (
                     <RequestTypeCard key={type.id} type={type} isFirst={i === 0} isLast={i === types.length - 1}
+                      allFields={fields}
                       onUpdate={(u) => updateType(i, u)}
                       onRemove={() => removeType(i)}
                       onMoveUp={() => moveType(i, -1)}

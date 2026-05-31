@@ -22,6 +22,11 @@ export interface ConditionalOption {
   fields: SubField[]
 }
 
+export interface VisibilityCondition {
+  fieldId: string
+  equalsValue: string
+}
+
 export interface FormField {
   id: string
   label: string
@@ -33,6 +38,7 @@ export interface FormField {
   hasConditionalOptions?: boolean
   conditionalOptions?: ConditionalOption[]
   allowMultipleFiles?: boolean // Controla si permite <input multiple>
+  visibilityCondition?: VisibilityCondition
 }
 
 export interface RequestType {

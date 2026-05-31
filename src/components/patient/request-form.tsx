@@ -338,11 +338,12 @@ function FieldRenderer({
 // ─── Request Type Selector ─────────────────────────────────────────────────────
 
 function RequestTypeSection({
-  template, onChange, brandColors,
+  template, onChange, brandColors, shouldShow
 }: {
   template: FormTemplate
   onChange: (type: import('@/lib/form-template').RequestType | undefined) => void
   brandColors: BrandColors
+  shouldShow: (field: FormField) => boolean
 }) {
   const [selectedId, setSelectedId] = useState('')
   const selectedType = template.requestTypes.find(rt => rt.id === selectedId)
@@ -391,9 +392,10 @@ function RequestTypeSection({
             Información requerida — {selectedType.label}
           </p>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {selectedType.conditionalFields.map(cf => (
-              <FieldRenderer key={cf.id} field={cf} namePrefix={`rt__${selectedType.id}`} brandColors={brandColors} />
-            ))}
+            {selectedType.conditionalFields.map(cf => {
+              if (!shouldShow(cf)) return null
+              return <FieldRenderer key={cf.id} field={cf} namePrefix={`rt__${selectedType.id}`} brandColors={brandColors} />
+            })}
           </div>
         </div>
       )}
@@ -419,6 +421,7 @@ export function RequestForm({
   const [submitting, setSubmitting] = useState(false)
   const [successRadicado, setSuccessRadicado] = useState<string | null>(null)
   const [selectedRequestType, setSelectedRequestType] = useState<import('@/lib/form-template').RequestType | undefined>(undefined)
+  const [formValues, setFormValues] = useState<Record<string, string>>({})
   
   // CAPTCHA State
   const [captchaA, setCaptchaA] = useState(0)
@@ -427,6 +430,21 @@ export function RequestForm({
   const [captchaError, setCaptchaError] = useState(false)
 
   const { toast } = useToast()
+
+  const handleFormChange = (e: React.ChangeEvent<HTMLFormElement>) => {
+    const target = e.target as HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement
+    if (target.name && !target.name.startsWith('filelabel__') && target.type !== 'file') {
+      setFormValues(prev => ({ ...prev, [target.name]: target.value }))
+    }
+  }
+
+  const shouldShow = (field: import('@/lib/form-template').FormField) => {
+    if (!field.visibilityCondition) return true
+    const parent = template.fields.find(f => f.id === field.visibilityCondition!.fieldId)
+    if (!parent) return true
+    const parentName = parent.systemRole || parent.id
+    return formValues[parentName] === field.visibilityCondition.equalsValue
+  }
 
   const brandColors: BrandColors = externalColors ?? { primary: '#0f766e', secondary: '#134e4a' }
   const initial = institutionName?.charAt(0)?.toUpperCase() || 'I'
@@ -513,7 +531,7 @@ export function RequestForm({
 
   // ─── Form ──────────────────────────────────────────────────────────────────
   return (
-    <form onSubmit={handleSubmit} className="space-y-6 animate-in fade-in zoom-in-95 duration-500">
+    <form onSubmit={handleSubmit} onChange={handleFormChange} className="space-y-6 animate-in fade-in zoom-in-95 duration-500">
       <div className="space-y-4">
         {/* Institution badge */}
         <div
@@ -542,7 +560,7 @@ export function RequestForm({
 
         {/* Request type selector + conditional fields */}
         {template.requestTypes.length > 0 && (
-          <RequestTypeSection template={template} onChange={setSelectedRequestType} brandColors={brandColors} />
+          <RequestTypeSection template={template} onChange={setSelectedRequestType} brandColors={brandColors} shouldShow={shouldShow} />
         )}
       </div>
 
@@ -555,6 +573,7 @@ export function RequestForm({
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {template.fields.map(field => {
             if (selectedRequestType?.onlySystemFields && !field.systemRole) return null;
+            if (!shouldShow(field)) return null;
             return <FieldRenderer key={field.id} field={field} brandColors={brandColors} />
           })}
         </div>
