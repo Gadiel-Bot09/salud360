@@ -16,6 +16,7 @@ import {
 import Link from 'next/link'
 import { revalidatePath } from 'next/cache'
 import { sendStatusUpdateEmail, sendAppointmentConfirmationEmail } from '@/lib/resend'
+import { sendWhatsAppMessage } from '@/lib/evolution'
 import { getResponseTemplates } from '@/app/admin/settings/template-actions'
 import { S3Client, GetObjectCommand, PutObjectCommand } from '@aws-sdk/client-s3'
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner'
@@ -114,7 +115,7 @@ export default async function RequestDetailPage({ params }: { params: { id: stri
   // Fetch response templates and institution name for UI
   const [templates, institutionResult, specialtiesRes, doctorsRes] = await Promise.all([
     getResponseTemplates(),
-    supabaseAdmin.from('institutions').select('name').eq('id', request.institution_id).single(),
+    supabaseAdmin.from('institutions').select('name, evolution_connected, evolution_instance_name').eq('id', request.institution_id).single(),
     supabaseAdmin.from('specialties').select('*').eq('institution_id', request.institution_id).eq('active', true),
     supabaseAdmin.from('doctors').select('*').eq('institution_id', request.institution_id).eq('active', true)
   ])
@@ -186,6 +187,31 @@ export default async function RequestDetailPage({ params }: { params: { id: stri
     })
     if (['responded', 'closed', 'escalated'].includes(newStatus)) {
       await sendStatusUpdateEmail(request.patient_email, request.radicado, newStatus, comment, resendAttachments)
+
+      // Send WhatsApp Notification
+      const evoInstance = institutionResult.data?.evolution_instance_name
+      const evoConnected = institutionResult.data?.evolution_connected
+      const patientPhone = request.patient_data_json?.phone || request.patient_data_json?.celular || request.patient_data_json?.telefono
+
+      if (evoConnected && evoInstance && patientPhone && comment) {
+        const cleanPhone = String(patientPhone).replace(/\D/g, '')
+        if (cleanPhone.length >= 10) {
+          const patientName = request.patient_data_json?.fullName || 'Paciente'
+          const instName = institutionResult.data?.name || 'Salud360'
+          const wpText = `Hola ${patientName}, tu solicitud ${request.radicado} tiene una nueva respuesta de ${instName}:\n\n"${comment}"\n\nRevisa tu correo para ver adjuntos o más detalles.`
+          
+          const wpRes = await sendWhatsAppMessage(evoInstance, { number: '57' + cleanPhone, text: wpText })
+          
+          await sbAdm.from('whatsapp_logs').insert({
+            institution_id: request.institution_id,
+            request_id: request.id,
+            patient_phone: patientPhone,
+            message_content: wpText,
+            status: wpRes ? 'sent' : 'failed',
+            error_message: wpRes ? null : 'Error al conectar con Evolution API o número inválido'
+          })
+        }
+      }
     }
     revalidatePath(`/admin/requests/${request.id}`)
   }

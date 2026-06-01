@@ -19,6 +19,7 @@ const AVAILABLE_PERMISSIONS = [
   { id: 'users.manage', label: 'Gestionar Usuarios' },
   { id: 'roles.manage', label: 'Gestionar Roles' },
   { id: 'settings.manage', label: 'Configuración de Institución' },
+  { id: 'whatsapp_logs.view', label: 'Ver Registros de WhatsApp' },
 ]
 
 export function RoleForm({ institutionId }: { institutionId: string | null }) {

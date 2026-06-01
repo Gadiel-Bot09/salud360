@@ -44,7 +44,7 @@ export async function GET(request: Request) {
       .select(`
         id, appointment_date, appointment_time, doctor_name, specialty,
         reminder_24h_sent, reminder_2h_sent,
-        requests ( id, radicado, patient_email, patient_data_json, institutions(name, evolution_instance_name, evolution_connected) )
+        requests ( id, radicado, patient_email, patient_data_json, institutions(id, name, evolution_instance_name, evolution_connected) )
       `)
       .or('reminder_24h_sent.eq.false,reminder_2h_sent.eq.false')
 
@@ -82,9 +82,18 @@ export async function GET(request: Request) {
             const timeStr = appt.appointment_time?.slice(0, 5) || '—'
             const doctorStr = appt.doctor_name ? `con el especialista ${appt.doctor_name}` : ''
             const text = `Hola ${patientName},\n\nTe recordamos que mañana tienes una cita médica en *${institution}* a las *${timeStr}* ${doctorStr}.\n\nPor favor, llega con 15 minutos de antelación.\n\nAtentamente,\nEquipo de ${institution}`
-            await sendWhatsAppMessage(instanceName, {
-              number: patientPhone.replace(/\D/g, ''),
+            const wpRes = await sendWhatsAppMessage(instanceName, {
+              number: '57' + patientPhone.replace(/\D/g, ''),
               text
+            })
+            await supabase.from('whatsapp_logs').insert({
+              institution_id: req.institutions.id,
+              request_id: req.id,
+              appointment_id: appt.id,
+              patient_phone: patientPhone,
+              message_content: text,
+              status: wpRes ? 'sent' : 'failed',
+              error_message: wpRes ? null : 'Error con Evolution API'
             })
           }
 
@@ -105,9 +114,18 @@ export async function GET(request: Request) {
             const timeStr = appt.appointment_time?.slice(0, 5) || '—'
             const doctorStr = appt.doctor_name ? `con el especialista ${appt.doctor_name}` : ''
             const text = `Hola ${patientName},\n\nEste es un recordatorio final para tu cita médica de hoy en *${institution}* a las *${timeStr}* ${doctorStr}.\n\nTe esperamos pronto.\n\nAtentamente,\nEquipo de ${institution}`
-            await sendWhatsAppMessage(instanceName, {
-              number: patientPhone.replace(/\D/g, ''),
+            const wpRes = await sendWhatsAppMessage(instanceName, {
+              number: '57' + patientPhone.replace(/\D/g, ''),
               text
+            })
+            await supabase.from('whatsapp_logs').insert({
+              institution_id: req.institutions.id,
+              request_id: req.id,
+              appointment_id: appt.id,
+              patient_phone: patientPhone,
+              message_content: text,
+              status: wpRes ? 'sent' : 'failed',
+              error_message: wpRes ? null : 'Error con Evolution API'
             })
           }
 

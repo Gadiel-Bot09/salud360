@@ -181,7 +181,7 @@ export async function sendManualWhatsAppReminder(appointmentId: string): Promise
       .from('appointments')
       .select(`
         id, appointment_date, appointment_time, doctor_name, specialty,
-        requests ( radicado, patient_data_json, institutions(name, evolution_instance_name, evolution_connected) )
+        requests ( id, radicado, patient_data_json, institutions(id, name, evolution_instance_name, evolution_connected) )
       `)
       .eq('id', appointmentId)
       .single()
@@ -213,8 +213,18 @@ export async function sendManualWhatsAppReminder(appointmentId: string): Promise
     const text = `Hola ${fullName},\n\nEste es un recordatorio de tu cita médica programada en *${institution}* para el *${dateStr}* a las *${timeStr}* ${doctorStr}.\n\nPor favor, recuerda llegar con 15 minutos de antelación.\n\nAtentamente,\nEquipo de ${institution}`
 
     const res = await sendWhatsAppMessage(instanceName, {
-      number: phone.replace(/\D/g, ''),
+      number: '57' + phone.replace(/\D/g, ''),
       text
+    })
+
+    await supabase.from('whatsapp_logs').insert({
+      institution_id: req.institutions.id,
+      request_id: appt.requests?.id, // Note: actually requests doesn't fetch 'id' above, let's fix the select query as well! Wait, no I can fetch it.
+      appointment_id: appt.id,
+      patient_phone: phone,
+      message_content: text,
+      status: res ? 'sent' : 'failed',
+      error_message: res ? null : 'Fallo la conexión con Evolution API'
     })
 
     if (!res) {
