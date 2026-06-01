@@ -1,7 +1,8 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 'use client'
 
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
 import {
     Table,
     TableBody,
@@ -21,8 +22,17 @@ import Link from 'next/link'
 import { ExportButtons } from './export-buttons'
 
 export function RequestsTable({ initialData }: { initialData: any[] }) {
+    const router = useRouter()
     const [search, setSearch] = useState('')
     const [statusFilter, setStatusFilter] = useState('all')
+
+    // Auto-refresh the page data every 15 seconds
+    useEffect(() => {
+        const interval = setInterval(() => {
+            router.refresh()
+        }, 15000)
+        return () => clearInterval(interval)
+    }, [router])
 
     // Filter data based on search & status
     const filtered = useMemo(() => {
