@@ -6,9 +6,13 @@ import { sendWhatsAppMessage } from '@/lib/evolution'
 export const dynamic = 'force-dynamic'
 
 export async function GET(request: Request) {
-  // Protect endpoint with CRON_SECRET
+  // Protect endpoint with CRON_SECRET (via Header or query param ?secret=...)
   const authHeader = request.headers.get('authorization')
-  if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
+  const { searchParams } = new URL(request.url)
+  const querySecret = searchParams.get('secret')
+  const validSecret = process.env.CRON_SECRET
+
+  if (authHeader !== `Bearer ${validSecret}` && querySecret !== validSecret) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
