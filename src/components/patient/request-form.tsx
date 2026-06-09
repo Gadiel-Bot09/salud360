@@ -7,6 +7,7 @@ import { Label } from '@/components/ui/label'
 import { useToast } from '@/hooks/use-toast'
 import { Loader2, UploadCloud, ShieldCheck, ChevronDown, Building2, FileText, X } from 'lucide-react'
 import type { FormField, FormTemplate } from '@/lib/form-template'
+import { SignaturePad } from '@/components/patient/signature-pad'
 import Link from 'next/link'
 
 interface BrandColors {
@@ -229,6 +230,14 @@ function FieldRenderer({
             name={inputName} required={field.required} placeholder={field.placeholder} rows={3}
             className={`${base} h-auto resize-none focus:ring-2`}
             style={{ '--tw-ring-color': brandColors.primary } as React.CSSProperties}
+          />
+        )}
+
+        {field.type === 'signature' && (
+          <SignaturePad
+            name={inputName}
+            required={field.required}
+            brandColors={brandColors}
           />
         )}
 

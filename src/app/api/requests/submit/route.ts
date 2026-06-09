@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { sendEmailConfirmation } from '@/lib/resend'
 import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3'
+import { generateLegalDocuments } from '@/lib/document-generator'
 
 export async function POST(request: Request) {
     try {
@@ -145,10 +146,14 @@ export async function POST(request: Request) {
             }
         }
 
-        // Shoot Email
         try {
             await sendEmailConfirmation(email, radicado, fullName, requestType, patientData)
         } catch(e) { console.error('Email failed, but request succeeded:', e) }
+
+        // Document Generation
+        try {
+            await generateLegalDocuments(institutionId, requestId, patientData, requestType)
+        } catch(e) { console.error('Document generation failed:', e) }
 
         return NextResponse.json({ success: true, radicado })
         

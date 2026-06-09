@@ -6,7 +6,7 @@
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-export type FormFieldType = 'text' | 'email' | 'number' | 'date' | 'select' | 'file' | 'textarea'
+export type FormFieldType = 'text' | 'email' | 'number' | 'date' | 'select' | 'file' | 'textarea' | 'signature'
 export type SystemRole = 'documentType' | 'documentNumber' | 'fullName' | 'email' | 'phone'
 
 export interface SubField {

@@ -32,6 +32,7 @@ const FIELD_TYPE_LABELS: Record<FormFieldType, string> = {
   select: 'Lista Desplegable',
   file: 'Archivo',
   textarea: 'Texto Largo',
+  signature: 'Firma Digital',
 }
 
 const SYSTEM_ROLE_LABELS: Record<SystemRole, string> = {

@@ -14,7 +14,8 @@ import {
     FileEdit,
     BarChart2,
     CalendarDays,
-    MessageSquare
+    MessageSquare,
+    FileText
 } from 'lucide-react'
 import { logout } from '@/app/login/actions'
 import { Button } from '@/components/ui/button'
@@ -72,6 +73,12 @@ export default async function AdminLayout({ children }: { children: ReactNode })
                         <Link href="/admin/forms" className="flex items-center space-x-3 px-4 py-3 rounded-lg hover:bg-slate-800 hover:text-white transition">
                             <FileEdit className="h-5 w-5" />
                             <span>Formularios</span>
+                        </Link>
+                    )}
+                    {hasPerm('templates.manage') && (
+                        <Link href="/admin/templates" className="flex items-center space-x-3 px-4 py-3 rounded-lg hover:bg-slate-800 hover:text-white transition">
+                            <FileText className="h-5 w-5 text-indigo-400" />
+                            <span>Plantillas Legales</span>
                         </Link>
                     )}
                     {hasPerm('reports.view') && (
