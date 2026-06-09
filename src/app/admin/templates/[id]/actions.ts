@@ -1,6 +1,6 @@
 'use server'
 
-import { createClient } from '@/lib/supabase/server'
+import { createClient, createAdminClient } from '@/lib/supabase/server'
 
 export async function saveTemplate(
   id: string,
@@ -58,6 +58,10 @@ export async function getFormsList() {
 
   const { data: profile } = await supabase.from('users').select('institution_id').eq('id', user.id).single()
   
-  const { data } = await supabase.from('form_templates').select('id, name').eq('institution_id', profile?.institution_id)
+  const adminSupabase = createAdminClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!
+  )
+  const { data } = await adminSupabase.from('form_templates').select('id, name').eq('institution_id', profile?.institution_id)
   return data || []
 }
