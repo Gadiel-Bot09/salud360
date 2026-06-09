@@ -1,6 +1,7 @@
 'use server'
 
-import { createClient, createAdminClient } from '@/lib/supabase/server'
+import { createClient } from '@/lib/supabase/server'
+import { createClient as createAdminClient } from '@supabase/supabase-js'
 
 export async function saveTemplate(
   id: string,
