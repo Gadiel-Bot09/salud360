@@ -237,3 +237,35 @@ export async function sendManualWhatsAppReminder(appointmentId: string): Promise
     return { success: false, error: err?.message || 'Error desconocido' }
   }
 }
+
+export async function getPendingAppointmentsCountToday(): Promise<number> {
+  try {
+    const supabase = sb()
+    const filter = await getAuthFilter()
+    if (!filter) return 0
+
+    const today = new Date().toISOString().split('T')[0]
+
+    let query = supabase
+      .from('appointments')
+      .select('id, requests!inner(institution_id)', { count: 'exact', head: true })
+      .eq('appointment_date', today)
+      .is('attended', null)
+
+    if (!filter.isSuperAdmin && filter.institutionId) {
+      query = query.eq('requests.institution_id', filter.institutionId)
+    }
+
+    const { count, error } = await query
+    
+    if (error) {
+      console.error('Error fetching pending appointments count:', error)
+      return 0
+    }
+    
+    return count || 0
+  } catch (err) {
+    console.error('getPendingAppointmentsCountToday exception:', err)
+    return 0
+  }
+}

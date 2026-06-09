@@ -3,7 +3,7 @@
 import { useState, useTransition } from 'react'
 import {
   CheckCircle2, XCircle, Clock, RotateCcw, Search,
-  ChevronDown, Stethoscope, Building2, CalendarClock, MessageCircle
+  ChevronDown, Stethoscope, Building2, CalendarClock, MessageCircle, AlertTriangle
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -100,6 +100,28 @@ export function AppointmentsTable({ appointments: initial }: Props) {
 
   return (
     <div className="space-y-5">
+      {/* Alert Banner for Pending Appointments */}
+      {counts.pending > 0 && (
+        <div className="bg-red-50 border border-red-200 rounded-2xl p-4 flex items-start gap-4 animate-in fade-in slide-in-from-top-4 duration-500 shadow-sm">
+          <div className="p-2 bg-red-100 text-red-600 rounded-xl shrink-0">
+            <AlertTriangle className="w-6 h-6" />
+          </div>
+          <div className="flex-1">
+            <h3 className="text-red-800 font-bold text-lg">¡Atención! Tienes citas pendientes por gestionar</h3>
+            <p className="text-red-600 text-sm mt-1">
+              Hay <strong>{counts.pending}</strong> cita(s) en esta fecha a las que no se les ha marcado la asistencia. Por favor, gestiónalas para mantener las estadísticas actualizadas.
+            </p>
+          </div>
+          <Button 
+            onClick={() => setFilter('pending')}
+            variant="outline"
+            className="bg-white hover:bg-red-50 text-red-700 border-red-200 shrink-0 mt-2 md:mt-0 shadow-sm"
+          >
+            Ver Pendientes
+          </Button>
+        </div>
+      )}
+
       {/* Summary Cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         {[

@@ -19,6 +19,7 @@ import {
 import { logout } from '@/app/login/actions'
 import { Button } from '@/components/ui/button'
 import { Toaster } from '@/components/ui/toaster'
+import { getPendingAppointmentsCountToday } from '@/app/admin/appointments/actions'
 
 export default async function AdminLayout({ children }: { children: ReactNode }) {
     const supabase = await createClient()
@@ -33,6 +34,8 @@ export default async function AdminLayout({ children }: { children: ReactNode })
     const permissions = (userProfile?.roles?.permissions as string[]) || [];
     const isSuperAdmin = roleName === 'Super Admin';
     const hasPerm = (p: string) => isSuperAdmin || permissions.includes('*') || permissions.includes(p);
+
+    const pendingAppointmentsCount = hasPerm('appointments.view') ? await getPendingAppointmentsCountToday() : 0;
 
     return (
         <div className="flex h-screen overflow-hidden bg-slate-50">
@@ -78,9 +81,16 @@ export default async function AdminLayout({ children }: { children: ReactNode })
                         </Link>
                     )}
                     {hasPerm('appointments.view') && (
-                        <Link href="/admin/appointments" className="flex items-center space-x-3 px-4 py-3 rounded-lg hover:bg-slate-800 hover:text-white transition">
-                            <CalendarDays className="h-5 w-5 text-teal-400" />
-                            <span>Citas</span>
+                        <Link href="/admin/appointments" className="flex items-center justify-between px-4 py-3 rounded-lg hover:bg-slate-800 hover:text-white transition group">
+                            <div className="flex items-center space-x-3">
+                                <CalendarDays className="h-5 w-5 text-teal-400 group-hover:scale-110 transition-transform" />
+                                <span>Citas</span>
+                            </div>
+                            {pendingAppointmentsCount > 0 && (
+                                <span className="bg-red-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full shadow-sm">
+                                    {pendingAppointmentsCount}
+                                </span>
+                            )}
                         </Link>
                     )}
                     {hasPerm('whatsapp_logs.view') && (
