@@ -29,7 +29,12 @@ export function TemplateEditor({
   const [type, setType] = useState<'html' | 'docx'>(initialData?.template_type || 'html')
   const [htmlContent, setHtmlContent] = useState(initialData?.html_content || '')
   const [formId, setFormId] = useState(initialData?.form_id || '')
-  const [triggerValue, setTriggerValue] = useState(initialData?.trigger_condition?.value || '')
+  
+  const initialTrigger = initialData?.trigger_condition || {}
+  const [triggerType, setTriggerType] = useState<'none' | 'requestType' | 'field'>(initialTrigger.type || 'none')
+  const [triggerValue, setTriggerValue] = useState(initialTrigger.value || '')
+  const [triggerField, setTriggerField] = useState(initialTrigger.fieldName || '')
+
   const [file, setFile] = useState<File | null>(null)
   
   const handleSave = async () => {
@@ -63,7 +68,9 @@ export function TemplateEditor({
       template_type: type,
       html_content: type === 'html' ? htmlContent : undefined,
       form_id: formId || null,
-      trigger_condition: triggerValue ? { type: 'requestType', value: triggerValue } : null,
+      trigger_condition: triggerType === 'none' ? null : 
+                         triggerType === 'requestType' ? { type: 'requestType', value: triggerValue } :
+                         { type: 'field', fieldName: triggerField, value: triggerValue },
       docx_file_path: docxPath
     })
 
@@ -110,14 +117,59 @@ export function TemplateEditor({
               <p className="text-xs text-slate-500">Si se asocia, podrás inyectar las variables de ese formulario.</p>
             </div>
             
-            <div className="space-y-2 md:col-span-2">
-              <Label>Condición de Activación (Opcional)</Label>
-              <Input 
-                value={triggerValue} 
-                onChange={(e) => setTriggerValue(e.target.value)} 
-                placeholder="Ej: Solicitar Copia Historia Clínica" 
-              />
-              <p className="text-xs text-slate-500">Escribe exactamente el nombre del trámite que debe activar esta plantilla. Si lo dejas vacío, se generará para todos los trámites del formulario asociado.</p>
+            <div className="space-y-4 md:col-span-2 p-4 bg-slate-50 border border-slate-200 rounded-xl">
+              <div>
+                <Label className="text-base font-semibold">Condición de Activación (Opcional)</Label>
+                <p className="text-xs text-slate-500 mb-4">Controla cuándo se debe generar automáticamente esta plantilla.</p>
+                <div className="flex gap-4 mb-4">
+                  <label className="flex items-center gap-2 text-sm">
+                    <input type="radio" checked={triggerType === 'none'} onChange={() => setTriggerType('none')} />
+                    Siempre (Cualquier Trámite)
+                  </label>
+                  <label className="flex items-center gap-2 text-sm">
+                    <input type="radio" checked={triggerType === 'requestType'} onChange={() => setTriggerType('requestType')} />
+                    Por Tipo de Trámite
+                  </label>
+                  <label className="flex items-center gap-2 text-sm">
+                    <input type="radio" checked={triggerType === 'field'} onChange={() => setTriggerType('field')} />
+                    Por Valor de un Campo
+                  </label>
+                </div>
+              </div>
+
+              {triggerType === 'requestType' && (
+                <div className="space-y-2 animate-in fade-in">
+                  <Label>Nombre del Trámite exacto</Label>
+                  <Input 
+                    value={triggerValue} 
+                    onChange={(e) => setTriggerValue(e.target.value)} 
+                    placeholder="Ej: Solicitar Copia Historia Clínica" 
+                  />
+                  <p className="text-xs text-slate-500">Ej: La plantilla se genera solo si escogen este trámite específico.</p>
+                </div>
+              )}
+
+              {triggerType === 'field' && (
+                <div className="grid grid-cols-2 gap-4 animate-in fade-in">
+                  <div className="space-y-2">
+                    <Label>Nombre de la Variable (Campo)</Label>
+                    <Input 
+                      value={triggerField} 
+                      onChange={(e) => setTriggerField(e.target.value)} 
+                      placeholder="Ej: Tipo de Solicitante" 
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Debe ser igual a (Valor)</Label>
+                    <Input 
+                      value={triggerValue} 
+                      onChange={(e) => setTriggerValue(e.target.value)} 
+                      placeholder="Ej: Propietario" 
+                    />
+                  </div>
+                  <p className="text-xs text-slate-500 col-span-2">Ej: La plantilla se genera solo si el paciente seleccionó "Propietario" en la lista de "Tipo de Solicitante".</p>
+                </div>
+              )}
             </div>
           </div>
 

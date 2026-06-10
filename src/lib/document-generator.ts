@@ -37,10 +37,19 @@ export async function generateLegalDocuments(
   for (const template of templates) {
     try {
       // Validar regla de Trigger
-      if (template.trigger_condition && template.trigger_condition.type === 'requestType') {
-        const requiredType = template.trigger_condition.value.trim().toLowerCase()
-        if (requestType.trim().toLowerCase() !== requiredType) {
-          continue // Saltar esta plantilla porque no coincide el trámite
+      if (template.trigger_condition) {
+        if (template.trigger_condition.type === 'requestType') {
+          const requiredType = template.trigger_condition.value.trim().toLowerCase()
+          if (requestType.trim().toLowerCase() !== requiredType) {
+            continue // Saltar esta plantilla porque no coincide el trámite
+          }
+        } else if (template.trigger_condition.type === 'field') {
+          const fieldName = template.trigger_condition.fieldName
+          const requiredValue = template.trigger_condition.value.trim().toLowerCase()
+          const actualValue = (patientData[fieldName] || '').toString().trim().toLowerCase()
+          if (actualValue !== requiredValue) {
+            continue // Saltar porque el valor del campo no coincide
+          }
         }
       }
       
