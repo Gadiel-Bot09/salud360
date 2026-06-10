@@ -36,9 +36,14 @@ export async function generateLegalDocuments(
 
   for (const template of templates) {
     try {
-      // Regla de Trigger: si hay trigger_condition, validar
-      // Para este MVP, si la plantilla se llama algo con "Historia Clinica" y el tramite no, saltamos.
-      // Puedes implementar lógica más robusta con template.trigger_condition
+      // Validar regla de Trigger
+      if (template.trigger_condition && template.trigger_condition.type === 'requestType') {
+        const requiredType = template.trigger_condition.value.trim().toLowerCase()
+        if (requestType.trim().toLowerCase() !== requiredType) {
+          continue // Saltar esta plantilla porque no coincide el trámite
+        }
+      }
+      
       
       let finalBuffer: Buffer | null = null
       let fileName = ''

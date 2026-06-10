@@ -29,6 +29,7 @@ export function TemplateEditor({
   const [type, setType] = useState<'html' | 'docx'>(initialData?.template_type || 'html')
   const [htmlContent, setHtmlContent] = useState(initialData?.html_content || '')
   const [formId, setFormId] = useState(initialData?.form_id || '')
+  const [triggerValue, setTriggerValue] = useState(initialData?.trigger_condition?.value || '')
   const [file, setFile] = useState<File | null>(null)
   
   const handleSave = async () => {
@@ -62,6 +63,7 @@ export function TemplateEditor({
       template_type: type,
       html_content: type === 'html' ? htmlContent : undefined,
       form_id: formId || null,
+      trigger_condition: triggerValue ? { type: 'requestType', value: triggerValue } : null,
       docx_file_path: docxPath
     })
 
@@ -106,6 +108,16 @@ export function TemplateEditor({
                 ))}
               </select>
               <p className="text-xs text-slate-500">Si se asocia, podrás inyectar las variables de ese formulario.</p>
+            </div>
+            
+            <div className="space-y-2 md:col-span-2">
+              <Label>Condición de Activación (Opcional)</Label>
+              <Input 
+                value={triggerValue} 
+                onChange={(e) => setTriggerValue(e.target.value)} 
+                placeholder="Ej: Solicitar Copia Historia Clínica" 
+              />
+              <p className="text-xs text-slate-500">Escribe exactamente el nombre del trámite que debe activar esta plantilla. Si lo dejas vacío, se generará para todos los trámites del formulario asociado.</p>
             </div>
           </div>
 
