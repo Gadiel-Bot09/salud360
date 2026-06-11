@@ -108,9 +108,17 @@ export async function generateLegalDocuments(
         // Buscar campos de firma para el docx (ej: si llave incluye "Firma", duplicar con nombre seguro)
         Object.keys(renderData).forEach(k => {
           if (typeof renderData[k] === 'string' && renderData[k].startsWith('data:image')) {
-            renderData['firma'] = renderData[k]
+            renderData['firma'] = renderData[k] // legacy fallback
           }
         })
+
+        // Inyectar variables automáticas del sistema (Fechas)
+        const today = new Date()
+        const meses = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre']
+        renderData['fecha_actual'] = today.toLocaleDateString('es-CO')
+        renderData['dia_actual'] = today.getDate().toString()
+        renderData['mes_actual'] = meses[today.getMonth()]
+        renderData['anio_actual'] = today.getFullYear().toString()
 
         // Resolver asíncronamente
         await doc.resolveData(renderData)
