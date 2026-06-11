@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { useToast } from '@/hooks/use-toast'
-import { Loader2, Save, FileType, FileText, ArrowLeft, UploadCloud } from 'lucide-react'
+import { Loader2, Save, FileType, FileText, ArrowLeft, UploadCloud, Info } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 
 export function TemplateEditor({
@@ -195,6 +195,44 @@ export function TemplateEditor({
               </button>
             </div>
           </div>
+
+          {/* Guía de Variables */}
+          <div className="bg-indigo-50 border border-indigo-100 rounded-xl p-4 animate-in fade-in">
+            <div className="flex items-center gap-2 mb-2">
+              <Info className="h-5 w-5 text-indigo-600" />
+              <h3 className="font-semibold text-indigo-900">Guía de Variables</h3>
+            </div>
+            <p className="text-sm text-indigo-800 mb-3">
+              Puedes usar cualquier campo que hayas creado en el constructor de formularios, además de estas variables automáticas:
+            </p>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-x-4 gap-y-2 text-sm">
+              <div className="flex justify-between border-b border-indigo-100 pb-1">
+                <code className="text-indigo-700 bg-white px-1.5 py-0.5 rounded text-xs font-mono">{'{{ nombre_del_campo }}'}</code>
+                <span className="text-slate-600 text-xs">Cualquier campo de texto, lista o fecha</span>
+              </div>
+              <div className="flex justify-between border-b border-indigo-100 pb-1">
+                <code className="text-indigo-700 bg-white px-1.5 py-0.5 rounded text-xs font-mono">{'{%nombre_del_campo}'}</code>
+                <span className="text-slate-600 text-xs">Para campos de Firma Digital</span>
+              </div>
+              <div className="flex justify-between border-b border-indigo-100 pb-1">
+                <code className="text-indigo-700 bg-white px-1.5 py-0.5 rounded text-xs font-mono">{'{{ fecha_actual }}'}</code>
+                <span className="text-slate-600 text-xs">Ej: 10/6/2026</span>
+              </div>
+              <div className="flex justify-between border-b border-indigo-100 pb-1">
+                <code className="text-indigo-700 bg-white px-1.5 py-0.5 rounded text-xs font-mono">{'{{ dia_actual }}'}</code>
+                <span className="text-slate-600 text-xs">Día actual (1-31)</span>
+              </div>
+              <div className="flex justify-between border-b border-indigo-100 pb-1">
+                <code className="text-indigo-700 bg-white px-1.5 py-0.5 rounded text-xs font-mono">{'{{ mes_actual }}'}</code>
+                <span className="text-slate-600 text-xs">Mes actual en letras</span>
+              </div>
+              <div className="flex justify-between border-b border-indigo-100 pb-1">
+                <code className="text-indigo-700 bg-white px-1.5 py-0.5 rounded text-xs font-mono">{'{{ anio_actual }}'}</code>
+                <span className="text-slate-600 text-xs">Año actual</span>
+              </div>
+            </div>
+          </div>
+
 
           {type === 'html' && (
             <div className="space-y-2 animate-in fade-in slide-in-from-bottom-2">
