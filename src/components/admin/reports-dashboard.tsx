@@ -404,16 +404,24 @@ export function ReportsDashboard({ initialData, onRefresh, onFetchDetail }: Prop
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead className="bg-slate-50 border-y border-slate-200">
-                    <tr>{['Usuario','Rol','Acciones Totales','Solicitudes Respondidas','Comentarios'].map(h => <th key={h} className="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase">{h}</th>)}</tr>
+                    <tr>{['Usuario','Rol','Acciones Totales','Solicitudes Respondidas','Comentarios',''].map(h => <th key={h} className="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase">{h}</th>)}</tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
                     {rows.map((r, i) => (
-                      <tr key={i} className="hover:bg-slate-50">
+                      <tr key={i} className="hover:bg-indigo-50/30 transition-colors group">
                         <td className="px-4 py-3 font-medium text-slate-800 truncate max-w-xs">{r.user_email}</td>
                         <td className="px-4 py-3"><span className="bg-indigo-100 text-indigo-700 rounded-full px-2 py-0.5 text-xs font-semibold">{r.role}</span></td>
                         <td className="px-4 py-3 font-bold text-teal-700">{r.actions}</td>
                         <td className="px-4 py-3 text-emerald-600">{r.responded}</td>
                         <td className="px-4 py-3 text-slate-500">{r.comments}</td>
+                        <td className="px-4 py-3">
+                          <button
+                            onClick={() => openDetail('user', r.user_email, `Solicitudes gestionadas: ${r.user_email}`)}
+                            className="flex items-center gap-1 text-xs text-indigo-700 font-semibold opacity-0 group-hover:opacity-100 transition-opacity hover:underline"
+                          >
+                            Ver detalle <ChevronRight className="w-3.5 h-3.5" />
+                          </button>
+                        </td>
                       </tr>
                     ))}
                   </tbody>

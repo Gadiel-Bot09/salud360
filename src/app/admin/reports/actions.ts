@@ -362,7 +362,7 @@ export async function fetchRequestsDetail(
   if (!filter) return []
 
   const sb = getAdminClient()
-  let query = sb.from('requests').select('radicado, patient_name, patient_email, type, status, created_at, updated_at, institution_id, institutions(name)')
+  let query = sb.from('requests').select('radicado, patient_email, patient_data_json, type, status, created_at, institution_id, institutions(name)')
 
   if (from) query = query.gte('created_at', from)
   if (to)   query = query.lte('created_at', to + 'T23:59:59Z')
@@ -371,26 +371,30 @@ export async function fetchRequestsDetail(
   }
 
   if (filterType === 'institution') {
-    // We need to filter by institution name; join via institutions
     const { data: inst } = await sb.from('institutions').select('id').eq('name', filterValue).single()
     if (inst) query = query.eq('institution_id', inst.id)
   } else if (filterType === 'type') {
     query = query.eq('type', filterValue)
   }
+  // For 'user' filterType, we don't filter by request — all requests are shown (no user column on requests)
 
   query = query.order('created_at', { ascending: false }).limit(200)
 
   const { data, error } = await query
-  if (error || !data) { console.error(error); return [] }
+  if (error || !data) { console.error('fetchRequestsDetail error:', error); return [] }
 
-  return (data as any[]).map(r => ({
-    radicado: r.radicado || '—',
-    patient_name: r.patient_name || '—',
-    patient_email: r.patient_email || '—',
-    type: r.type || '—',
-    status: r.status,
-    created_at: new Date(r.created_at).toLocaleDateString('es-CO'),
-    days_open: Math.floor((Date.now() - new Date(r.created_at).getTime()) / (1000 * 60 * 60 * 24)),
-    institution: r.institutions?.name || '—'
-  }))
+  return (data as any[]).map(r => {
+    const json = r.patient_data_json || {}
+    const name = json['Nombre Completo'] || json['nombre'] || json['nombre_completo'] || json['fullName'] || '—'
+    return {
+      radicado: r.radicado || '—',
+      patient_name: name,
+      patient_email: r.patient_email || '—',
+      type: r.type || '—',
+      status: r.status,
+      created_at: new Date(r.created_at).toLocaleDateString('es-CO'),
+      days_open: Math.floor((Date.now() - new Date(r.created_at).getTime()) / (1000 * 60 * 60 * 24)),
+      institution: r.institutions?.name || '—'
+    }
+  })
 }
