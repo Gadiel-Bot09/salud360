@@ -7,14 +7,15 @@ import {
 } from 'recharts'
 import {
   Building2, Tag, Users, Clock, TrendingUp, AlertTriangle,
-  Download, FileText, RefreshCw, Filter
+  Download, FileText, RefreshCw, Filter, ChevronRight, X, Loader2
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import type {
   InstitutionReport, TypeReport, UserActivityReport,
-  SLAReport, TrendPoint, PendingCritical, AttendanceReportRow
+  SLAReport, TrendPoint, PendingCritical, AttendanceReportRow,
+  RequestDetailRow
 } from '@/app/admin/reports/actions'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -45,6 +46,14 @@ const STATUS_LABELS: Record<string, string> = {
   responded: 'Respondida', closed: 'Cerrada', escalated: 'Escalada'
 }
 
+const STATUS_COLORS: Record<string, string> = {
+  received: 'bg-blue-100 text-blue-700',
+  processing: 'bg-amber-100 text-amber-700',
+  responded: 'bg-emerald-100 text-emerald-700',
+  closed: 'bg-green-100 text-green-700',
+  escalated: 'bg-red-100 text-red-700',
+}
+
 // ── CSV Export ────────────────────────────────────────────────────────────────
 function exportCSV(filename: string, rows: Record<string, unknown>[]) {
   if (!rows.length) return
@@ -62,7 +71,6 @@ function exportCSV(filename: string, rows: Record<string, unknown>[]) {
 
 // ── PDF Export ────────────────────────────────────────────────────────────────
 async function exportPDF(title: string, headers: string[], rows: (string | number)[][]) {
-  // Dynamic import so it doesn't bloat the initial bundle
   const jsPDFModule = await import('jspdf')
   const jsPDF = jsPDFModule.default
   const autoTableModule = await import('jspdf-autotable')
@@ -70,7 +78,6 @@ async function exportPDF(title: string, headers: string[], rows: (string | numbe
 
   const doc = new jsPDF({ orientation: 'landscape', format: 'a4' })
 
-  // Header
   doc.setFillColor(15, 118, 110)
   doc.rect(0, 0, 297, 22, 'F')
   doc.setTextColor(255, 255, 255)
@@ -112,18 +119,121 @@ function StatCard({ label, value, color = 'teal' }: { label: string; value: numb
   )
 }
 
+// ── Detail Drawer ─────────────────────────────────────────────────────────────
+function DetailDrawer({
+  title,
+  rows,
+  loading,
+  onClose
+}: {
+  title: string
+  rows: RequestDetailRow[]
+  loading: boolean
+  onClose: () => void
+}) {
+  return (
+    <div className="fixed inset-0 z-50 flex justify-end" onClick={onClose}>
+      <div
+        className="w-full max-w-3xl h-full bg-white shadow-2xl border-l border-slate-200 flex flex-col animate-in slide-in-from-right-4 duration-300"
+        onClick={e => e.stopPropagation()}
+      >
+        {/* Header */}
+        <div className="flex items-center justify-between px-6 py-4 bg-teal-700 text-white shrink-0">
+          <div>
+            <p className="text-xs uppercase tracking-widest opacity-70">Detalle</p>
+            <h2 className="font-bold text-lg">{title}</h2>
+            <p className="text-xs opacity-70 mt-0.5">{rows.length} solicitudes</p>
+          </div>
+          <button onClick={onClose} className="p-2 hover:bg-white/20 rounded-xl transition-colors">
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+
+        {/* Export bar */}
+        {!loading && rows.length > 0 && (
+          <div className="px-6 py-3 border-b border-slate-100 flex gap-2 bg-slate-50 shrink-0">
+            <Button size="sm" variant="outline" onClick={() => exportCSV(`detalle_${Date.now()}.csv`, rows as any)}>
+              <Download className="w-3.5 h-3.5 mr-1.5" /> Exportar CSV
+            </Button>
+            <Button size="sm" className="bg-teal-700 hover:bg-teal-800 text-xs" onClick={() =>
+              exportPDF(title,
+                ['Radicado', 'Paciente', 'Correo', 'Tipo', 'Estado', 'Fecha', 'Días'],
+                rows.map(r => [r.radicado, r.patient_name, r.patient_email, r.type, STATUS_LABELS[r.status] || r.status, r.created_at, r.days_open])
+              )
+            }>
+              <FileText className="w-3.5 h-3.5 mr-1.5" /> Exportar PDF
+            </Button>
+          </div>
+        )}
+
+        {/* Content */}
+        <div className="flex-1 overflow-y-auto">
+          {loading ? (
+            <div className="flex items-center justify-center h-full">
+              <Loader2 className="w-8 h-8 animate-spin text-teal-600" />
+              <span className="ml-3 text-slate-500">Cargando detalle...</span>
+            </div>
+          ) : rows.length === 0 ? (
+            <div className="flex items-center justify-center h-full">
+              <p className="text-slate-400">Sin solicitudes para este filtro.</p>
+            </div>
+          ) : (
+            <table className="w-full text-sm">
+              <thead className="sticky top-0 bg-slate-50 border-b border-slate-200 z-10">
+                <tr>
+                  {['Radicado', 'Paciente', 'Tipo', 'Estado', 'Fecha', 'Días Abierto'].map(h => (
+                    <th key={h} className="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase whitespace-nowrap">{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {rows.map((r, i) => (
+                  <tr key={i} className="hover:bg-teal-50/40 transition-colors">
+                    <td className="px-4 py-3 font-mono text-xs font-bold text-teal-700">{r.radicado}</td>
+                    <td className="px-4 py-3">
+                      <p className="font-medium text-slate-800 truncate max-w-[140px]">{r.patient_name}</p>
+                      <p className="text-xs text-slate-400 truncate max-w-[140px]">{r.patient_email}</p>
+                    </td>
+                    <td className="px-4 py-3 text-slate-600 text-xs max-w-[100px] truncate">{r.type}</td>
+                    <td className="px-4 py-3">
+                      <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold ${STATUS_COLORS[r.status] || 'bg-slate-100 text-slate-600'}`}>
+                        {STATUS_LABELS[r.status] || r.status}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 text-slate-500 text-xs whitespace-nowrap">{r.created_at}</td>
+                    <td className="px-4 py-3">
+                      <span className={`font-bold text-sm ${r.days_open > 10 ? 'text-red-600' : r.days_open > 5 ? 'text-amber-600' : 'text-slate-600'}`}>
+                        {r.days_open}d
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // ── Main Component ────────────────────────────────────────────────────────────
 interface Props {
   initialData: ReportData
   onRefresh: (from: string, to: string) => Promise<ReportData>
+  onFetchDetail: (filterType: 'institution' | 'type' | 'user', filterValue: string, from: string, to: string) => Promise<RequestDetailRow[]>
 }
 
-export function ReportsDashboard({ initialData, onRefresh }: Props) {
+export function ReportsDashboard({ initialData, onRefresh, onFetchDetail }: Props) {
   const [data, setData]       = useState<ReportData>(initialData)
   const [activeTab, setTab]   = useState<TabId>('institution')
   const [dateFrom, setFrom]   = useState('')
   const [dateTo, setTo]       = useState('')
   const [isPending, startTransition] = useTransition()
+
+  // Drill-down state
+  const [detail, setDetail] = useState<{ title: string; rows: RequestDetailRow[] } | null>(null)
+  const [detailLoading, setDetailLoading] = useState(false)
 
   const handleRefresh = useCallback(() => {
     startTransition(async () => {
@@ -131,6 +241,14 @@ export function ReportsDashboard({ initialData, onRefresh }: Props) {
       setData(fresh)
     })
   }, [dateFrom, dateTo, onRefresh])
+
+  const openDetail = useCallback(async (filterType: 'institution' | 'type' | 'user', filterValue: string, title: string) => {
+    setDetail({ title, rows: [] })
+    setDetailLoading(true)
+    const rows = await onFetchDetail(filterType, filterValue, dateFrom, dateTo)
+    setDetail({ title, rows })
+    setDetailLoading(false)
+  }, [dateFrom, dateTo, onFetchDetail])
 
   // ── Render Tabs ─────────────────────────────────────────────────────────────
   const renderContent = () => {
@@ -165,11 +283,11 @@ export function ReportsDashboard({ initialData, onRefresh }: Props) {
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead className="bg-slate-50 border-y border-slate-200">
-                    <tr>{['Entidad', 'Total', 'Recibidas', 'En Trámite', 'Respondidas', 'Cerradas', 'Escaladas'].map(h => <th key={h} className="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase">{h}</th>)}</tr>
+                    <tr>{['Entidad', 'Total', 'Recibidas', 'En Trámite', 'Respondidas', 'Cerradas', 'Escaladas', ''].map(h => <th key={h} className="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase">{h}</th>)}</tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
                     {rows.map((r, i) => (
-                      <tr key={i} className="hover:bg-slate-50 transition-colors">
+                      <tr key={i} className="hover:bg-teal-50/30 transition-colors group">
                         <td className="px-4 py-3 font-semibold text-slate-800">{r.institution}</td>
                         <td className="px-4 py-3 font-bold text-teal-700">{r.total}</td>
                         <td className="px-4 py-3 text-blue-600">{r.received}</td>
@@ -177,6 +295,14 @@ export function ReportsDashboard({ initialData, onRefresh }: Props) {
                         <td className="px-4 py-3 text-emerald-600">{r.responded}</td>
                         <td className="px-4 py-3 text-green-600">{r.closed}</td>
                         <td className="px-4 py-3 text-red-600">{r.escalated}</td>
+                        <td className="px-4 py-3">
+                          <button
+                            onClick={() => openDetail('institution', r.institution, `Detalle: ${r.institution}`)}
+                            className="flex items-center gap-1 text-xs text-teal-700 font-semibold opacity-0 group-hover:opacity-100 transition-opacity hover:underline"
+                          >
+                            Ver detalle <ChevronRight className="w-3.5 h-3.5" />
+                          </button>
+                        </td>
                       </tr>
                     ))}
                   </tbody>
@@ -217,11 +343,11 @@ export function ReportsDashboard({ initialData, onRefresh }: Props) {
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead className="bg-slate-50 border-y border-slate-200">
-                    <tr>{['Tipo/Especialidad','Total','Respondidas','Prom. Días Respuesta'].map(h => <th key={h} className="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase">{h}</th>)}</tr>
+                    <tr>{['Tipo/Especialidad','Total','Respondidas','Prom. Días Respuesta',''].map(h => <th key={h} className="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase">{h}</th>)}</tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
                     {rows.map((r, i) => (
-                      <tr key={i} className="hover:bg-slate-50">
+                      <tr key={i} className="hover:bg-teal-50/30 transition-colors group">
                         <td className="px-4 py-3 font-semibold text-slate-800">{r.type}</td>
                         <td className="px-4 py-3 font-bold text-teal-700">{r.total}</td>
                         <td className="px-4 py-3 text-emerald-600">{r.responded}</td>
@@ -229,6 +355,14 @@ export function ReportsDashboard({ initialData, onRefresh }: Props) {
                           <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold ${r.avg_days <= 3 ? 'bg-green-100 text-green-700' : r.avg_days <= 10 ? 'bg-amber-100 text-amber-700' : 'bg-red-100 text-red-700'}`}>
                             {r.avg_days} días
                           </span>
+                        </td>
+                        <td className="px-4 py-3">
+                          <button
+                            onClick={() => openDetail('type', r.type, `Detalle: ${r.type}`)}
+                            className="flex items-center gap-1 text-xs text-teal-700 font-semibold opacity-0 group-hover:opacity-100 transition-opacity hover:underline"
+                          >
+                            Ver detalle <ChevronRight className="w-3.5 h-3.5" />
+                          </button>
                         </td>
                       </tr>
                     ))}
@@ -313,13 +447,13 @@ export function ReportsDashboard({ initialData, onRefresh }: Props) {
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead className="bg-slate-50 border-y border-slate-200">
-                    <tr>{['Institución','Total Resueltas','Prom. Días','Máx. Días','Cumplieron SLA (≤5d)','% Cumplimiento'].map(h => <th key={h} className="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase">{h}</th>)}</tr>
+                    <tr>{['Institución','Total Resueltas','Prom. Días','Máx. Días','Cumplieron SLA (≤5d)','% Cumplimiento',''].map(h => <th key={h} className="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase">{h}</th>)}</tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
                     {rows.map((r, i) => {
                       const pct = r.total > 0 ? Math.round(r.on_time / r.total * 100) : 0
                       return (
-                        <tr key={i} className="hover:bg-slate-50">
+                        <tr key={i} className="hover:bg-teal-50/30 transition-colors group">
                           <td className="px-4 py-3 font-semibold text-slate-800">{r.institution}</td>
                           <td className="px-4 py-3 text-teal-700 font-bold">{r.total}</td>
                           <td className="px-4 py-3">
@@ -336,6 +470,14 @@ export function ReportsDashboard({ initialData, onRefresh }: Props) {
                               </div>
                               <span className="text-xs font-bold text-slate-600">{pct}%</span>
                             </div>
+                          </td>
+                          <td className="px-4 py-3">
+                            <button
+                              onClick={() => openDetail('institution', r.institution, `SLA Detalle: ${r.institution}`)}
+                              className="flex items-center gap-1 text-xs text-teal-700 font-semibold opacity-0 group-hover:opacity-100 transition-opacity hover:underline"
+                            >
+                              Ver detalle <ChevronRight className="w-3.5 h-3.5" />
+                            </button>
                           </td>
                         </tr>
                       )
@@ -452,6 +594,7 @@ export function ReportsDashboard({ initialData, onRefresh }: Props) {
           </div>
         )
       }
+
       // ── Attendance ──────────────────────────────────────────────────────────
       case 'attendance': {
         const rows = data.attendance
@@ -475,11 +618,11 @@ export function ReportsDashboard({ initialData, onRefresh }: Props) {
                 <div className="overflow-x-auto">
                   <table className="w-full text-sm">
                     <thead className="bg-slate-50 border-y border-slate-200">
-                      <tr>{['Institución','Total Citas','Asistieron','No Asistieron','Sin Marcar','Tasa Asistencia'].map(h => <th key={h} className="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase">{h}</th>)}</tr>
+                      <tr>{['Institución','Total Citas','Asistieron','No Asistieron','Sin Marcar','Tasa Asistencia',''].map(h => <th key={h} className="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase">{h}</th>)}</tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100">
                       {rows.map((r, i) => (
-                        <tr key={i} className="hover:bg-slate-50">
+                        <tr key={i} className="hover:bg-teal-50/30 transition-colors group">
                           <td className="px-4 py-3 font-semibold text-slate-800">{r.institution}</td>
                           <td className="px-4 py-3 font-bold text-teal-700">{r.total_appointments}</td>
                           <td className="px-4 py-3 text-emerald-600 font-semibold">{r.attended}</td>
@@ -495,6 +638,14 @@ export function ReportsDashboard({ initialData, onRefresh }: Props) {
                               </div>
                               <span className="text-xs font-bold text-slate-700">{r.attendance_rate}%</span>
                             </div>
+                          </td>
+                          <td className="px-4 py-3">
+                            <button
+                              onClick={() => openDetail('institution', r.institution, `Asistencia Detalle: ${r.institution}`)}
+                              className="flex items-center gap-1 text-xs text-teal-700 font-semibold opacity-0 group-hover:opacity-100 transition-opacity hover:underline"
+                            >
+                              Ver detalle <ChevronRight className="w-3.5 h-3.5" />
+                            </button>
                           </td>
                         </tr>
                       ))}
@@ -569,6 +720,16 @@ export function ReportsDashboard({ initialData, onRefresh }: Props) {
       <div className="animate-in fade-in duration-300">
         {renderContent()}
       </div>
+
+      {/* Detail Drawer */}
+      {detail && (
+        <DetailDrawer
+          title={detail.title}
+          rows={detail.rows}
+          loading={detailLoading}
+          onClose={() => setDetail(null)}
+        />
+      )}
     </div>
   )
 }

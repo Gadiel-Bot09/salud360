@@ -5,7 +5,8 @@ import {
   fetchSLAReport,
   fetchTrendData,
   fetchPendingCriticals,
-  fetchAttendanceReport
+  fetchAttendanceReport,
+  fetchRequestsDetail
 } from './actions'
 import { ReportsDashboard } from '@/components/admin/reports-dashboard'
 import { BarChart2 } from 'lucide-react'
@@ -33,6 +34,11 @@ export default async function ReportsPage() {
     return loadAllReports(from || undefined, to || undefined)
   }
 
+  async function fetchDetail(filterType: 'institution' | 'type' | 'user', filterValue: string, from: string, to: string) {
+    'use server'
+    return fetchRequestsDetail(filterType, filterValue, from || undefined, to || undefined)
+  }
+
   return (
     <div className="p-6 md:p-8 space-y-6 max-w-[1600px] mx-auto">
       {/* Page Header */}
@@ -44,7 +50,7 @@ export default async function ReportsPage() {
           <div>
             <h1 className="text-3xl font-bold text-slate-800 tracking-tight">Centro de Reportes</h1>
             <p className="text-slate-500 text-sm mt-0.5">
-              Analítica avanzada · Exportación a CSV y PDF
+              Analítica avanzada · Exportación a CSV y PDF · Drill-down por fila
             </p>
           </div>
         </div>
@@ -54,7 +60,7 @@ export default async function ReportsPage() {
         </div>
       </div>
 
-      <ReportsDashboard initialData={initialData} onRefresh={refresh} />
+      <ReportsDashboard initialData={initialData} onRefresh={refresh} onFetchDetail={fetchDetail} />
     </div>
   )
 }

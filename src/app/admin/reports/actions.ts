@@ -339,3 +339,58 @@ export async function fetchAttendanceReport(from?: string, to?: string): Promise
     attendance_rate: v.total > 0 ? Math.round((v.attended / v.total) * 100) : 0
   })).sort((a, b) => b.total_appointments - a.total_appointments)
 }
+
+// ── 8. Detalle (Drill-Down) de solicitudes ────────────────────────────────────
+export interface RequestDetailRow {
+  radicado: string
+  patient_name: string
+  patient_email: string
+  type: string
+  status: string
+  created_at: string
+  days_open: number
+  institution: string
+}
+
+export async function fetchRequestsDetail(
+  filterType: 'institution' | 'type' | 'user',
+  filterValue: string,
+  from?: string,
+  to?: string
+): Promise<RequestDetailRow[]> {
+  const filter = await getAuthFilter()
+  if (!filter) return []
+
+  const sb = getAdminClient()
+  let query = sb.from('requests').select('radicado, patient_name, patient_email, type, status, created_at, updated_at, institution_id, institutions(name)')
+
+  if (from) query = query.gte('created_at', from)
+  if (to)   query = query.lte('created_at', to + 'T23:59:59Z')
+  if (!filter.isSuperAdmin && filter.institutionId) {
+    query = query.eq('institution_id', filter.institutionId)
+  }
+
+  if (filterType === 'institution') {
+    // We need to filter by institution name; join via institutions
+    const { data: inst } = await sb.from('institutions').select('id').eq('name', filterValue).single()
+    if (inst) query = query.eq('institution_id', inst.id)
+  } else if (filterType === 'type') {
+    query = query.eq('type', filterValue)
+  }
+
+  query = query.order('created_at', { ascending: false }).limit(200)
+
+  const { data, error } = await query
+  if (error || !data) { console.error(error); return [] }
+
+  return (data as any[]).map(r => ({
+    radicado: r.radicado || '—',
+    patient_name: r.patient_name || '—',
+    patient_email: r.patient_email || '—',
+    type: r.type || '—',
+    status: r.status,
+    created_at: new Date(r.created_at).toLocaleDateString('es-CO'),
+    days_open: Math.floor((Date.now() - new Date(r.created_at).getTime()) / (1000 * 60 * 60 * 24)),
+    institution: r.institutions?.name || '—'
+  }))
+}
