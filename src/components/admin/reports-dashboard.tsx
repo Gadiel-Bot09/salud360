@@ -54,6 +54,12 @@ const STATUS_COLORS: Record<string, string> = {
   escalated: 'bg-red-100 text-red-700',
 }
 
+const ATT_STATUS: Record<string, { label: string; chip: string }> = {
+  attended: { label: 'Asistió',    chip: 'bg-emerald-100 text-emerald-700' },
+  absent:   { label: 'No Asistió', chip: 'bg-red-100 text-red-700' },
+  pending:  { label: 'Sin Marcar', chip: 'bg-amber-100 text-amber-700' },
+}
+
 // ── CSV Export ────────────────────────────────────────────────────────────────
 function exportCSV(filename: string, rows: Record<string, unknown>[]) {
   if (!rows.length) return
@@ -644,16 +650,10 @@ export function ReportsDashboard({ initialData, onRefresh, onFetchDetail, onFetc
         const totals = rows.reduce((a, r) => ({ t: a.t + r.total_appointments, at: a.at + r.attended, ab: a.ab + r.absent, p: a.p + r.pending }), { t: 0, at: 0, ab: 0, p: 0 })
         const overallRate = totals.t > 0 ? Math.round(totals.at / totals.t * 100) : 0
 
-        // Filter the detail rows by selected status
-        const filteredDetail = attDetail?.rows.filter(r =>
+        // Filter the detail rows by selected status (computed inline to avoid hoisting issues)
+        const filteredDetail = (attDetail?.rows ?? []).filter(r =>
           attFilter === 'all' ? true : r.attendance_status === attFilter
-        ) ?? []
-
-        const ATT_STATUS: Record<string, { label: string; chip: string }> = {
-          attended: { label: 'Asistió',     chip: 'bg-emerald-100 text-emerald-700' },
-          absent:   { label: 'No Asistió',  chip: 'bg-red-100 text-red-700' },
-          pending:  { label: 'Sin Marcar',  chip: 'bg-amber-100 text-amber-700' },
-        }
+        )
 
         return (
           <div className="space-y-6">
