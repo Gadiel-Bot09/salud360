@@ -181,33 +181,53 @@ function DetailDrawer({
             <table className="w-full text-sm">
               <thead className="sticky top-0 bg-slate-50 border-b border-slate-200 z-10">
                 <tr>
-                  {['Radicado', 'Paciente', 'Tipo', 'Estado', 'Fecha', 'Días Abierto'].map(h => (
+                  {['Radicado', 'Paciente', 'Tipo', 'Estado', 'Radicada', 'Resuelta', 'Días'].map(h => (
                     <th key={h} className="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase whitespace-nowrap">{h}</th>
                   ))}
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
-                {rows.map((r, i) => (
-                  <tr key={i} className="hover:bg-teal-50/40 transition-colors">
-                    <td className="px-4 py-3 font-mono text-xs font-bold text-teal-700">{r.radicado}</td>
-                    <td className="px-4 py-3">
-                      <p className="font-medium text-slate-800 truncate max-w-[140px]">{r.patient_name}</p>
-                      <p className="text-xs text-slate-400 truncate max-w-[140px]">{r.patient_email}</p>
-                    </td>
-                    <td className="px-4 py-3 text-slate-600 text-xs max-w-[100px] truncate">{r.type}</td>
-                    <td className="px-4 py-3">
-                      <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold ${STATUS_COLORS[r.status] || 'bg-slate-100 text-slate-600'}`}>
-                        {STATUS_LABELS[r.status] || r.status}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3 text-slate-500 text-xs whitespace-nowrap">{r.created_at}</td>
-                    <td className="px-4 py-3">
-                      <span className={`font-bold text-sm ${r.days_open > 10 ? 'text-red-600' : r.days_open > 5 ? 'text-amber-600' : 'text-slate-600'}`}>
-                        {r.days_open}d
-                      </span>
-                    </td>
-                  </tr>
-                ))}
+                {rows.map((r, i) => {
+                  const isResolved = r.status === 'responded' || r.status === 'closed'
+                  return (
+                    <tr key={i} className="hover:bg-teal-50/40 transition-colors">
+                      <td className="px-4 py-3 font-mono text-xs font-bold text-teal-700">{r.radicado}</td>
+                      <td className="px-4 py-3">
+                        <p className="font-medium text-slate-800 truncate max-w-[140px]">{r.patient_name}</p>
+                        <p className="text-xs text-slate-400 truncate max-w-[140px]">{r.patient_email}</p>
+                      </td>
+                      <td className="px-4 py-3 text-slate-600 text-xs max-w-[100px] truncate">{r.type}</td>
+                      <td className="px-4 py-3">
+                        <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold ${STATUS_COLORS[r.status] || 'bg-slate-100 text-slate-600'}`}>
+                          {STATUS_LABELS[r.status] || r.status}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 text-slate-500 text-xs whitespace-nowrap">{r.created_at}</td>
+                      <td className="px-4 py-3 text-xs whitespace-nowrap">
+                        {r.resolved_at
+                          ? <span className="text-emerald-600 font-medium">{r.resolved_at}</span>
+                          : <span className="text-slate-400 italic">Pendiente</span>
+                        }
+                      </td>
+                      <td className="px-4 py-3">
+                        <span
+                          title={isResolved ? 'Días hasta resolución' : 'Días abierta hasta hoy'}
+                          className={`font-bold text-sm ${
+                            isResolved
+                              ? r.days_open <= 3 ? 'text-emerald-600'
+                                : r.days_open <= 7 ? 'text-amber-600'
+                                : 'text-red-600'
+                              : r.days_open > 10 ? 'text-red-600'
+                                : r.days_open > 5 ? 'text-amber-600'
+                                : 'text-slate-600'
+                          }`}
+                        >
+                          {r.days_open}d {isResolved ? '✓' : '⏳'}
+                        </span>
+                      </td>
+                    </tr>
+                  )
+                })}
               </tbody>
             </table>
           )}

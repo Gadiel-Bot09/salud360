@@ -348,8 +348,17 @@ export interface RequestDetailRow {
   type: string
   status: string
   created_at: string
-  days_open: number
+  resolved_at: string | null  // fecha de resolución si aplica
+  days_open: number           // días reales (hasta resolución si cerrada, sino hasta hoy)
   institution: string
+}
+
+// Calcula los días reales entre apertura y cierre (o hasta hoy si sigue abierta)
+function calcDays(createdAt: string, status: string, updatedAt: string | null): number {
+  const start = new Date(createdAt).getTime()
+  const isResolved = status === 'responded' || status === 'closed'
+  const end = isResolved && updatedAt ? new Date(updatedAt).getTime() : Date.now()
+  return Math.max(0, Math.floor((end - start) / (1000 * 60 * 60 * 24)))
 }
 
 export async function fetchRequestsDetail(
@@ -362,7 +371,67 @@ export async function fetchRequestsDetail(
   if (!filter) return []
 
   const sb = getAdminClient()
-  let query = sb.from('requests').select('radicado, patient_email, patient_data_json, type, status, created_at, institution_id, institutions(name)')
+
+  // ── Caso especial: filtrar por usuario gestor (via request_history) ──────────
+  if (filterType === 'user') {
+    // 1. Buscar el user_id por email
+    const { data: userRow } = await sb
+      .from('users')
+      .select('id')
+      .eq('email', filterValue)
+      .single()
+
+    if (!userRow) return []
+
+    // 2. Obtener los request IDs únicos donde ese usuario actuó
+    let historyQuery = sb
+      .from('request_history')
+      .select('request_id, created_at')
+      .eq('user_id', userRow.id)
+      .not('request_id', 'is', null)
+
+    if (from) historyQuery = historyQuery.gte('created_at', from)
+    if (to)   historyQuery = historyQuery.lte('created_at', to + 'T23:59:59Z')
+
+    const { data: history } = await historyQuery
+    if (!history || history.length === 0) return []
+
+    const requestIds = [...new Set((history as any[]).map(h => h.request_id))].slice(0, 200)
+
+    // 3. Obtener el detalle de esas solicitudes
+    let reqQuery = sb
+      .from('requests')
+      .select('radicado, patient_email, patient_data_json, type, status, created_at, updated_at, institution_id, institutions(name)')
+      .in('id', requestIds)
+      .order('created_at', { ascending: false })
+
+    if (!filter.isSuperAdmin && filter.institutionId) {
+      reqQuery = reqQuery.eq('institution_id', filter.institutionId)
+    }
+
+    const { data, error } = await reqQuery
+    if (error || !data) { console.error('fetchRequestsDetail user error:', error); return [] }
+
+    return (data as any[]).map(r => {
+      const json = r.patient_data_json || {}
+      const name = json['Nombre Completo'] || json['nombre'] || json['nombre_completo'] || json['fullName'] || '—'
+      const isResolved = r.status === 'responded' || r.status === 'closed'
+      return {
+        radicado: r.radicado || '—',
+        patient_name: name,
+        patient_email: r.patient_email || '—',
+        type: r.type || '—',
+        status: r.status,
+        created_at: new Date(r.created_at).toLocaleDateString('es-CO'),
+        resolved_at: isResolved && r.updated_at ? new Date(r.updated_at).toLocaleDateString('es-CO') : null,
+        days_open: calcDays(r.created_at, r.status, r.updated_at),
+        institution: r.institutions?.name || '—'
+      }
+    })
+  }
+
+  // ── Filtros por institución o tipo ───────────────────────────────────────────
+  let query = sb.from('requests').select('radicado, patient_email, patient_data_json, type, status, created_at, updated_at, institution_id, institutions(name)')
 
   if (from) query = query.gte('created_at', from)
   if (to)   query = query.lte('created_at', to + 'T23:59:59Z')
@@ -376,7 +445,6 @@ export async function fetchRequestsDetail(
   } else if (filterType === 'type') {
     query = query.eq('type', filterValue)
   }
-  // For 'user' filterType, we don't filter by request — all requests are shown (no user column on requests)
 
   query = query.order('created_at', { ascending: false }).limit(200)
 
@@ -386,6 +454,7 @@ export async function fetchRequestsDetail(
   return (data as any[]).map(r => {
     const json = r.patient_data_json || {}
     const name = json['Nombre Completo'] || json['nombre'] || json['nombre_completo'] || json['fullName'] || '—'
+    const isResolved = r.status === 'responded' || r.status === 'closed'
     return {
       radicado: r.radicado || '—',
       patient_name: name,
@@ -393,8 +462,10 @@ export async function fetchRequestsDetail(
       type: r.type || '—',
       status: r.status,
       created_at: new Date(r.created_at).toLocaleDateString('es-CO'),
-      days_open: Math.floor((Date.now() - new Date(r.created_at).getTime()) / (1000 * 60 * 60 * 24)),
+      resolved_at: isResolved && r.updated_at ? new Date(r.updated_at).toLocaleDateString('es-CO') : null,
+      days_open: calcDays(r.created_at, r.status, r.updated_at),
       institution: r.institutions?.name || '—'
     }
   })
 }
+
