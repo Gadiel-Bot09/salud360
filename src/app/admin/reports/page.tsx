@@ -6,6 +6,7 @@ import {
   fetchTrendData,
   fetchPendingCriticals,
   fetchAttendanceReport,
+  fetchAttendanceDetail,
   fetchRequestsDetail
 } from './actions'
 import { ReportsDashboard } from '@/components/admin/reports-dashboard'
@@ -39,6 +40,11 @@ export default async function ReportsPage() {
     return fetchRequestsDetail(filterType, filterValue, from || undefined, to || undefined)
   }
 
+  async function fetchAttDetail(institutionName: string, from: string, to: string) {
+    'use server'
+    return fetchAttendanceDetail(institutionName, from || undefined, to || undefined)
+  }
+
   return (
     <div className="p-6 md:p-8 space-y-6 max-w-[1600px] mx-auto">
       {/* Page Header */}
@@ -60,7 +66,7 @@ export default async function ReportsPage() {
         </div>
       </div>
 
-      <ReportsDashboard initialData={initialData} onRefresh={refresh} onFetchDetail={fetchDetail} />
+      <ReportsDashboard initialData={initialData} onRefresh={refresh} onFetchDetail={fetchDetail} onFetchAttDetail={fetchAttDetail} />
     </div>
   )
 }

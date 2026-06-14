@@ -15,7 +15,7 @@ import { Label } from '@/components/ui/label'
 import type {
   InstitutionReport, TypeReport, UserActivityReport,
   SLAReport, TrendPoint, PendingCritical, AttendanceReportRow,
-  RequestDetailRow
+  RequestDetailRow, AttendanceDetailRow
 } from '@/app/admin/reports/actions'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -242,18 +242,24 @@ interface Props {
   initialData: ReportData
   onRefresh: (from: string, to: string) => Promise<ReportData>
   onFetchDetail: (filterType: 'institution' | 'type' | 'user', filterValue: string, from: string, to: string) => Promise<RequestDetailRow[]>
+  onFetchAttDetail: (institutionName: string, from: string, to: string) => Promise<AttendanceDetailRow[]>
 }
 
-export function ReportsDashboard({ initialData, onRefresh, onFetchDetail }: Props) {
+export function ReportsDashboard({ initialData, onRefresh, onFetchDetail, onFetchAttDetail }: Props) {
   const [data, setData]       = useState<ReportData>(initialData)
   const [activeTab, setTab]   = useState<TabId>('institution')
   const [dateFrom, setFrom]   = useState('')
   const [dateTo, setTo]       = useState('')
   const [isPending, startTransition] = useTransition()
 
-  // Drill-down state
+  // Drill-down state (solicitudes)
   const [detail, setDetail] = useState<{ title: string; rows: RequestDetailRow[] } | null>(null)
   const [detailLoading, setDetailLoading] = useState(false)
+
+  // Attendance detail state
+  const [attDetail, setAttDetail] = useState<{ institution: string; rows: AttendanceDetailRow[] } | null>(null)
+  const [attDetailLoading, setAttDetailLoading] = useState(false)
+  const [attFilter, setAttFilter] = useState<'all' | 'attended' | 'absent' | 'pending'>('all')
 
   const handleRefresh = useCallback(() => {
     startTransition(async () => {
@@ -269,6 +275,15 @@ export function ReportsDashboard({ initialData, onRefresh, onFetchDetail }: Prop
     setDetail({ title, rows })
     setDetailLoading(false)
   }, [dateFrom, dateTo, onFetchDetail])
+
+  const openAttDetail = useCallback(async (institutionName: string) => {
+    setAttFilter('all')
+    setAttDetail({ institution: institutionName, rows: [] })
+    setAttDetailLoading(true)
+    const rows = await onFetchAttDetail(institutionName, dateFrom, dateTo)
+    setAttDetail({ institution: institutionName, rows })
+    setAttDetailLoading(false)
+  }, [dateFrom, dateTo, onFetchAttDetail])
 
   // ── Render Tabs ─────────────────────────────────────────────────────────────
   const renderContent = () => {
@@ -626,16 +641,31 @@ export function ReportsDashboard({ initialData, onRefresh, onFetchDetail }: Prop
       // ── Attendance ──────────────────────────────────────────────────────────
       case 'attendance': {
         const rows = data.attendance
-        const totals = rows.reduce((a, r) => ({ t: a.t + r.total_appointments, at: a.at + r.attended, ab: a.ab + r.absent }), { t: 0, at: 0, ab: 0 })
+        const totals = rows.reduce((a, r) => ({ t: a.t + r.total_appointments, at: a.at + r.attended, ab: a.ab + r.absent, p: a.p + r.pending }), { t: 0, at: 0, ab: 0, p: 0 })
         const overallRate = totals.t > 0 ? Math.round(totals.at / totals.t * 100) : 0
+
+        // Filter the detail rows by selected status
+        const filteredDetail = attDetail?.rows.filter(r =>
+          attFilter === 'all' ? true : r.attendance_status === attFilter
+        ) ?? []
+
+        const ATT_STATUS: Record<string, { label: string; chip: string }> = {
+          attended: { label: 'Asistió',     chip: 'bg-emerald-100 text-emerald-700' },
+          absent:   { label: 'No Asistió',  chip: 'bg-red-100 text-red-700' },
+          pending:  { label: 'Sin Marcar',  chip: 'bg-amber-100 text-amber-700' },
+        }
+
         return (
           <div className="space-y-6">
+            {/* KPIs */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              <StatCard label="Total Citas"      value={totals.t}       color="teal" />
-              <StatCard label="Asistieron"        value={totals.at}      color="emerald" />
-              <StatCard label="No Asistieron"     value={totals.ab}      color="red" />
+              <StatCard label="Total Citas"      value={totals.t}          color="teal" />
+              <StatCard label="Asistieron"        value={totals.at}         color="emerald" />
+              <StatCard label="No Asistieron"     value={totals.ab}         color="red" />
               <StatCard label="Tasa Asistencia"   value={overallRate + '%'} color={overallRate >= 75 ? 'emerald' : overallRate >= 50 ? 'amber' : 'red'} />
             </div>
+
+            {/* Consolidated table */}
             {rows.length === 0 ? (
               <div className="bg-slate-50 border border-dashed border-slate-300 rounded-2xl p-10 text-center">
                 <p className="text-slate-500 font-semibold">Sin datos de asistencia en el período seleccionado.</p>
@@ -659,20 +689,17 @@ export function ReportsDashboard({ initialData, onRefresh, onFetchDetail }: Prop
                           <td className="px-4 py-3">
                             <div className="flex items-center gap-2">
                               <div className="flex-1 bg-slate-200 rounded-full h-2 min-w-[80px]">
-                                <div
-                                  className={`h-2 rounded-full ${r.attendance_rate >= 75 ? 'bg-emerald-500' : r.attendance_rate >= 50 ? 'bg-amber-400' : 'bg-red-400'}`}
-                                  style={{ width: `${r.attendance_rate}%` }}
-                                />
+                                <div className={`h-2 rounded-full ${r.attendance_rate >= 75 ? 'bg-emerald-500' : r.attendance_rate >= 50 ? 'bg-amber-400' : 'bg-red-400'}`} style={{ width: `${r.attendance_rate}%` }} />
                               </div>
                               <span className="text-xs font-bold text-slate-700">{r.attendance_rate}%</span>
                             </div>
                           </td>
                           <td className="px-4 py-3">
                             <button
-                              onClick={() => openDetail('institution', r.institution, `Asistencia Detalle: ${r.institution}`)}
+                              onClick={() => openAttDetail(r.institution)}
                               className="flex items-center gap-1 text-xs text-teal-700 font-semibold opacity-0 group-hover:opacity-100 transition-opacity hover:underline"
                             >
-                              Ver detalle <ChevronRight className="w-3.5 h-3.5" />
+                              Ver citas <ChevronRight className="w-3.5 h-3.5" />
                             </button>
                           </td>
                         </tr>
@@ -682,12 +709,121 @@ export function ReportsDashboard({ initialData, onRefresh, onFetchDetail }: Prop
                 </div>
               </div>
             )}
+
+            {/* ── Detail Panel: individual appointments ──────────────────────── */}
+            {attDetail && (
+              <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden animate-in fade-in slide-in-from-bottom-2 duration-300">
+                {/* Detail header */}
+                <div className="flex items-center justify-between px-6 py-4 bg-teal-700 text-white">
+                  <div>
+                    <p className="text-xs uppercase tracking-widest opacity-70">Citas individuales</p>
+                    <h3 className="font-bold text-lg">{attDetail.institution}</h3>
+                    <p className="text-xs opacity-70 mt-0.5">{attDetail.rows.length} citas en total</p>
+                  </div>
+                  <button onClick={() => setAttDetail(null)} className="p-2 hover:bg-white/20 rounded-xl transition-colors">
+                    <X className="w-5 h-5" />
+                  </button>
+                </div>
+
+                {/* Status filter pills */}
+                <div className="flex flex-wrap gap-2 px-6 py-3 border-b border-slate-100 bg-slate-50">
+                  {([
+                    { key: 'all',      label: `Todas (${attDetail.rows.length})`,                                       cls: 'bg-slate-200 text-slate-700' },
+                    { key: 'attended', label: `✓ Asistió (${attDetail.rows.filter(r => r.attendance_status === 'attended').length})`, cls: 'bg-emerald-100 text-emerald-700' },
+                    { key: 'absent',   label: `✗ No Asistió (${attDetail.rows.filter(r => r.attendance_status === 'absent').length})`,   cls: 'bg-red-100 text-red-700' },
+                    { key: 'pending',  label: `⏳ Sin Marcar (${attDetail.rows.filter(r => r.attendance_status === 'pending').length})`,  cls: 'bg-amber-100 text-amber-700' },
+                  ] as const).map(f => (
+                    <button
+                      key={f.key}
+                      onClick={() => setAttFilter(f.key)}
+                      className={`px-3 py-1.5 rounded-full text-xs font-semibold transition-all ${attFilter === f.key ? f.cls + ' ring-2 ring-offset-1 ring-teal-400 shadow' : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'}`}
+                    >
+                      {f.label}
+                    </button>
+                  ))}
+
+                  {/* Export filtered */}
+                  {filteredDetail.length > 0 && (
+                    <div className="ml-auto flex gap-2">
+                      <Button size="sm" variant="outline" onClick={() => exportCSV(`citas_${attDetail.institution}_${attFilter}.csv`, filteredDetail.map(r => ({
+                        Radicado: r.radicado, Paciente: r.patient_name, Email: r.patient_email,
+                        Especialidad: r.specialty, Médico: r.doctor_name,
+                        Fecha: r.appointment_date, Hora: r.appointment_time,
+                        Estado: ATT_STATUS[r.attendance_status]?.label,
+                        'Marcada En': r.attended_at || '—', Observaciones: r.attendance_notes || '—'
+                      }))}>
+                        <Download className="w-3.5 h-3.5 mr-1.5" /> CSV
+                      </Button>
+                      <Button size="sm" className="bg-teal-700 hover:bg-teal-800 text-xs" onClick={() =>
+                        exportPDF(`Citas ${attDetail.institution}`,
+                          ['Radicado','Paciente','Especialidad','Médico','Fecha','Hora','Estado','Obs.'],
+                          filteredDetail.map(r => [r.radicado, r.patient_name, r.specialty, r.doctor_name, r.appointment_date, r.appointment_time, ATT_STATUS[r.attendance_status]?.label || r.attendance_status, r.attendance_notes || ''])
+                        )
+                      }>
+                        <FileText className="w-3.5 h-3.5 mr-1.5" /> PDF
+                      </Button>
+                    </div>
+                  )}
+                </div>
+
+                {/* Table */}
+                {attDetailLoading ? (
+                  <div className="flex items-center justify-center py-16">
+                    <Loader2 className="w-8 h-8 animate-spin text-teal-600" />
+                    <span className="ml-3 text-slate-500">Cargando citas...</span>
+                  </div>
+                ) : filteredDetail.length === 0 ? (
+                  <div className="flex items-center justify-center py-12">
+                    <p className="text-slate-400">Sin citas para este filtro.</p>
+                  </div>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead className="sticky top-0 bg-slate-50 border-b border-slate-200 z-10">
+                        <tr>
+                          {['Radicado','Paciente','Especialidad','Médico','Fecha Cita','Hora','Estado','Marcada En','Observaciones'].map(h => (
+                            <th key={h} className="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase whitespace-nowrap">{h}</th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100">
+                        {filteredDetail.map((r, i) => (
+                          <tr key={i} className={`transition-colors ${r.attendance_status === 'attended' ? 'hover:bg-emerald-50/40' : r.attendance_status === 'absent' ? 'hover:bg-red-50/40' : 'hover:bg-amber-50/40'}`}>
+                            <td className="px-4 py-3 font-mono text-xs font-bold text-teal-700">{r.radicado}</td>
+                            <td className="px-4 py-3">
+                              <p className="font-medium text-slate-800 truncate max-w-[140px]">{r.patient_name}</p>
+                              <p className="text-xs text-slate-400 truncate max-w-[140px]">{r.patient_email}</p>
+                            </td>
+                            <td className="px-4 py-3 text-slate-600 text-xs">{r.specialty}</td>
+                            <td className="px-4 py-3 text-slate-600 text-xs">{r.doctor_name}</td>
+                            <td className="px-4 py-3 font-semibold text-slate-800 whitespace-nowrap">{r.appointment_date}</td>
+                            <td className="px-4 py-3 text-slate-600 text-xs whitespace-nowrap">{r.appointment_time}</td>
+                            <td className="px-4 py-3">
+                              <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold ${ATT_STATUS[r.attendance_status]?.chip || 'bg-slate-100 text-slate-600'}`}>
+                                {ATT_STATUS[r.attendance_status]?.label || r.attendance_status}
+                              </span>
+                            </td>
+                            <td className="px-4 py-3 text-xs text-slate-500 whitespace-nowrap">
+                              {r.attended_at ?? <span className="text-slate-300 italic">—</span>}
+                            </td>
+                            <td className="px-4 py-3 text-xs text-slate-500 max-w-[160px] truncate">
+                              {r.attendance_notes ?? <span className="text-slate-300 italic">—</span>}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+            )}
+
             <div className="flex gap-3">
               <Button size="sm" variant="outline" onClick={() => exportCSV('reporte_asistencia.csv', rows as any)}>
-                <Download className="w-4 h-4 mr-2" /> Exportar CSV
+                <Download className="w-4 h-4 mr-2" /> Exportar CSV Consolidado
               </Button>
               <Button size="sm" className="bg-teal-700 hover:bg-teal-800" onClick={() => exportPDF('Asistencia a Citas', ['Institución','Total','Asistieron','No Asistieron','Sin Marcar','Tasa%'], rows.map(r => [r.institution, r.total_appointments, r.attended, r.absent, r.pending, r.attendance_rate + '%']))}>
-                <FileText className="w-4 h-4 mr-2" /> Exportar PDF
+                <FileText className="w-4 h-4 mr-2" /> Exportar PDF Consolidado
               </Button>
             </div>
           </div>
@@ -695,6 +831,7 @@ export function ReportsDashboard({ initialData, onRefresh, onFetchDetail }: Prop
       }
     }
   }
+
 
   return (
     <div className="space-y-6">

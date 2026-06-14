@@ -340,6 +340,93 @@ export async function fetchAttendanceReport(from?: string, to?: string): Promise
   })).sort((a, b) => b.total_appointments - a.total_appointments)
 }
 
+// ── 7b. Detalle de Citas por Institución ──────────────────────────────────────
+export interface AttendanceDetailRow {
+  radicado: string
+  patient_name: string
+  patient_email: string
+  specialty: string
+  doctor_name: string
+  appointment_date: string
+  appointment_time: string
+  attendance_status: 'attended' | 'absent' | 'pending'
+  attended_at: string | null
+  attendance_notes: string | null
+  institution: string
+}
+
+export async function fetchAttendanceDetail(
+  institutionName: string,
+  from?: string,
+  to?: string
+): Promise<AttendanceDetailRow[]> {
+  const filter = await getAuthFilter()
+  if (!filter) return []
+
+  const sb = getAdminClient()
+
+  let query = sb
+    .from('appointments')
+    .select(`
+      appointment_date,
+      appointment_time,
+      specialty,
+      doctor_name,
+      attended,
+      attended_at,
+      attendance_notes,
+      requests!inner(
+        radicado,
+        patient_email,
+        patient_data_json,
+        institution_id,
+        institutions(name)
+      )
+    `)
+    .order('appointment_date', { ascending: false })
+    .limit(500)
+
+  if (from) query = query.gte('appointment_date', from)
+  if (to)   query = query.lte('appointment_date', to)
+
+  if (!filter.isSuperAdmin && filter.institutionId) {
+    query = query.eq('requests.institution_id', filter.institutionId)
+  }
+
+  // Filtrar por institución si no es SuperAdmin o si se pasa el nombre
+  if (institutionName && institutionName !== '__ALL__') {
+    const { data: inst } = await sb.from('institutions').select('id').eq('name', institutionName).single()
+    if (inst) query = query.eq('requests.institution_id', inst.id)
+  }
+
+  const { data, error } = await query
+  if (error || !data) { console.error('fetchAttendanceDetail error:', error); return [] }
+
+  return (data as any[]).map(r => {
+    const req = r.requests || {}
+    const json = req.patient_data_json || {}
+    const name = json['Nombre Completo'] || json['nombre'] || json['nombre_completo'] || json['fullName'] || '—'
+    const status: 'attended' | 'absent' | 'pending' =
+      r.attended === true ? 'attended' : r.attended === false ? 'absent' : 'pending'
+
+    return {
+      radicado: req.radicado || '—',
+      patient_name: name,
+      patient_email: req.patient_email || '—',
+      specialty: r.specialty || '—',
+      doctor_name: r.doctor_name || '—',
+      appointment_date: r.appointment_date,
+      appointment_time: r.appointment_time || '—',
+      attendance_status: status,
+      attended_at: r.attended_at ? new Date(r.attended_at).toLocaleDateString('es-CO') : null,
+      attendance_notes: r.attendance_notes || null,
+      institution: req.institutions?.name || '—'
+    }
+  })
+}
+
+
+
 // ── 8. Detalle (Drill-Down) de solicitudes ────────────────────────────────────
 export interface RequestDetailRow {
   radicado: string
