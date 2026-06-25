@@ -1,11 +1,11 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { useToast } from '@/hooks/use-toast'
-import { Loader2, UploadCloud, ShieldCheck, ChevronDown, Building2, FileText, X } from 'lucide-react'
+import { Loader2, UploadCloud, ShieldCheck, ChevronDown, Building2, FileText, X, CheckCircle2, UserCheck } from 'lucide-react'
 import type { FormField, FormTemplate } from '@/lib/form-template'
 import { SignaturePad } from '@/components/patient/signature-pad'
 import Link from 'next/link'
@@ -15,8 +15,15 @@ interface BrandColors {
   secondary: string
 }
 
+interface PrefillData {
+  documentType: string
+  fullName: string
+  email: string
+  phone: string
+  dynamicFields: Record<string, string>
+}
+
 // ─── Single Labeled File Drop Zone ────────────────────────────────────────────
-// Used when the admin has configured document labels (e.g. "Historia Clínica", "Autorización")
 
 function LabeledFileZone({
   label, inputName, required, brandColors, multiple,
@@ -39,14 +46,11 @@ function LabeledFileZone({
 
   return (
     <div className="space-y-1.5">
-      {/* Tracks the human-readable label for this input in the API */}
       <input type="hidden" name={`filelabel__${inputName}`} value={label} />
-
       <p className="text-xs font-semibold text-slate-700 flex items-center gap-1">
         <FileText className="h-3 w-3 opacity-60" /> {label}
         {required && <span className="text-red-500 ml-0.5">*</span>}
       </p>
-
       <label
         className="flex flex-col items-center justify-center gap-2 py-4 px-3 rounded-xl border-2 border-dashed cursor-pointer hover:opacity-80 transition-all"
         style={{ borderColor: `${brandColors.primary}45`, background: `${brandColors.primary}07` }}
@@ -67,8 +71,6 @@ function LabeledFileZone({
           className="sr-only"
         />
       </label>
-
-      {/* Preview list of selected files */}
       {files.length > 0 && (
         <ul className="space-y-1 mt-1">
           {files.map((f, i) => (
@@ -79,11 +81,7 @@ function LabeledFileZone({
               <FileText className="h-3 w-3 shrink-0" style={{ color: brandColors.primary }} />
               <span className="truncate flex-1 text-slate-700 font-medium">{f.name}</span>
               <span className="text-slate-400 shrink-0">{(f.size / 1024).toFixed(0)} KB</span>
-              <button
-                type="button"
-                onClick={() => removeFile(i)}
-                className="shrink-0 text-slate-300 hover:text-red-400 transition-colors ml-1"
-              >
+              <button type="button" onClick={() => removeFile(i)} className="shrink-0 text-slate-300 hover:text-red-400 transition-colors ml-1">
                 <X className="h-3 w-3" />
               </button>
             </li>
@@ -95,7 +93,6 @@ function LabeledFileZone({
 }
 
 // ─── Simple File Drop Zone ────────────────────────────────────────────────────
-// Used when there are no labels — single or multiple based on allowMultipleFiles
 
 function SimpleFileZone({
   inputName, required, brandColors, multiple,
@@ -136,7 +133,6 @@ function SimpleFileZone({
           className="sr-only"
         />
       </label>
-
       {files.length > 0 && (
         <ul className="space-y-1">
           {files.map((f, i) => (
@@ -147,11 +143,7 @@ function SimpleFileZone({
               <FileText className="h-3 w-3 shrink-0" style={{ color: brandColors.primary }} />
               <span className="truncate flex-1 text-slate-700 font-medium">{f.name}</span>
               <span className="text-slate-400 shrink-0">{(f.size / 1024).toFixed(0)} KB</span>
-              <button
-                type="button"
-                onClick={() => removeFile(i)}
-                className="shrink-0 text-slate-300 hover:text-red-400 transition-colors ml-1"
-              >
+              <button type="button" onClick={() => removeFile(i)} className="shrink-0 text-slate-300 hover:text-red-400 transition-colors ml-1">
                 <X className="h-3 w-3" />
               </button>
             </li>
@@ -163,15 +155,19 @@ function SimpleFileZone({
 }
 
 // ─── Field Renderer ────────────────────────────────────────────────────────────
+// prefillValue: value to pre-populate this field (from patient lookup)
+// onDocNumberChange: callback when document number changes (to trigger lookup)
 
 function FieldRenderer({
-  field, namePrefix, brandColors,
+  field, namePrefix, brandColors, prefillValue, onDocNumberChange,
 }: {
   field: FormField
   namePrefix?: string
   brandColors: BrandColors
+  prefillValue?: string
+  onDocNumberChange?: (val: string) => void
 }) {
-  const [selectedOption, setSelectedOption] = useState('')
+  const [selectedOption, setSelectedOption] = useState(prefillValue || '')
   const inputName = namePrefix ? `${namePrefix}__${field.id}` : (field.systemRole || field.id)
   const base = `flex w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm transition-colors
     focus:outline-none focus:ring-2 focus:border-transparent`
@@ -182,10 +178,14 @@ function FieldRenderer({
 
   const isWide = field.type === 'file' || field.type === 'textarea'
 
-  // When admin has defined document labels, options[] holds them (e.g. ["Historia Clínica", "Autorización"])
   const fileLabels = field.type === 'file' && field.options && field.options.length > 0
     ? field.options.filter(Boolean)
     : []
+
+  // Sync selectedOption when prefillValue changes (after patient lookup)
+  useEffect(() => {
+    if (prefillValue !== undefined) setSelectedOption(prefillValue)
+  }, [prefillValue])
 
   return (
     <>
@@ -196,30 +196,62 @@ function FieldRenderer({
           {field.required && <span className="text-red-500">*</span>}
         </Label>
 
-        {field.type === 'text' && (
+        {/* Document number — controlled so parent can detect changes for lookup */}
+        {field.type === 'text' && field.systemRole === 'documentNumber' && (
           <Input
-            name={inputName} required={field.required} placeholder={field.placeholder}
+            name={inputName}
+            required={field.required}
+            placeholder={field.placeholder}
+            defaultValue={prefillValue || ''}
+            className="h-10"
+            style={{ '--tw-ring-color': brandColors.primary } as React.CSSProperties}
+            onChange={e => onDocNumberChange?.(e.target.value)}
+          />
+        )}
+
+        {/* Regular text (not document number) */}
+        {field.type === 'text' && field.systemRole !== 'documentNumber' && (
+          <Input
+            key={prefillValue}
+            name={inputName}
+            required={field.required}
+            placeholder={field.placeholder}
+            defaultValue={prefillValue || ''}
             className="h-10"
             style={{ '--tw-ring-color': brandColors.primary } as React.CSSProperties}
           />
         )}
+
         {field.type === 'email' && (
           <Input
-            type="email" name={inputName} required={field.required} placeholder={field.placeholder}
+            key={prefillValue}
+            type="email"
+            name={inputName}
+            required={field.required}
+            placeholder={field.placeholder}
+            defaultValue={prefillValue || ''}
             className="h-10"
             style={{ '--tw-ring-color': brandColors.primary } as React.CSSProperties}
           />
         )}
         {field.type === 'number' && (
           <Input
-            type="number" name={inputName} required={field.required} placeholder={field.placeholder}
+            key={prefillValue}
+            type="number"
+            name={inputName}
+            required={field.required}
+            placeholder={field.placeholder}
+            defaultValue={prefillValue || ''}
             className="h-10"
             style={{ '--tw-ring-color': brandColors.primary } as React.CSSProperties}
           />
         )}
         {field.type === 'date' && (
           <Input
-            type="date" name={inputName} required={field.required}
+            type="date"
+            name={inputName}
+            required={field.required}
+            defaultValue={prefillValue || ''}
             className="h-10"
             style={{ '--tw-ring-color': brandColors.primary } as React.CSSProperties}
           />
@@ -227,25 +259,29 @@ function FieldRenderer({
 
         {field.type === 'textarea' && (
           <textarea
-            name={inputName} required={field.required} placeholder={field.placeholder} rows={3}
+            key={prefillValue}
+            name={inputName}
+            required={field.required}
+            placeholder={field.placeholder}
+            rows={3}
+            defaultValue={prefillValue || ''}
             className={`${base} h-auto resize-none focus:ring-2`}
             style={{ '--tw-ring-color': brandColors.primary } as React.CSSProperties}
           />
         )}
 
         {field.type === 'signature' && (
-          <SignaturePad
-            name={inputName}
-            required={field.required}
-            brandColors={brandColors}
-          />
+          <SignaturePad name={inputName} required={field.required} brandColors={brandColors} />
         )}
 
-        {/* Simple select */}
+        {/* Simple select — controlled so prefill works */}
         {field.type === 'select' && !field.hasConditionalOptions && field.options && (
           <div className="relative">
             <select
-              name={inputName} required={field.required}
+              name={inputName}
+              required={field.required}
+              value={selectedOption}
+              onChange={e => setSelectedOption(e.target.value)}
               className={`${base} h-10 appearance-none pr-8`}
               style={{ '--tw-ring-color': brandColors.primary } as React.CSSProperties}
             >
@@ -260,7 +296,9 @@ function FieldRenderer({
         {field.type === 'select' && field.hasConditionalOptions && field.conditionalOptions && (
           <div className="relative">
             <select
-              name={inputName} required={field.required} value={selectedOption}
+              name={inputName}
+              required={field.required}
+              value={selectedOption}
               onChange={(e) => setSelectedOption(e.target.value)}
               className={`${base} h-10 appearance-none pr-8`}
             >
@@ -271,16 +309,10 @@ function FieldRenderer({
           </div>
         )}
 
-        {/* ── File field — THREE modes ─────────────────────────────────────────
-            1. Labels defined → one LabeledFileZone per label (separate inputs)
-            2. allowMultipleFiles, no labels → SimpleFileZone with multiple
-            3. No labels, no multiple → SimpleFileZone single
-        ────────────────────────────────────────────────────────────────────── */}
+        {/* File fields */}
         {field.type === 'file' && fileLabels.length > 0 && (
           <div className="space-y-3 rounded-xl border border-slate-100 bg-slate-50/60 p-3">
-            <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">
-              Documentos requeridos
-            </p>
+            <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Documentos requeridos</p>
             {fileLabels.map((lbl, idx) => (
               <LabeledFileZone
                 key={idx}
@@ -304,7 +336,7 @@ function FieldRenderer({
         )}
       </div>
 
-      {/* Conditional sub-fields when an option is selected */}
+      {/* Conditional sub-fields */}
       {activeSubFields.length > 0 && (
         <div
           className="md:col-span-2 rounded-xl border p-4 space-y-4 animate-in fade-in slide-in-from-top-2 duration-300"
@@ -329,11 +361,7 @@ function FieldRenderer({
                     className={`${base} h-auto resize-none`} />
                 )}
                 {sub.type === 'file' && (
-                  <SimpleFileZone
-                    inputName={`cond__${field.id}__${sub.id}`}
-                    required={sub.required}
-                    brandColors={brandColors}
-                  />
+                  <SimpleFileZone inputName={`cond__${field.id}__${sub.id}`} required={sub.required} brandColors={brandColors} />
                 )}
               </div>
             ))}
@@ -431,8 +459,13 @@ export function RequestForm({
   const [successRadicado, setSuccessRadicado] = useState<string | null>(null)
   const [selectedRequestType, setSelectedRequestType] = useState<import('@/lib/form-template').RequestType | undefined>(undefined)
   const [formValues, setFormValues] = useState<Record<string, string>>({})
-  
-  // CAPTCHA State
+
+  // ── Patient auto-fill state ───────────────────────────────────────────────
+  const [prefill, setPrefill] = useState<PrefillData | null>(null)
+  const [lookupStatus, setLookupStatus] = useState<'idle' | 'loading' | 'found' | 'not-found'>('idle')
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  // CAPTCHA
   const [captchaA, setCaptchaA] = useState(0)
   const [captchaB, setCaptchaB] = useState(0)
   const [captchaInput, setCaptchaInput] = useState('')
@@ -452,17 +485,14 @@ export function RequestForm({
     const parent = template.fields.find(f => f.id === field.visibilityCondition!.fieldId)
     if (!parent) return true
     const parentName = parent.systemRole || parent.id
-    
     const parentValue = formValues[parentName]?.trim().toLowerCase() || ''
     const expectedValues = field.visibilityCondition.equalsValue.split(',').map(v => v.trim().toLowerCase())
-    
     return expectedValues.includes(parentValue)
   }
 
   const brandColors: BrandColors = externalColors ?? { primary: '#0f766e', secondary: '#134e4a' }
   const initial = institutionName?.charAt(0)?.toUpperCase() || 'I'
 
-  // Initialize CAPTCHA
   useEffect(() => {
     setCaptchaA(Math.floor(Math.random() * 10) + 1)
     setCaptchaB(Math.floor(Math.random() * 10) + 1)
@@ -474,10 +504,53 @@ export function RequestForm({
     setCaptchaInput('')
   }
 
+  // ── Patient lookup on document number change ──────────────────────────────
+  const handleDocNumberChange = useCallback((value: string) => {
+    if (debounceRef.current) clearTimeout(debounceRef.current)
+
+    if (value.length < 5) {
+      setLookupStatus('idle')
+      setPrefill(null)
+      return
+    }
+
+    setLookupStatus('loading')
+
+    debounceRef.current = setTimeout(async () => {
+      try {
+        const res = await fetch(`/api/patient/lookup?documentNumber=${encodeURIComponent(value)}&institutionId=${encodeURIComponent(institutionId)}`)
+        const data = await res.json()
+
+        if (data.found) {
+          setPrefill(data as PrefillData)
+          setLookupStatus('found')
+        } else {
+          setPrefill(null)
+          setLookupStatus('not-found')
+        }
+      } catch {
+        setLookupStatus('idle')
+      }
+    }, 600)
+  }, [institutionId])
+
+  // Helper: get the prefill value for a given field
+  const getPrefillValue = (field: FormField): string | undefined => {
+    if (!prefill) return undefined
+    switch (field.systemRole) {
+      case 'documentType': return prefill.documentType
+      case 'fullName':     return prefill.fullName
+      case 'email':        return prefill.email
+      case 'phone':        return prefill.phone
+      default:
+        // For dynamic fields (e.g. "Entidad / EPS"), look up by label in dynamicFields
+        return prefill.dynamicFields[field.label] ?? undefined
+    }
+  }
+
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
-    
-    // Validate CAPTCHA
+
     if (parseInt(captchaInput) !== (captchaA + captchaB)) {
       setCaptchaError(true)
       regenerateCaptcha()
@@ -571,29 +644,61 @@ export function RequestForm({
           </div>
         </div>
 
-        {/* Request type selector + conditional fields */}
+        {/* Request type selector */}
         {template.requestTypes.length > 0 && (
           <RequestTypeSection template={template} onChange={setSelectedRequestType} brandColors={brandColors} shouldShow={shouldShow} />
         )}
       </div>
+
+      {/* ── Patient auto-fill banner ─────────────────────────────────────── */}
+      {lookupStatus === 'loading' && (
+        <div className="flex items-center gap-3 px-4 py-3 rounded-xl border border-slate-200 bg-slate-50 text-sm text-slate-500 animate-pulse">
+          <Loader2 className="h-4 w-4 animate-spin shrink-0" style={{ color: brandColors.primary }} />
+          Buscando datos del paciente...
+        </div>
+      )}
+      {lookupStatus === 'found' && prefill && (
+        <div
+          className="flex items-center gap-3 px-4 py-3 rounded-xl border text-sm animate-in fade-in slide-in-from-top-2 duration-300"
+          style={{ borderColor: `${brandColors.primary}40`, background: `${brandColors.primary}08` }}
+        >
+          <UserCheck className="h-5 w-5 shrink-0" style={{ color: brandColors.primary }} />
+          <div className="flex-1 min-w-0">
+            <p className="font-semibold text-slate-800 truncate">
+              ✅ Datos completados — {prefill.fullName || 'Paciente encontrado'}
+            </p>
+            <p className="text-xs text-slate-500 mt-0.5">Puede editar cualquier campo antes de enviar.</p>
+          </div>
+          <CheckCircle2 className="h-4 w-4 shrink-0" style={{ color: brandColors.primary }} />
+        </div>
+      )}
 
       {/* All template fields */}
       <div className="space-y-4">
         <div className="flex items-center gap-2">
           <div className="w-1 h-5 rounded-full" style={{ background: brandColors.primary }} />
           <h3 className="text-base font-semibold text-slate-700">Información del Solicitante</h3>
+          {lookupStatus === 'loading' && <Loader2 className="h-3.5 w-3.5 animate-spin ml-1 text-slate-400" />}
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {template.fields.map(field => {
-            if (selectedRequestType?.onlySystemFields && !field.systemRole) return null;
-            if (!shouldShow(field)) return null;
-            return <FieldRenderer key={field.id} field={field} brandColors={brandColors} />
+            if (selectedRequestType?.onlySystemFields && !field.systemRole) return null
+            if (!shouldShow(field)) return null
+            return (
+              <FieldRenderer
+                key={field.id}
+                field={field}
+                brandColors={brandColors}
+                prefillValue={getPrefillValue(field)}
+                onDocNumberChange={field.systemRole === 'documentNumber' ? handleDocNumberChange : undefined}
+              />
+            )
           })}
         </div>
       </div>
 
       <div className="border-t border-slate-100 pt-6 space-y-5">
-        {/* Terminos y privacidad Checkbox */}
+        {/* Privacy checkbox */}
         <div className="flex items-start gap-3 bg-slate-50 p-4 rounded-xl border border-slate-100">
           <input
             type="checkbox"
@@ -605,9 +710,9 @@ export function RequestForm({
           />
           <Label htmlFor="privacy_policy" className="text-xs text-slate-600 leading-relaxed cursor-pointer font-medium">
             He leído y acepto la{' '}
-            <Link 
-              href={`/portal/${slug}/privacy`} 
-              target="_blank" 
+            <Link
+              href={`/portal/${slug}/privacy`}
+              target="_blank"
               className="underline font-bold hover:opacity-80 transition-opacity"
               style={{ color: brandColors.primary }}
               onClick={(e) => e.stopPropagation()}
@@ -618,23 +723,23 @@ export function RequestForm({
           </Label>
         </div>
 
-        {/* Captcha Matemático Nativo */}
+        {/* CAPTCHA */}
         <div className={`flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 p-4 rounded-xl border ${captchaError ? 'border-red-300 bg-red-50' : 'border-slate-200 bg-white'}`}>
-           <div className="flex flex-col">
-             <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1">Verificación Antispam</span>
-             <p className="text-sm font-semibold text-slate-800">
-               ¿Cuánto es <span className="text-lg mx-1" style={{ color: brandColors.primary }}>{captchaA} + {captchaB}</span>?
-             </p>
-           </div>
-           <Input
-             type="number"
-             required
-             value={captchaInput}
-             onChange={(e) => setCaptchaInput(e.target.value)}
-             placeholder="="
-             className={`w-full sm:w-24 text-center text-lg font-bold ${captchaError ? 'border-red-400 focus-visible:ring-red-400' : ''}`}
-             style={!captchaError ? { '--tw-ring-color': brandColors.primary } as React.CSSProperties : undefined}
-           />
+          <div className="flex flex-col">
+            <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1">Verificación Antispam</span>
+            <p className="text-sm font-semibold text-slate-800">
+              ¿Cuánto es <span className="text-lg mx-1" style={{ color: brandColors.primary }}>{captchaA} + {captchaB}</span>?
+            </p>
+          </div>
+          <Input
+            type="number"
+            required
+            value={captchaInput}
+            onChange={(e) => setCaptchaInput(e.target.value)}
+            placeholder="="
+            className={`w-full sm:w-24 text-center text-lg font-bold ${captchaError ? 'border-red-400 focus-visible:ring-red-400' : ''}`}
+            style={!captchaError ? { '--tw-ring-color': brandColors.primary } as React.CSSProperties : undefined}
+          />
         </div>
       </div>
 
