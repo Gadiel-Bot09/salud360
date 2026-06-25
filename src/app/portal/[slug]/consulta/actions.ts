@@ -3,10 +3,10 @@
 import { createClient } from '@supabase/supabase-js'
 
 export type TrackResult = {
-  success: boolean;
-  message?: string;
-  data?: any;
-  multipleResults?: any[];
+  success: boolean
+  message?: string
+  data?: any
+  multipleResults?: any[]
 }
 
 export async function trackRequest(slug: string, prevState: any, formData: FormData): Promise<TrackResult> {
@@ -14,7 +14,7 @@ export async function trackRequest(slug: string, prevState: any, formData: FormD
   const documentNumber = (formData.get('documentNumber') as string || '').trim()
 
   if (!radicado && !documentNumber) {
-    return { success: false, message: 'Ingrese al menos el número de radicado o su número de documento.' }
+    return { success: false, message: 'Ingresa tu número de documento o tu número de radicado para buscar.' }
   }
 
   const supabase = createClient(
@@ -22,7 +22,7 @@ export async function trackRequest(slug: string, prevState: any, formData: FormD
     process.env.SUPABASE_SERVICE_ROLE_KEY!
   )
 
-  // 1. Resolve institution ID by slug
+  // Resolve institution by slug
   const { data: inst } = await supabase
     .from('institutions')
     .select('id')
@@ -34,8 +34,8 @@ export async function trackRequest(slug: string, prevState: any, formData: FormD
   }
 
   const BASE_SELECT = `
-    id, radicado, type, status, created_at, patient_data_json,
-    request_history ( id, action, created_at, comment )
+    id, radicado, type, status, created_at,
+    request_history ( id, action, created_at, comment, from_status, to_status )
   `
 
   // ── Mode 1: Both fields — exact single match ─────────────────────────────
@@ -49,7 +49,7 @@ export async function trackRequest(slug: string, prevState: any, formData: FormD
       .single()
 
     if (error || !request) {
-      return { success: false, message: 'No se encontró ninguna solicitud con ese radicado y número de documento en esta institución.' }
+      return { success: false, message: 'No encontramos ninguna solicitud con ese radicado y número de documento. Verifica los datos e intenta nuevamente.' }
     }
 
     return { success: true, data: withSortedHistory(request) }
@@ -65,7 +65,7 @@ export async function trackRequest(slug: string, prevState: any, formData: FormD
       .single()
 
     if (error || !request) {
-      return { success: false, message: `No se encontró ninguna solicitud con el radicado ${radicado} en esta institución.` }
+      return { success: false, message: `No encontramos el radicado "${radicado}" en esta institución. Verifica que esté escrito correctamente.` }
     }
 
     return { success: true, data: withSortedHistory(request) }
@@ -80,14 +80,14 @@ export async function trackRequest(slug: string, prevState: any, formData: FormD
     .order('created_at', { ascending: false })
 
   if (error || !requests || requests.length === 0) {
-    return { success: false, message: `No se encontraron solicitudes para el documento ${documentNumber} en esta institución.` }
+    return { success: false, message: `No encontramos solicitudes registradas para el documento "${documentNumber}" en esta institución. Si radicaste recientemente, espera unos minutos e intenta de nuevo.` }
   }
 
   if (requests.length === 1) {
     return { success: true, data: withSortedHistory(requests[0]) }
   }
 
-  // Multiple requests — return list so patient can pick one
+  // Multiple — return list so patient can pick one
   return {
     success: true,
     multipleResults: requests.map(r => ({
@@ -96,16 +96,17 @@ export async function trackRequest(slug: string, prevState: any, formData: FormD
       type: r.type,
       status: r.status,
       created_at: r.created_at,
-      request_history: (r.request_history || []).sort(
-        (a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
-      )
-    }))
+      request_history: sortHistory(r.request_history || []),
+    })),
   }
 }
 
-function withSortedHistory(request: any) {
-  const history = (request.request_history || []).sort(
-    (a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+function sortHistory(history: any[]) {
+  return [...history].sort(
+    (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
   )
-  return { ...request, request_history: history }
+}
+
+function withSortedHistory(request: any) {
+  return { ...request, request_history: sortHistory(request.request_history || []) }
 }
