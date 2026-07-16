@@ -2,11 +2,9 @@ import { createClient } from '@/lib/supabase/server'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import { createInstitution, deleteInstitution } from './actions'
-import { Building2, Plus, Trash2 } from 'lucide-react'
-import { revalidatePath } from 'next/cache'
+import { deleteInstitution } from './actions'
+import { InstitutionForm } from './institution-form'
+import { Building2, Trash2 } from 'lucide-react'
 
 export default async function InstitutionsPage() {
   const supabase = await createClient()
@@ -51,24 +49,7 @@ export default async function InstitutionsPage() {
                  <CardDescription>Añade una nueva EPS, Clínica u Hospital al sistema.</CardDescription>
               </CardHeader>
               <CardContent className="pt-6">
-                 <form action={async (formData) => {
-                    'use server'
-                    await createInstitution(formData)
-                 }} className="space-y-4">
-                    <div className="space-y-2">
-                       <Label htmlFor="name">Razón Social</Label>
-                       <Input id="name" name="name" placeholder="Ej. EPS Sanitas" required />
-                    </div>
-                    <div className="space-y-2">
-                       <Label htmlFor="logo_url">URL del Logo (Opcional)</Label>
-                       <Input id="logo_url" name="logo_url" placeholder="https://..." type="url" />
-                    </div>
-                    
-                    <Button type="submit" className="w-full bg-teal-600 hover:bg-teal-700">
-                       <Plus className="w-4 h-4 mr-2" />
-                       Crear Institución
-                    </Button>
-                 </form>
+                 <InstitutionForm />
               </CardContent>
            </Card>
         </div>
