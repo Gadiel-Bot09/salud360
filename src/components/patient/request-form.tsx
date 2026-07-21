@@ -446,12 +446,14 @@ export function RequestForm({
   institutionId,
   institutionName,
   institutionLogoUrl,
+  institutionSlug,
   template,
   brandColors: externalColors,
 }: {
   institutionId: string
   institutionName: string
   institutionLogoUrl?: string
+  institutionSlug: string
   template: FormTemplate
   brandColors?: BrandColors
 }) {
@@ -613,7 +615,7 @@ export function RequestForm({
     )
   }
 
-  const slug = typeof window !== 'undefined' ? window.location.pathname.split('/').pop() : ''
+  const slug = institutionSlug
 
   // ─── Form ──────────────────────────────────────────────────────────────────
   return (

@@ -177,6 +177,7 @@ export default async function PortalPage({ params }: { params: { slug: string } 
                 institutionId={institution.id}
                 institutionName={institution.name}
                 institutionLogoUrl={institution.logo_url || undefined}
+                institutionSlug={params.slug}
                 template={template}
                 brandColors={{ primary, secondary }}
               />
