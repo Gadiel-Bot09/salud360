@@ -1,9 +1,8 @@
 'use client'
 
-import { useRef, useState, useEffect } from 'react'
-import SignatureCanvas from 'react-signature-canvas'
+import { useRef, useState, useEffect, useCallback } from 'react'
 import { Button } from '@/components/ui/button'
-import { Eraser, PenLine, CheckCircle2 } from 'lucide-react'
+import { Eraser, PenLine, CheckCircle2, RotateCcw } from 'lucide-react'
 
 interface SignaturePadProps {
   name: string
@@ -11,81 +10,141 @@ interface SignaturePadProps {
   brandColors?: { primary: string }
 }
 
+// ─── Internal canvas dimensions (fixed, prevents resize clearing) ─────────────
+const CANVAS_W = 800
+const CANVAS_H = 240
+
 export function SignaturePad({ name, required, brandColors }: SignaturePadProps) {
-  const padRef     = useRef<SignatureCanvas>(null)
-  const [dataUrl, setDataUrl] = useState('')   // persists the PNG
-  const [signed, setSigned]   = useState(false) // true = show <img>, hide canvas
+  const canvasRef  = useRef<HTMLCanvasElement>(null)
+  const drawing    = useRef(false)
+  const hasStrokes = useRef(false)          // tracks if anything was drawn
 
-  const primary     = brandColors?.primary || '#0f766e'
-  const borderColor = `${primary}40`
+  const [capturedUrl, setCapturedUrl] = useState<string>('')  // persists as img
+  const [isSigned, setIsSigned]       = useState(false)       // swap canvas→img
 
-  // ── Capture when user lifts pen/finger ────────────────────────────────────
-  const handleEnd = () => {
-    if (!padRef.current || padRef.current.isEmpty()) return
-    const url = padRef.current.getTrimmedCanvas().toDataURL('image/png')
-    setDataUrl(url)
-    setSigned(true) // switch to <img> view immediately
+  const primary = brandColors?.primary || '#0f766e'
+
+  // ── Drawing helpers ──────────────────────────────────────────────────────
+  const getXY = (e: React.PointerEvent<HTMLCanvasElement>) => {
+    const canvas = canvasRef.current!
+    const rect   = canvas.getBoundingClientRect()
+    return {
+      x: (e.clientX - rect.left) * (CANVAS_W / rect.width),
+      y: (e.clientY - rect.top)  * (CANVAS_H / rect.height),
+    }
   }
 
-  // ── Clear ─────────────────────────────────────────────────────────────────
-  const clear = () => {
-    padRef.current?.clear()
-    setDataUrl('')
-    setSigned(false)
+  const applyStyle = (ctx: CanvasRenderingContext2D) => {
+    ctx.lineWidth   = 2.5
+    ctx.lineCap     = 'round'
+    ctx.lineJoin    = 'round'
+    ctx.strokeStyle = '#0f172a'
   }
 
-  // ── Native HTML5 validation ───────────────────────────────────────────────
+  // ── Pointer handlers (works on mouse + touch + stylus uniformly) ──────────
+  const onDown = useCallback((e: React.PointerEvent<HTMLCanvasElement>) => {
+    e.preventDefault()                          // block scroll while drawing
+    e.currentTarget.setPointerCapture(e.pointerId)
+    drawing.current = true
+    const ctx = canvasRef.current!.getContext('2d')!
+    applyStyle(ctx)
+    const { x, y } = getXY(e)
+    ctx.beginPath()
+    ctx.moveTo(x, y)
+  }, [])
+
+  const onMove = useCallback((e: React.PointerEvent<HTMLCanvasElement>) => {
+    if (!drawing.current) return
+    e.preventDefault()
+    const ctx = canvasRef.current!.getContext('2d')!
+    applyStyle(ctx)
+    const { x, y } = getXY(e)
+    ctx.lineTo(x, y)
+    ctx.stroke()
+    hasStrokes.current = true
+  }, [])
+
+  const onUp = useCallback((e: React.PointerEvent<HTMLCanvasElement>) => {
+    if (!drawing.current) return
+    drawing.current = false
+    if (!hasStrokes.current) return           // tap with no drawing = ignore
+    // Capture as PNG and immediately switch to <img>
+    const url = canvasRef.current!.toDataURL('image/png')
+    setCapturedUrl(url)
+    setIsSigned(true)
+  }, [])
+
+  // ── Clear ────────────────────────────────────────────────────────────────
+  const clear = useCallback(() => {
+    const canvas = canvasRef.current
+    if (canvas) canvas.getContext('2d')!.clearRect(0, 0, CANVAS_W, CANVAS_H)
+    hasStrokes.current = false
+    setCapturedUrl('')
+    setIsSigned(false)
+  }, [])
+
+  // ── HTML5 validation ─────────────────────────────────────────────────────
   useEffect(() => {
-    const input = document.getElementById(`hidden-sig-${name}`) as HTMLInputElement | null
-    if (!input) return
-    input.setCustomValidity(required && !dataUrl ? 'Por favor, dibuje su firma antes de enviar.' : '')
-  }, [dataUrl, required, name])
-
-  const handleInvalid = (e: React.InvalidEvent<HTMLInputElement>) => {
-    if (required && !dataUrl) e.target.setCustomValidity('Por favor, dibuje su firma antes de enviar.')
-  }
+    const el = document.getElementById(`hsig-${name}`) as HTMLInputElement | null
+    if (!el) return
+    el.setCustomValidity(required && !capturedUrl ? 'Por favor dibuje su firma.' : '')
+  }, [capturedUrl, required, name])
 
   return (
-    <div className="w-full flex flex-col gap-2">
+    <div className="w-full space-y-2">
 
-      {/* ── Canvas wrapper (hidden once signed) ───────────────────────── */}
+      {/* ── Canvas (shown while unsigned) ──────────────────────────────── */}
       <div
-        className={`relative w-full rounded-lg border-2 border-dashed bg-slate-50 overflow-hidden transition-all ${signed ? 'hidden' : 'block'}`}
-        style={{ borderColor }}
+        className="relative w-full rounded-xl overflow-hidden border-2 border-dashed transition-colors"
+        style={{
+          borderColor: primary + '55',
+          display: isSigned ? 'none' : 'block',
+        }}
       >
-        <SignatureCanvas
-          ref={padRef}
-          penColor="#0f172a"
-          canvasProps={{
-            className: 'w-full touch-none select-none',
-            style: { width: '100%', height: '160px', display: 'block' },
+        <canvas
+          ref={canvasRef}
+          width={CANVAS_W}
+          height={CANVAS_H}
+          className="w-full bg-slate-50"
+          style={{
+            height: '160px',
+            display: 'block',
+            cursor: 'crosshair',
+            touchAction: 'none',   // prevent ANY native touch behavior (scroll/zoom)
+            userSelect: 'none',
+            WebkitUserSelect: 'none',
           }}
-          onEnd={handleEnd}
+          onPointerDown={onDown}
+          onPointerMove={onMove}
+          onPointerUp={onUp}
+          onPointerCancel={onUp}   // finger lifted outside element
         />
-        {/* Placeholder text */}
-        <div className="absolute inset-0 pointer-events-none flex flex-col items-center justify-center gap-1">
-          <PenLine className="w-6 h-6 text-slate-200" />
-          <span className="text-slate-300 select-none text-sm font-medium">Dibuje su firma aquí</span>
-          <span className="text-slate-200 select-none text-xs">Toque y arrastre para firmar</span>
+
+        {/* Placeholder */}
+        <div className="absolute inset-0 pointer-events-none flex flex-col items-center justify-center gap-2 select-none">
+          <PenLine className="w-7 h-7 text-slate-200" />
+          <span className="text-slate-300 text-sm font-medium">Dibuje su firma aquí</span>
+          <span className="text-slate-200 text-xs">Toque y arrastre para firmar</span>
         </div>
       </div>
 
-      {/* ── Signature preview (shown once signed, never affected by resize) ── */}
-      {signed && dataUrl && (
+      {/* ── Captured image (shown after signing — immune to scroll/resize) ── */}
+      {isSigned && capturedUrl && (
         <div
-          className="relative w-full rounded-lg border-2 bg-white overflow-hidden"
-          style={{ borderColor: primary, minHeight: '160px' }}
+          className="relative w-full rounded-xl overflow-hidden border-2 bg-white"
+          style={{ borderColor: primary, minHeight: '120px' }}
         >
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
-            src={dataUrl}
+            src={capturedUrl}
             alt="Firma capturada"
-            className="w-full object-contain"
-            style={{ maxHeight: '200px', minHeight: '160px' }}
+            draggable={false}
+            className="w-full object-contain select-none"
+            style={{ maxHeight: '200px', minHeight: '120px', display: 'block' }}
           />
-          {/* Badge */}
+          {/* Status badge */}
           <div
-            className="absolute top-2 right-2 flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold text-white shadow"
+            className="absolute top-2 right-2 flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold text-white shadow-md"
             style={{ background: primary }}
           >
             <CheckCircle2 className="w-3.5 h-3.5" />
@@ -94,28 +153,33 @@ export function SignaturePad({ name, required, brandColors }: SignaturePadProps)
         </div>
       )}
 
-      {/* ── Actions ───────────────────────────────────────────────────── */}
+      {/* ── Action button ─────────────────────────────────────────────── */}
       <div className="flex justify-end">
         <Button
           type="button"
           variant="ghost"
           size="sm"
           onClick={clear}
-          className="text-xs text-slate-500 hover:text-red-500 h-8"
+          className="text-xs text-slate-500 hover:text-red-500 h-8 gap-1"
         >
-          <Eraser className="w-3 h-3 mr-1" />
-          {signed ? 'Volver a firmar' : 'Limpiar firma'}
+          {isSigned
+            ? <><RotateCcw className="w-3 h-3" /> Volver a firmar</>
+            : <><Eraser    className="w-3 h-3" /> Limpiar</>
+          }
         </Button>
       </div>
 
-      {/* ── Hidden input that carries the value ───────────────────────── */}
+      {/* ── Hidden input ──────────────────────────────────────────────── */}
       <input
+        id={`hsig-${name}`}
         type="hidden"
-        id={`hidden-sig-${name}`}
         name={name}
-        value={dataUrl}
+        value={capturedUrl}
         required={required}
-        onInvalid={handleInvalid}
+        onInvalid={e => {
+          if (required && !capturedUrl)
+            (e.target as HTMLInputElement).setCustomValidity('Por favor dibuje su firma.')
+        }}
         onChange={() => {}}
       />
     </div>
