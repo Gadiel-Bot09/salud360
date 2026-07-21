@@ -115,7 +115,7 @@ export default async function RequestDetailPage({ params }: { params: { id: stri
   // Fetch response templates and institution name for UI
   const [templates, institutionResult, specialtiesRes, doctorsRes] = await Promise.all([
     getResponseTemplates(),
-    supabaseAdmin.from('institutions').select('name, evolution_connected, evolution_instance_name').eq('id', request.institution_id).single(),
+    supabaseAdmin.from('institutions').select('name, logo_url, colors, evolution_connected, evolution_instance_name').eq('id', request.institution_id).single(),
     supabaseAdmin.from('specialties').select('*').eq('institution_id', request.institution_id).eq('active', true),
     supabaseAdmin.from('doctors').select('*').eq('institution_id', request.institution_id).eq('active', true)
   ])
@@ -173,7 +173,8 @@ export default async function RequestDetailPage({ params }: { params: { id: stri
       const patientName = request.patient_data_json?.fullName || 'Paciente'
       await sendAppointmentConfirmationEmail(
         request.patient_email, patientName, request.radicado,
-        { date: apptDate, time: apptTime, doctor: apptDoctor || '', specialty: apptSpecialty || '', institution: inst?.name || 'Salud360' }
+        { date: apptDate, time: apptTime, doctor: apptDoctor || '', specialty: apptSpecialty || '', institution: inst?.name || 'Salud360' },
+        institutionResult.data
       )
     }
 
@@ -186,7 +187,7 @@ export default async function RequestDetailPage({ params }: { params: { id: stri
       user_id: user?.id, comment: comment || null
     })
     if (['responded', 'closed', 'escalated'].includes(newStatus)) {
-      await sendStatusUpdateEmail(request.patient_email, request.radicado, newStatus, comment, resendAttachments)
+      await sendStatusUpdateEmail(request.patient_email, request.radicado, newStatus, comment, resendAttachments, institutionResult.data)
 
       // Send WhatsApp Notification
       const evoInstance = institutionResult.data?.evolution_instance_name

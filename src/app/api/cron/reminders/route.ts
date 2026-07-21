@@ -48,7 +48,7 @@ export async function GET(request: Request) {
       .select(`
         id, appointment_date, appointment_time, doctor_name, specialty,
         reminder_24h_sent, reminder_2h_sent,
-        requests ( id, radicado, patient_email, patient_data_json, institutions(id, name, evolution_instance_name, evolution_connected) )
+        requests ( id, radicado, patient_email, patient_data_json, institutions(id, name, logo_url, colors, evolution_instance_name, evolution_connected) )
       `)
       .or('reminder_24h_sent.eq.false,reminder_2h_sent.eq.false')
 
@@ -64,6 +64,12 @@ export async function GET(request: Request) {
       const institution  = req.institutions?.name || 'Salud360'
       const instanceName = req.institutions?.evolution_instance_name
       const isConnected  = req.institutions?.evolution_connected
+      // Branding object for email templates
+      const institutionBranding = req.institutions ? {
+        name:     req.institutions.name,
+        logo_url: req.institutions.logo_url,
+        colors:   req.institutions.colors,
+      } : null
       const appointmentData = {
         date:      appt.appointment_date,
         time:      appt.appointment_time?.slice(0, 5) || '—',
@@ -80,7 +86,7 @@ export async function GET(request: Request) {
       // ── Check 24h window ─────────────────────────────────────────────────
       if (!appt.reminder_24h_sent && apptDateTime >= win24hFrom && apptDateTime <= win24hTo) {
         try {
-          await sendAppointmentReminderEmail(toEmail, patientName, req.radicado, appointmentData, 24)
+          await sendAppointmentReminderEmail(toEmail, patientName, req.radicado, appointmentData, 24, institutionBranding)
           
           if (patientPhone && patientPhone !== '—' && isConnected && instanceName) {
             const timeStr = appt.appointment_time?.slice(0, 5) || '—'
@@ -112,7 +118,7 @@ export async function GET(request: Request) {
       // ── Check 2h window ──────────────────────────────────────────────────
       if (!appt.reminder_2h_sent && apptDateTime >= win2hFrom && apptDateTime <= win2hTo) {
         try {
-          await sendAppointmentReminderEmail(toEmail, patientName, req.radicado, appointmentData, 2)
+          await sendAppointmentReminderEmail(toEmail, patientName, req.radicado, appointmentData, 2, institutionBranding)
           
           if (patientPhone && patientPhone !== '—' && isConnected && instanceName) {
             const timeStr = appt.appointment_time?.slice(0, 5) || '—'

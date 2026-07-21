@@ -162,7 +162,13 @@ export async function POST(request: Request) {
         }
 
         try {
-            await sendEmailConfirmation(email, radicado, fullName, requestType, patientData)
+            // Fetch institution branding for branded email
+            const { data: instData } = await supabase
+                .from('institutions')
+                .select('name, logo_url, colors')
+                .eq('id', institutionId)
+                .single()
+            await sendEmailConfirmation(email, radicado, fullName, requestType, patientData, instData)
         } catch(e) { console.error('Email failed, but request succeeded:', e) }
 
         // Document Generation
