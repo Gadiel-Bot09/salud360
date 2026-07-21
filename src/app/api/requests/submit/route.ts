@@ -51,8 +51,23 @@ export async function POST(request: Request) {
                      filesToUpload.push({ file: value, docLabel: fileLabels[key] })
                  }
              } else {
-                 const finalKey = labels[key] || key
-                 patientData[finalKey] = value as string
+                 // ── Signature field: value is a Base64 PNG data-URL ─────────
+                 // Instead of storing the giant Base64 string in Supabase JSON,
+                 // convert it to a real PNG buffer and queue it for MinIO upload.
+                 const strVal = value as string
+                 if (strVal.startsWith('data:image/')) {
+                     const base64 = strVal.split(',')[1]
+                     if (base64) {
+                         const buffer = Buffer.from(base64, 'base64')
+                         const syntheticFile = new File([buffer], `${key}.png`, { type: 'image/png' })
+                         filesToUpload.push({ file: syntheticFile, docLabel: labels[key] || 'Firma del Solicitante' })
+                     }
+                     // Store a placeholder in patientData instead of the huge Base64
+                     patientData[labels[key] || key] = '[Firma adjunta — ver archivos]'
+                 } else {
+                     const finalKey = labels[key] || key
+                     patientData[finalKey] = strVal
+                 }
              }
         }
 
