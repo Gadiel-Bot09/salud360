@@ -1,9 +1,9 @@
 'use client'
 
-import { useRef, useState, useEffect, useCallback } from 'react'
+import { useRef, useState, useEffect } from 'react'
 import SignatureCanvas from 'react-signature-canvas'
 import { Button } from '@/components/ui/button'
-import { Eraser, CheckCircle2 } from 'lucide-react'
+import { Eraser, PenLine, CheckCircle2 } from 'lucide-react'
 
 interface SignaturePadProps {
   name: string
@@ -12,129 +12,89 @@ interface SignaturePadProps {
 }
 
 export function SignaturePad({ name, required, brandColors }: SignaturePadProps) {
-  const padRef       = useRef<SignatureCanvas>(null)
-  const wrapperRef   = useRef<HTMLDivElement>(null)
-  const [dataUrl, setDataUrl]   = useState('')
-  const [isEmpty, setIsEmpty]   = useState(true)
+  const padRef     = useRef<SignatureCanvas>(null)
+  const [dataUrl, setDataUrl] = useState('')   // persists the PNG
+  const [signed, setSigned]   = useState(false) // true = show <img>, hide canvas
 
-  // ── Restore the signature onto the canvas after any resize ─────────────────
-  const restoreSignature = useCallback((url: string) => {
-    if (!url || !padRef.current) return
-    const canvas = padRef.current.getCanvas()
-    const ctx    = canvas.getContext('2d')
-    if (!ctx) return
-    const img = new Image()
-    img.onload = () => {
-      // Clear first so we don't stack images
-      ctx.clearRect(0, 0, canvas.width, canvas.height)
-      ctx.drawImage(img, 0, 0, canvas.width, canvas.height)
-    }
-    img.src = url
-  }, [])
+  const primary     = brandColors?.primary || '#0f766e'
+  const borderColor = `${primary}40`
 
-  // ── Resize Observer: when the wrapper changes size, fix canvas dims and restore ─
-  useEffect(() => {
-    const wrapper = wrapperRef.current
-    if (!wrapper) return
-
-    const observer = new ResizeObserver(() => {
-      const canvas = padRef.current?.getCanvas()
-      if (!canvas) return
-
-      // Get the true pixel dimensions from the wrapper
-      const rect = wrapper.getBoundingClientRect()
-      const dpr  = window.devicePixelRatio || 1
-
-      // Only update if size actually changed (avoid infinite loops)
-      if (canvas.width !== Math.round(rect.width * dpr)) {
-        canvas.width  = Math.round(rect.width * dpr)
-        canvas.height = Math.round(160 * dpr)
-
-        const ctx = canvas.getContext('2d')
-        if (ctx) ctx.scale(dpr, dpr)
-
-        // If we had a saved signature, put it back
-        if (dataUrl) {
-          restoreSignature(dataUrl)
-        }
-      }
-    })
-
-    observer.observe(wrapper)
-    return () => observer.disconnect()
-  }, [dataUrl, restoreSignature])
-
-  // ── Capture signature end ─────────────────────────────────────────────────
+  // ── Capture when user lifts pen/finger ────────────────────────────────────
   const handleEnd = () => {
-    if (!padRef.current) return
-    if (padRef.current.isEmpty()) {
-      setIsEmpty(true)
-      setDataUrl('')
-    } else {
-      setIsEmpty(false)
-      const url = padRef.current.getTrimmedCanvas().toDataURL('image/png')
-      setDataUrl(url)
-    }
+    if (!padRef.current || padRef.current.isEmpty()) return
+    const url = padRef.current.getTrimmedCanvas().toDataURL('image/png')
+    setDataUrl(url)
+    setSigned(true) // switch to <img> view immediately
   }
 
   // ── Clear ─────────────────────────────────────────────────────────────────
   const clear = () => {
     padRef.current?.clear()
-    setIsEmpty(true)
     setDataUrl('')
+    setSigned(false)
   }
 
-  // ── HTML5 native validation ───────────────────────────────────────────────
+  // ── Native HTML5 validation ───────────────────────────────────────────────
   useEffect(() => {
     const input = document.getElementById(`hidden-sig-${name}`) as HTMLInputElement | null
-    if (input) input.setCustomValidity(required && isEmpty ? 'Por favor, dibuje su firma antes de enviar.' : '')
-  }, [isEmpty, required, name])
+    if (!input) return
+    input.setCustomValidity(required && !dataUrl ? 'Por favor, dibuje su firma antes de enviar.' : '')
+  }, [dataUrl, required, name])
 
   const handleInvalid = (e: React.InvalidEvent<HTMLInputElement>) => {
-    if (required && isEmpty) e.target.setCustomValidity('Por favor, dibuje su firma antes de enviar.')
+    if (required && !dataUrl) e.target.setCustomValidity('Por favor, dibuje su firma antes de enviar.')
   }
-
-  const borderColor = brandColors?.primary ? `${brandColors.primary}40` : '#e2e8f0'
-  const focusColor  = brandColors?.primary ? brandColors.primary : '#0f766e'
 
   return (
     <div className="w-full flex flex-col gap-2">
+
+      {/* ── Canvas wrapper (hidden once signed) ───────────────────────── */}
       <div
-        ref={wrapperRef}
-        className={`relative w-full rounded-lg border-2 bg-slate-50 overflow-hidden transition-colors ${isEmpty ? 'border-dashed' : 'border-solid'}`}
-        style={{ borderColor: isEmpty ? borderColor : focusColor }}
+        className={`relative w-full rounded-lg border-2 border-dashed bg-slate-50 overflow-hidden transition-all ${signed ? 'hidden' : 'block'}`}
+        style={{ borderColor }}
       >
         <SignatureCanvas
           ref={padRef}
           penColor="#0f172a"
           canvasProps={{
-            // touch-none prevents the page from scrolling while drawing
-            className: 'w-full cursor-crosshair touch-none select-none',
+            className: 'w-full touch-none select-none',
             style: { width: '100%', height: '160px', display: 'block' },
           }}
           onEnd={handleEnd}
         />
-
-        {/* Placeholder */}
-        {isEmpty && (
-          <div className="absolute inset-0 pointer-events-none flex flex-col items-center justify-center gap-1">
-            <span className="text-slate-300 select-none text-sm font-medium">Dibuje su firma aquí</span>
-            <span className="text-slate-200 select-none text-xs">↕ Toque y arrastre</span>
-          </div>
-        )}
-
-        {/* Saved indicator */}
-        {!isEmpty && (
-          <div
-            className="absolute top-1.5 right-1.5 flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold text-white"
-            style={{ background: focusColor }}
-          >
-            <CheckCircle2 className="w-3 h-3" />
-            Guardada
-          </div>
-        )}
+        {/* Placeholder text */}
+        <div className="absolute inset-0 pointer-events-none flex flex-col items-center justify-center gap-1">
+          <PenLine className="w-6 h-6 text-slate-200" />
+          <span className="text-slate-300 select-none text-sm font-medium">Dibuje su firma aquí</span>
+          <span className="text-slate-200 select-none text-xs">Toque y arrastre para firmar</span>
+        </div>
       </div>
 
+      {/* ── Signature preview (shown once signed, never affected by resize) ── */}
+      {signed && dataUrl && (
+        <div
+          className="relative w-full rounded-lg border-2 bg-white overflow-hidden"
+          style={{ borderColor: primary, minHeight: '160px' }}
+        >
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={dataUrl}
+            alt="Firma capturada"
+            className="w-full object-contain"
+            style={{ maxHeight: '200px', minHeight: '160px' }}
+          />
+          {/* Badge */}
+          <div
+            className="absolute top-2 right-2 flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold text-white shadow"
+            style={{ background: primary }}
+          >
+            <CheckCircle2 className="w-3.5 h-3.5" />
+            Firma capturada
+          </div>
+        </div>
+      )}
+
+      {/* ── Actions ───────────────────────────────────────────────────── */}
       <div className="flex justify-end">
         <Button
           type="button"
@@ -144,10 +104,11 @@ export function SignaturePad({ name, required, brandColors }: SignaturePadProps)
           className="text-xs text-slate-500 hover:text-red-500 h-8"
         >
           <Eraser className="w-3 h-3 mr-1" />
-          Limpiar firma
+          {signed ? 'Volver a firmar' : 'Limpiar firma'}
         </Button>
       </div>
 
+      {/* ── Hidden input that carries the value ───────────────────────── */}
       <input
         type="hidden"
         id={`hidden-sig-${name}`}
