@@ -91,16 +91,54 @@ function PasswordSection() {
 
 // ── WhatsApp Connection Section ──────────────────────────────────────────────
 function WhatsAppConnectionSection({ institution }: { institution: Institution }) {
-  const [status, setStatus] = useState<'idle'|'loading'|'qr_ready'|'connected'>(institution.evolution_connected ? 'connected' : 'idle')
-  const [qrBase64, setQrBase64] = useState<string | null>(null)
+  const [status, setStatus] = useState<'checking'|'idle'|'loading'|'qr_ready'|'connected'>(
+    institution.evolution_instance_name ? 'checking' : 'idle'
+  )
+  const [qrBase64, setQrBase64]     = useState<string | null>(null)
   const [instanceName, setInstanceName] = useState<string | null>(institution.evolution_instance_name)
+  const [phoneNumber, setPhoneNumber]   = useState<string | null>(null)
   const pollingRef = useRef<NodeJS.Timeout | null>(null)
   const { toast } = useToast()
+
+  // ── Verify real status from Evolution API ──────────────────────────────────
+  const checkStatus = async (iName: string, silent = false) => {
+    if (!iName) return
+    if (!silent) setStatus('checking')
+    try {
+      const res  = await fetch('/api/evolution/status', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ institutionId: institution.id, instanceName: iName })
+      })
+      const data = await res.json()
+
+      if (data.connected) {
+        setStatus('connected')
+        setQrBase64(null)
+        if (data.phoneNumber) setPhoneNumber(data.phoneNumber)
+        if (pollingRef.current) clearInterval(pollingRef.current)
+      } else {
+        // Only reset to idle if we were checking and it came back disconnected
+        if (!silent) setStatus('idle')
+      }
+    } catch (err) {
+      if (!silent) setStatus('idle')
+    }
+  }
+
+  // ── On mount: check real status if instance exists ─────────────────────────
+  useEffect(() => {
+    if (institution.evolution_instance_name) {
+      checkStatus(institution.evolution_instance_name)
+    }
+    return () => { if (pollingRef.current) clearInterval(pollingRef.current) }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   const handleConnect = async () => {
     setStatus('loading')
     try {
-      const res = await fetch('/api/evolution/create', {
+      const res  = await fetch('/api/evolution/create', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ institutionId: institution.id })
@@ -124,7 +162,7 @@ function WhatsAppConnectionSection({ institution }: { institution: Institution }
   const startPolling = (iName: string) => {
     if (pollingRef.current) clearInterval(pollingRef.current)
     pollingRef.current = setInterval(async () => {
-      const res = await fetch('/api/evolution/status', {
+      const res  = await fetch('/api/evolution/status', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ institutionId: institution.id, instanceName: iName })
@@ -133,6 +171,7 @@ function WhatsAppConnectionSection({ institution }: { institution: Institution }
       if (data.connected) {
         setStatus('connected')
         setQrBase64(null)
+        if (data.phoneNumber) setPhoneNumber(data.phoneNumber)
         if (pollingRef.current) clearInterval(pollingRef.current)
         toast({ title: '¡Conectado!', description: 'WhatsApp vinculado exitosamente.' })
       }
@@ -149,60 +188,97 @@ function WhatsAppConnectionSection({ institution }: { institution: Institution }
       })
       setStatus('idle')
       setInstanceName(null)
+      setPhoneNumber(null)
       toast({ title: 'Desconectado', description: 'La instancia ha sido eliminada.' })
-    } catch (err) {
+    } catch {
       setStatus('connected')
     }
   }
-
-  useEffect(() => {
-    return () => { if (pollingRef.current) clearInterval(pollingRef.current) }
-  }, [])
 
   return (
     <section className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
       <div className="flex items-center gap-3 px-6 py-4 border-b border-slate-100 bg-slate-50">
         <Smartphone className="h-5 w-5 text-green-600" />
-        <div>
+        <div className="flex-1">
           <h3 className="font-semibold text-slate-800">Conexión de WhatsApp</h3>
           <p className="text-xs text-slate-500">Vincula un número para enviar notificaciones automatizadas.</p>
         </div>
+        {/* Manual refresh button — visible when instance exists */}
+        {instanceName && status !== 'loading' && (
+          <button
+            type="button"
+            onClick={() => checkStatus(instanceName)}
+            className="text-xs text-slate-400 hover:text-teal-600 flex items-center gap-1 transition-colors px-2 py-1 rounded-lg hover:bg-slate-100"
+            title="Verificar estado actual"
+          >
+            <Loader2 className={`h-3.5 w-3.5 ${status === 'checking' ? 'animate-spin text-teal-500' : ''}`} />
+            Verificar
+          </button>
+        )}
       </div>
+
       <div className="p-6">
-        {status === 'connected' ? (
+        {/* ── Checking / Loading ── */}
+        {(status === 'checking' || status === 'loading') && (
+          <div className="flex items-center justify-center gap-3 py-8 text-slate-500">
+            <Loader2 className="h-5 w-5 animate-spin text-teal-500" />
+            <span className="text-sm">
+              {status === 'checking' ? 'Verificando estado de conexión...' : 'Procesando...'}
+            </span>
+          </div>
+        )}
+
+        {/* ── Connected ── */}
+        {status === 'connected' && (
           <div className="flex flex-col sm:flex-row items-center gap-4 bg-green-50 border border-green-200 p-5 rounded-xl">
             <div className="w-12 h-12 bg-green-100 text-green-600 rounded-full flex items-center justify-center shrink-0">
               <CheckCircle2 className="h-6 w-6" />
             </div>
-            <div className="flex-1">
-              <p className="font-semibold text-green-800">WhatsApp Conectado</p>
-              <p className="text-sm text-green-700 mt-1">El sistema enviará recordatorios desde esta cuenta.</p>
-              <p className="text-xs font-mono text-green-600 mt-1 opacity-70">Instancia: {instanceName}</p>
+            <div className="flex-1 text-center sm:text-left">
+              <p className="font-semibold text-green-800">✅ WhatsApp Conectado</p>
+              <p className="text-sm text-green-700 mt-1">El sistema enviará recordatorios y respuestas desde esta cuenta.</p>
+              {phoneNumber && (
+                <p className="text-xs font-mono text-green-600 mt-1">📱 {phoneNumber}</p>
+              )}
+              <p className="text-xs font-mono text-green-600/60 mt-0.5">Instancia: {instanceName}</p>
             </div>
-            <Button variant="outline" onClick={handleDisconnect} className="text-red-600 border-red-200 hover:bg-red-50 hover:text-red-700">
+            <Button
+              variant="outline"
+              onClick={handleDisconnect}
+              className="text-red-600 border-red-200 hover:bg-red-50 hover:text-red-700"
+            >
               Desconectar
             </Button>
           </div>
-        ) : (
-          <div className="text-center space-y-4">
-            {status === 'qr_ready' && qrBase64 ? (
-              <div className="animate-in fade-in zoom-in duration-300">
-                <p className="text-sm text-slate-600 mb-3 font-medium">Escanea este código con tu WhatsApp (Dispositivos Vinculados)</p>
-                <img src={qrBase64} alt="QR Code" className="w-48 h-48 mx-auto border-2 border-slate-100 rounded-xl shadow-sm" />
-                <p className="text-xs text-slate-400 mt-3 flex items-center justify-center gap-2">
-                  <Loader2 className="h-3 w-3 animate-spin" /> Esperando conexión...
-                </p>
-              </div>
-            ) : (
-              <div className="py-4">
-                <QrCode className="h-12 w-12 text-slate-200 mx-auto mb-3" />
-                <p className="text-slate-600 mb-4 max-w-sm mx-auto text-sm">
-                  Al conectar, Salud360 enviará mensajes a tus pacientes recordando sus citas automáticamente.
-                </p>
-                <Button onClick={handleConnect} disabled={status === 'loading'} className="bg-green-600 hover:bg-green-700">
-                  {status === 'loading' ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Procesando...</> : 'Generar Código QR'}
-                </Button>
-              </div>
+        )}
+
+        {/* ── QR Ready ── */}
+        {status === 'qr_ready' && (
+          <div className="text-center space-y-4 animate-in fade-in zoom-in duration-300">
+            <p className="text-sm text-slate-600 font-medium">Escanea este código con tu WhatsApp → Dispositivos Vinculados</p>
+            <img src={qrBase64!} alt="QR Code" className="w-48 h-48 mx-auto border-2 border-slate-100 rounded-xl shadow-sm" />
+            <p className="text-xs text-slate-400 flex items-center justify-center gap-2">
+              <Loader2 className="h-3 w-3 animate-spin" /> Esperando conexión...
+            </p>
+          </div>
+        )}
+
+        {/* ── Idle (no instance or disconnected) ── */}
+        {status === 'idle' && (
+          <div className="text-center space-y-4 py-4">
+            <QrCode className="h-12 w-12 text-slate-200 mx-auto mb-3" />
+            <p className="text-slate-600 max-w-sm mx-auto text-sm">
+              Al conectar, Salud360 enviará mensajes a tus pacientes recordando sus citas automáticamente.
+            </p>
+            <Button onClick={handleConnect} className="bg-green-600 hover:bg-green-700">
+              Generar Código QR
+            </Button>
+            {/* If we have an instance name but it shows disconnected, offer manual check */}
+            {instanceName && (
+              <p className="text-xs text-slate-400">
+                Instancia registrada: <span className="font-mono">{instanceName}</span>{' '}
+                — <button type="button" onClick={() => checkStatus(instanceName)} className="text-teal-600 hover:underline">verificar estado</button>
+              </p>
             )}
           </div>
         )}

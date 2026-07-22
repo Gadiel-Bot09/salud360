@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { sendAppointmentReminderEmail } from '@/lib/resend'
-import { sendWhatsAppMessage } from '@/lib/evolution'
+import { sendWhatsAppMessage, checkEvolutionConnection } from '@/lib/evolution'
 
 export const dynamic = 'force-dynamic'
 
@@ -63,7 +63,8 @@ export async function GET(request: Request) {
       const toEmail      = req.patient_email
       const institution  = req.institutions?.name || 'Salud360'
       const instanceName = req.institutions?.evolution_instance_name
-      const isConnected  = req.institutions?.evolution_connected
+      // Check real connection state directly from Evolution (not Supabase flag)
+      const isConnected  = instanceName ? await checkEvolutionConnection(instanceName) : false
       // Branding object for email templates
       const institutionBranding = req.institutions ? {
         name:     req.institutions.name,
@@ -93,7 +94,7 @@ export async function GET(request: Request) {
             const doctorStr = appt.doctor_name ? `con el especialista ${appt.doctor_name}` : ''
             const text = `Hola ${patientName},\n\nTe recordamos que mañana tienes una cita médica en *${institution}* a las *${timeStr}* ${doctorStr}.\n\nPor favor, llega con 15 minutos de antelación.\n\nAtentamente,\nEquipo de ${institution}`
             const wpRes = await sendWhatsAppMessage(instanceName, {
-              number: '57' + patientPhone.replace(/\D/g, ''),
+              number: patientPhone,
               text
             })
             await supabase.from('whatsapp_logs').insert({
@@ -125,7 +126,7 @@ export async function GET(request: Request) {
             const doctorStr = appt.doctor_name ? `con el especialista ${appt.doctor_name}` : ''
             const text = `Hola ${patientName},\n\nEste es un recordatorio final para tu cita médica de hoy en *${institution}* a las *${timeStr}* ${doctorStr}.\n\nTe esperamos pronto.\n\nAtentamente,\nEquipo de ${institution}`
             const wpRes = await sendWhatsAppMessage(instanceName, {
-              number: '57' + patientPhone.replace(/\D/g, ''),
+              number: patientPhone,
               text
             })
             await supabase.from('whatsapp_logs').insert({
