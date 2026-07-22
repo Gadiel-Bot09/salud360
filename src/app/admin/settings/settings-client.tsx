@@ -6,10 +6,11 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { changePassword, updateInstitutionBranding } from './actions'
 import { useToast } from '@/hooks/use-toast'
+import { PortalQRCode } from '@/components/portal-qr-code'
 import {
   Settings, KeyRound, Building2, Link2, CheckCircle2,
   AlertCircle, Loader2, Palette, Globe, MapPin, Phone,
-  Mail, FileText, Eye, Sparkles, Smartphone, QrCode
+  Mail, FileText, Eye, Sparkles, Smartphone, QrCode, Download
 } from 'lucide-react'
 
 interface Institution {
@@ -501,6 +502,70 @@ function BrandingSection({ institution, siteUrl }: { institution: Institution; s
           <Link2 className="h-4 w-4" /> Copiar
         </button>
       </div>
+
+      {/* Portal QR Code */}
+      {slug && (
+        <div className="mx-6 mt-4 rounded-xl border border-slate-200 bg-gradient-to-br from-slate-50 to-white overflow-hidden">
+          <div className="flex items-center gap-3 px-5 py-3 border-b border-slate-100">
+            <div
+              className="w-8 h-8 rounded-lg flex items-center justify-center"
+              style={{ backgroundColor: primaryColor + '20' }}
+            >
+              <QrCode className="h-4 w-4" style={{ color: primaryColor }} />
+            </div>
+            <div>
+              <p className="text-sm font-semibold text-slate-800">Código QR del Portal</p>
+              <p className="text-xs text-slate-500">Personalizado con los colores e identidad de tu institución</p>
+            </div>
+            <div className="ml-auto flex items-center gap-1.5">
+              <span
+                className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full"
+                style={{ backgroundColor: primaryColor + '15', color: primaryColor }}
+              >
+                <Download className="h-3 w-3" /> Descargable
+              </span>
+            </div>
+          </div>
+          <div className="p-6 flex flex-col sm:flex-row items-center gap-8">
+            {/* QR Preview */}
+            <div className="shrink-0">
+              <PortalQRCode
+                portalUrl={portalUrl}
+                institutionName={name}
+                primaryColor={primaryColor}
+                secondaryColor={secondaryColor}
+                logoUrl={logoUrl || institution.logo_url}
+              />
+            </div>
+            {/* Instructions */}
+            <div className="space-y-4 text-sm">
+              <div className="space-y-2">
+                <p className="font-semibold text-slate-700">¿Cómo usar este QR?</p>
+                <ul className="space-y-2 text-slate-600">
+                  {[
+                    { icon: '🖨️', text: 'Imprímelo y colócalo en tu sala de espera, recepción o consultorio' },
+                    { icon: '📱', text: 'Los pacientes lo escanean con la cámara de su celular' },
+                    { icon: '🌐', text: 'Acceden directamente a tu portal para enviar solicitudes' },
+                    { icon: '🎨', text: 'El QR se actualiza automáticamente al cambiar tus colores o logo' },
+                  ].map((item, i) => (
+                    <li key={i} className="flex items-start gap-2">
+                      <span className="text-base">{item.icon}</span>
+                      <span className="text-xs">{item.text}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+              <div
+                className="rounded-lg px-4 py-3 text-xs"
+                style={{ backgroundColor: primaryColor + '10', borderLeft: `3px solid ${primaryColor}` }}
+              >
+                <p className="font-semibold" style={{ color: primaryColor }}>💡 Consejo</p>
+                <p className="text-slate-600 mt-1">Guarda los cambios de color y logo primero, luego usa <strong>"Regenerar"</strong> para que el QR refleje los últimos cambios.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       <form onSubmit={handleSubmit} className="p-6 space-y-8">
         {feedback && <Alert type={feedback.type} msg={feedback.msg} />}
