@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/supabase/server'
+import { createClient as createAdminClient } from '@supabase/supabase-js'
 import { SettingsClient } from './settings-client'
 import { headers } from 'next/headers'
 import { getResponseTemplates, createResponseTemplate, updateResponseTemplate, deleteResponseTemplate } from './template-actions'
@@ -18,15 +19,48 @@ export default async function SettingsPage() {
     .eq('id', user?.id ?? '')
     .single()
 
-  // Fetch institution if the user has one assigned
+  // Fetch institution using admin client to bypass RLS
+  const supabaseAdmin = createAdminClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!
+  )
+
   let institution = null
   if (userProfile?.institution_id) {
-    const { data } = await supabase
+    const { data } = await supabaseAdmin
       .from('institutions')
       .select('id, name, slug, logo_url, colors, tagline, description, address, phone, contact_email, website, privacy_policy, evolution_connected, evolution_instance_name')
       .eq('id', userProfile.institution_id)
       .single()
     institution = data
+  }
+
+  // ── Check REAL Evolution state at server render time ──────────────────────
+  // This ensures the page loads with the correct status without client-side guess
+  let initialEvolutionConnected = institution?.evolution_connected ?? false
+  if (institution?.evolution_instance_name && !initialEvolutionConnected) {
+    try {
+      const EVO_URL = process.env.EVOLUTION_API_URL
+      const EVO_KEY = process.env.EVOLUTION_API_KEY
+      if (EVO_URL && EVO_KEY) {
+        const evoRes = await fetch(
+          `${EVO_URL}/instance/connectionState/${institution.evolution_instance_name}`,
+          { method: 'GET', headers: { apikey: EVO_KEY } }
+        )
+        if (evoRes.ok) {
+          const evoData = await evoRes.json()
+          const state   = (evoData?.instance?.state ?? evoData?.state ?? '').toLowerCase()
+          if (state === 'open') {
+            initialEvolutionConnected = true
+            // Sync Supabase so subsequent loads are fast
+            await supabaseAdmin
+              .from('institutions')
+              .update({ evolution_connected: true })
+              .eq('id', institution.id)
+          }
+        }
+      }
+    } catch { /* silent — client will retry */ }
   }
 
   const headersList = await headers()
@@ -56,6 +90,7 @@ export default async function SettingsPage() {
           userRole={userProfile?.roles?.name ?? 'Gestor'}
           institution={institution}
           siteUrl={siteUrl}
+          initialEvolutionConnected={initialEvolutionConnected}
         />
       </div>
 

@@ -34,6 +34,7 @@ interface Props {
   userRole: string
   institution: Institution | null
   siteUrl: string
+  initialEvolutionConnected?: boolean
 }
 
 function Alert({ type, msg }: { type: 'success' | 'error'; msg: string }) {
@@ -191,9 +192,15 @@ function TestSendPanel({ institutionId, instanceName }: { institutionId: string;
 }
 
 // ── WhatsApp Connection Section ──────────────────────────────────────────────
-function WhatsAppConnectionSection({ institution }: { institution: Institution }) {
+function WhatsAppConnectionSection({
+  institution,
+  initialConnected = false
+}: {
+  institution: Institution
+  initialConnected?: boolean
+}) {
   const [status, setStatus] = useState<'checking'|'idle'|'loading'|'qr_ready'|'connected'>(
-    institution.evolution_instance_name ? 'checking' : 'idle'
+    initialConnected ? 'connected' : (institution.evolution_instance_name ? 'idle' : 'idle')
   )
   const [qrBase64, setQrBase64]     = useState<string | null>(null)
   const [instanceName, setInstanceName] = useState<string | null>(institution.evolution_instance_name)
@@ -226,10 +233,11 @@ function WhatsAppConnectionSection({ institution }: { institution: Institution }
     }
   }
 
-  // ── On mount: check real status if instance exists ─────────────────────────
+  // On mount: only check if NOT already confirmed connected by server
   useEffect(() => {
-    if (institution.evolution_instance_name) {
-      checkStatus(institution.evolution_instance_name)
+    if (!initialConnected && institution.evolution_instance_name) {
+      // Background check — don't block the UI with 'checking' state
+      checkStatus(institution.evolution_instance_name, true)
     }
     return () => { if (pollingRef.current) clearInterval(pollingRef.current) }
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -400,6 +408,10 @@ function WhatsAppConnectionSection({ institution }: { institution: Institution }
               </div>
             )}
           </div>
+        )}
+        {/* ── Diagnostic Test Panel — always visible when instance exists ── */}
+        {instanceName && status !== 'loading' && status !== 'qr_ready' && (
+          <TestSendPanel institutionId={institution.id} instanceName={instanceName} />
         )}
       </div>
     </section>
@@ -667,7 +679,7 @@ function BrandingSection({ institution, siteUrl }: { institution: Institution; s
 }
 
 // ── Main Page Client Component ────────────────────────────────────────────────
-export function SettingsClient({ userEmail, userRole, institution, siteUrl }: Props) {
+export function SettingsClient({ userEmail, userRole, institution, siteUrl, initialEvolutionConnected }: Props) {
   return (
     <div className="p-6 md:p-8 max-w-4xl mx-auto space-y-8">
       {/* Page Header */}
@@ -699,7 +711,10 @@ export function SettingsClient({ userEmail, userRole, institution, siteUrl }: Pr
       {institution ? (
         <>
           <BrandingSection institution={institution} siteUrl={siteUrl} />
-          <WhatsAppConnectionSection institution={institution} />
+          <WhatsAppConnectionSection
+            institution={institution}
+            initialConnected={initialEvolutionConnected ?? institution.evolution_connected}
+          />
         </>
       ) : (
         <section className="bg-white rounded-2xl border border-slate-200 shadow-sm p-8 text-center">
