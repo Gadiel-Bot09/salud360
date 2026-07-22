@@ -89,6 +89,107 @@ function PasswordSection() {
   )
 }
 
+// ── WhatsApp Test Send Panel ──────────────────────────────────────────────────
+function TestSendPanel({ institutionId, instanceName }: { institutionId: string; instanceName: string }) {
+  const [testPhone, setTestPhone]   = useState('')
+  const [loading, setLoading]       = useState(false)
+  const [debugInfo, setDebugInfo]   = useState<any>(null)
+  const [showDebug, setShowDebug]   = useState(false)
+  const { toast } = useToast()
+
+  const handleTest = async () => {
+    if (!testPhone) return
+    setLoading(true)
+    setDebugInfo(null)
+    try {
+      const res  = await fetch('/api/evolution/test-send', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ institutionId, testPhone })
+      })
+      const data = await res.json()
+      setDebugInfo(data)
+      setShowDebug(true)
+
+      const sendOk = data?.debug?.testSend?.ok
+      if (sendOk) {
+        toast({ title: '✅ Mensaje enviado', description: `WhatsApp de prueba enviado a ${testPhone}` })
+      } else {
+        toast({ title: '❌ Falló el envío', description: 'Revisa el diagnóstico abajo', variant: 'destructive' })
+      }
+    } catch (err: any) {
+      toast({ title: 'Error', description: err.message, variant: 'destructive' })
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  return (
+    <div className="border border-dashed border-slate-200 rounded-xl p-4 bg-slate-50 space-y-3">
+      <div className="flex items-center gap-2">
+        <div className="w-2 h-2 rounded-full bg-amber-400" />
+        <p className="text-xs font-semibold text-slate-600 uppercase tracking-wide">Diagnóstico — Envío de Prueba</p>
+      </div>
+      <p className="text-xs text-slate-500">Ingresa un número para enviar un mensaje de prueba y verificar que el envío funcione correctamente.</p>
+      <div className="flex gap-2">
+        <input
+          type="tel"
+          value={testPhone}
+          onChange={e => setTestPhone(e.target.value)}
+          placeholder="3128287913"
+          className="flex-1 text-sm border border-slate-200 rounded-lg px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-teal-500 font-mono"
+        />
+        <Button
+          type="button"
+          onClick={handleTest}
+          disabled={loading || !testPhone}
+          size="sm"
+          className="bg-amber-500 hover:bg-amber-600 text-white text-xs"
+        >
+          {loading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : 'Probar'}
+        </Button>
+      </div>
+
+      {showDebug && debugInfo && (
+        <div className="space-y-2">
+          {/* Quick summary */}
+          <div className="grid grid-cols-2 gap-2 text-xs">
+            {Object.entries(debugInfo?.debug?.env || {}).map(([k, v]: any) => (
+              <div key={k} className={`px-2 py-1.5 rounded-lg font-mono ${String(v).startsWith('✅') ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700'}`}>
+                {k.replace('EVOLUTION_', '')}: {String(v).split(' ')[0]}
+              </div>
+            ))}
+          </div>
+          <div className={`text-xs px-3 py-2 rounded-lg font-medium ${debugInfo?.debug?.connectionState?.isOpen ? 'bg-green-50 text-green-700 border border-green-200' : 'bg-red-50 text-red-700 border border-red-200'}`}>
+            Estado Evolution: <strong>{debugInfo?.debug?.connectionState?.parsedState || 'desconocido'}</strong>
+            {' '}(HTTP {debugInfo?.debug?.connectionState?.httpStatus})
+          </div>
+          {debugInfo?.debug?.testSend && (
+            <div className={`text-xs px-3 py-2 rounded-lg font-medium ${debugInfo?.debug?.testSend?.ok ? 'bg-green-50 text-green-700 border border-green-200' : 'bg-red-50 text-red-700 border border-red-200'}`}>
+              Envío: {debugInfo?.debug?.testSend?.ok ? '✅ Exitoso' : '❌ Falló'} (HTTP {debugInfo?.debug?.testSend?.httpStatus})
+              {debugInfo?.debug?.testSend?.response?.message && (
+                <span className="block mt-0.5 opacity-75">{debugInfo.debug.testSend.response.message}</span>
+              )}
+            </div>
+          )}
+          <button
+            type="button"
+            onClick={() => setShowDebug(v => !v)}
+            className="text-xs text-slate-400 hover:text-slate-600"
+          >
+            {showDebug ? '▲ Ocultar' : '▼ Ver'} respuesta completa de Evolution
+          </button>
+          {showDebug && (
+            <pre className="text-[10px] bg-slate-900 text-green-400 p-3 rounded-lg overflow-auto max-h-48 font-mono">
+              {JSON.stringify(debugInfo?.debug, null, 2)}
+            </pre>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
 // ── WhatsApp Connection Section ──────────────────────────────────────────────
 function WhatsAppConnectionSection({ institution }: { institution: Institution }) {
   const [status, setStatus] = useState<'checking'|'idle'|'loading'|'qr_ready'|'connected'>(
@@ -118,10 +219,9 @@ function WhatsAppConnectionSection({ institution }: { institution: Institution }
         if (data.phoneNumber) setPhoneNumber(data.phoneNumber)
         if (pollingRef.current) clearInterval(pollingRef.current)
       } else {
-        // Only reset to idle if we were checking and it came back disconnected
         if (!silent) setStatus('idle')
       }
-    } catch (err) {
+    } catch {
       if (!silent) setStatus('idle')
     }
   }
@@ -145,11 +245,10 @@ function WhatsAppConnectionSection({ institution }: { institution: Institution }
       })
       const data = await res.json()
 
-      // Instance already connected in Evolution — just sync UI
       if (data.alreadyConnected) {
         setInstanceName(data.instanceName)
         setStatus('connected')
-        toast({ title: '\u00a1Conectado!', description: 'WhatsApp ya estaba vinculado. Estado sincronizado.' })
+        toast({ title: '¡Conectado!', description: 'WhatsApp ya estaba vinculado. Estado sincronizado.' })
         return
       }
 
@@ -168,7 +267,6 @@ function WhatsAppConnectionSection({ institution }: { institution: Institution }
     }
   }
 
-  // Force-sync real state from Evolution API
   const handleForceSync = async () => {
     if (!instanceName) return
     setStatus('checking')
@@ -181,18 +279,14 @@ function WhatsAppConnectionSection({ institution }: { institution: Institution }
       const data = await res.json()
       if (data.connected) {
         setStatus('connected')
-        toast({ title: '\u00a1Conectado!', description: 'Estado sincronizado correctamente con Evolution API.' })
+        toast({ title: '¡Conectado!', description: 'Estado sincronizado con Evolution API.' })
       } else {
         setStatus('idle')
-        toast({
-          title: 'No conectado',
-          description: `Estado en Evolution: "${data.state || 'desconocido'}". Verifique la instancia en el panel de Evolution API.`,
-          variant: 'destructive'
-        })
+        toast({ title: 'No conectado', description: `Estado: "${data.state || 'desconocido'}"`, variant: 'destructive' })
       }
     } catch (err: any) {
       setStatus('idle')
-      toast({ title: 'Error de sincronizaci\u00f3n', description: err.message, variant: 'destructive' })
+      toast({ title: 'Error', description: err.message, variant: 'destructive' })
     }
   }
 
@@ -240,13 +334,11 @@ function WhatsAppConnectionSection({ institution }: { institution: Institution }
           <h3 className="font-semibold text-slate-800">Conexión de WhatsApp</h3>
           <p className="text-xs text-slate-500">Vincula un número para enviar notificaciones automatizadas.</p>
         </div>
-        {/* Manual refresh button — visible when instance exists */}
         {instanceName && status !== 'loading' && (
           <button
             type="button"
             onClick={() => checkStatus(instanceName)}
             className="text-xs text-slate-400 hover:text-teal-600 flex items-center gap-1 transition-colors px-2 py-1 rounded-lg hover:bg-slate-100"
-            title="Verificar estado actual"
           >
             <Loader2 className={`h-3.5 w-3.5 ${status === 'checking' ? 'animate-spin text-teal-500' : ''}`} />
             Verificar
@@ -254,18 +346,14 @@ function WhatsAppConnectionSection({ institution }: { institution: Institution }
         )}
       </div>
 
-      <div className="p-6">
-        {/* ── Checking / Loading ── */}
+      <div className="p-6 space-y-4">
         {(status === 'checking' || status === 'loading') && (
           <div className="flex items-center justify-center gap-3 py-8 text-slate-500">
             <Loader2 className="h-5 w-5 animate-spin text-teal-500" />
-            <span className="text-sm">
-              {status === 'checking' ? 'Verificando estado de conexión...' : 'Procesando...'}
-            </span>
+            <span className="text-sm">{status === 'checking' ? 'Verificando estado...' : 'Procesando...'}</span>
           </div>
         )}
 
-        {/* ── Connected ── */}
         {status === 'connected' && (
           <div className="flex flex-col sm:flex-row items-center gap-4 bg-green-50 border border-green-200 p-5 rounded-xl">
             <div className="w-12 h-12 bg-green-100 text-green-600 rounded-full flex items-center justify-center shrink-0">
@@ -274,22 +362,15 @@ function WhatsAppConnectionSection({ institution }: { institution: Institution }
             <div className="flex-1 text-center sm:text-left">
               <p className="font-semibold text-green-800">✅ WhatsApp Conectado</p>
               <p className="text-sm text-green-700 mt-1">El sistema enviará recordatorios y respuestas desde esta cuenta.</p>
-              {phoneNumber && (
-                <p className="text-xs font-mono text-green-600 mt-1">📱 {phoneNumber}</p>
-              )}
+              {phoneNumber && <p className="text-xs font-mono text-green-600 mt-1">📱 {phoneNumber}</p>}
               <p className="text-xs font-mono text-green-600/60 mt-0.5">Instancia: {instanceName}</p>
             </div>
-            <Button
-              variant="outline"
-              onClick={handleDisconnect}
-              className="text-red-600 border-red-200 hover:bg-red-50 hover:text-red-700"
-            >
+            <Button variant="outline" onClick={handleDisconnect} className="text-red-600 border-red-200 hover:bg-red-50 hover:text-red-700">
               Desconectar
             </Button>
           </div>
         )}
 
-        {/* ── QR Ready ── */}
         {status === 'qr_ready' && (
           <div className="text-center space-y-4 animate-in fade-in zoom-in duration-300">
             <p className="text-sm text-slate-600 font-medium">Escanea este código con tu WhatsApp → Dispositivos Vinculados</p>
@@ -300,29 +381,21 @@ function WhatsAppConnectionSection({ institution }: { institution: Institution }
           </div>
         )}
 
-        {/* ── Idle (no instance or disconnected) ── */}
         {status === 'idle' && (
           <div className="text-center space-y-4 py-4">
             <QrCode className="h-12 w-12 text-slate-200 mx-auto mb-3" />
             <p className="text-slate-600 max-w-sm mx-auto text-sm">
               Al conectar, Salud360 enviará mensajes a tus pacientes recordando sus citas automáticamente.
             </p>
-            <Button onClick={handleConnect} className="bg-green-600 hover:bg-green-700">
-              Generar Código QR
-            </Button>
-            {/* If we have an instance name but it shows disconnected, offer force sync */}
+            <Button onClick={handleConnect} className="bg-green-600 hover:bg-green-700">Generar Código QR</Button>
             {instanceName && (
               <div className="pt-2 border-t border-slate-100 space-y-2">
                 <p className="text-xs text-slate-400">
-                  Instancia registrada: <span className="font-mono text-slate-500">{instanceName}</span>
+                  Instancia: <span className="font-mono text-slate-500">{instanceName}</span>
                 </p>
-                <button
-                  type="button"
-                  onClick={handleForceSync}
-                  className="text-xs font-medium text-teal-600 hover:text-teal-700 hover:underline flex items-center gap-1 mx-auto"
-                >
-                  <Loader2 className="h-3 w-3" />
-                  Forzar sincronización con Evolution API
+                <button type="button" onClick={handleForceSync}
+                  className="text-xs font-medium text-teal-600 hover:underline flex items-center gap-1 mx-auto">
+                  <Loader2 className="h-3 w-3" /> Forzar sincronización con Evolution API
                 </button>
               </div>
             )}
