@@ -16,7 +16,7 @@ import {
 import Link from 'next/link'
 import { revalidatePath } from 'next/cache'
 import { sendStatusUpdateEmail, sendAppointmentConfirmationEmail } from '@/lib/resend'
-import { sendWhatsAppMessage } from '@/lib/evolution'
+import { sendWhatsAppMessage, checkEvolutionConnection } from '@/lib/evolution'
 import { getResponseTemplates } from '@/app/admin/settings/template-actions'
 import { S3Client, GetObjectCommand, PutObjectCommand } from '@aws-sdk/client-s3'
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner'
@@ -189,28 +189,42 @@ export default async function RequestDetailPage({ params }: { params: { id: stri
     if (['responded', 'closed', 'escalated'].includes(newStatus)) {
       await sendStatusUpdateEmail(request.patient_email, request.radicado, newStatus, comment, resendAttachments, institutionResult.data)
 
-      // Send WhatsApp Notification
-      const evoInstance = institutionResult.data?.evolution_instance_name
-      const evoConnected = institutionResult.data?.evolution_connected
-      const patientPhone = request.patient_data_json?.phone || request.patient_data_json?.celular || request.patient_data_json?.telefono
+      // ── Send WhatsApp Notification ────────────────────────────────────────────────────
+      const evoInstance  = institutionResult.data?.evolution_instance_name
+      const patientPhone = request.patient_data_json?.phone
+        || request.patient_data_json?.celular
+        || request.patient_data_json?.telefono
 
-      if (evoConnected && evoInstance && patientPhone && comment) {
-        const cleanPhone = String(patientPhone).replace(/\D/g, '')
-        if (cleanPhone.length >= 10) {
+      if (evoInstance && patientPhone) {
+        // Check REAL state from Evolution API (not the Supabase flag which may be stale)
+        const isReallyConnected = await checkEvolutionConnection(evoInstance)
+
+        if (isReallyConnected) {
           const patientName = request.patient_data_json?.fullName || 'Paciente'
-          const instName = institutionResult.data?.name || 'Salud360'
-          const wpText = `Hola ${patientName}, tu solicitud ${request.radicado} tiene una nueva respuesta de ${instName}:\n\n"${comment}"\n\nRevisa tu correo para ver adjuntos o más detalles.`
-          
-          const wpRes = await sendWhatsAppMessage(evoInstance, { number: '57' + cleanPhone, text: wpText })
-          
+          const instName    = institutionResult.data?.name || 'Salud360'
+          const statusLabel = newStatus === 'responded' ? 'respondida'
+            : newStatus === 'closed' ? 'cerrada'
+            : newStatus === 'escalated' ? 'escalada' : newStatus
+
+          const wpText = comment
+            ? `Hola ${patientName}, tu solicitud *${request.radicado}* ha sido *${statusLabel}* por ${instName}:\n\n“${comment}”\n\nRevisa tu correo para ver adjuntos o más detalles.`
+            : `Hola ${patientName}, el estado de tu solicitud *${request.radicado}* ha cambiado a *${statusLabel}* en ${instName}.\n\nRevisa tu correo para más información.`
+
+          // Pass raw phone — evolution.ts normalizes the number format
+          const wpRes = await sendWhatsAppMessage(evoInstance, { number: patientPhone, text: wpText })
+
           await sbAdm.from('whatsapp_logs').insert({
             institution_id: request.institution_id,
-            request_id: request.id,
-            patient_phone: patientPhone,
+            request_id:     request.id,
+            patient_phone:  patientPhone,
             message_content: wpText,
-            status: wpRes ? 'sent' : 'failed',
+            status:        wpRes ? 'sent' : 'failed',
             error_message: wpRes ? null : 'Error al conectar con Evolution API o número inválido'
           })
+
+          console.log(`WhatsApp ${wpRes ? 'enviado' : 'FALLIDO'} a ${patientPhone} via ${evoInstance}`)
+        } else {
+          console.warn(`WhatsApp omitido: Evolution no conectado para instancia ${evoInstance}`)
         }
       }
     }
