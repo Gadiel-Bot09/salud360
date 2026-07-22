@@ -144,6 +144,15 @@ function WhatsAppConnectionSection({ institution }: { institution: Institution }
         body: JSON.stringify({ institutionId: institution.id })
       })
       const data = await res.json()
+
+      // Instance already connected in Evolution — just sync UI
+      if (data.alreadyConnected) {
+        setInstanceName(data.instanceName)
+        setStatus('connected')
+        toast({ title: '\u00a1Conectado!', description: 'WhatsApp ya estaba vinculado. Estado sincronizado.' })
+        return
+      }
+
       if (data.success && data.base64) {
         setQrBase64(data.base64)
         setInstanceName(data.instanceName)
@@ -156,6 +165,34 @@ function WhatsAppConnectionSection({ institution }: { institution: Institution }
     } catch (err: any) {
       setStatus('idle')
       toast({ title: 'Error', description: err.message, variant: 'destructive' })
+    }
+  }
+
+  // Force-sync real state from Evolution API
+  const handleForceSync = async () => {
+    if (!instanceName) return
+    setStatus('checking')
+    try {
+      const res  = await fetch('/api/evolution/sync', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ institutionId: institution.id, instanceName })
+      })
+      const data = await res.json()
+      if (data.connected) {
+        setStatus('connected')
+        toast({ title: '\u00a1Conectado!', description: 'Estado sincronizado correctamente con Evolution API.' })
+      } else {
+        setStatus('idle')
+        toast({
+          title: 'No conectado',
+          description: `Estado en Evolution: "${data.state || 'desconocido'}". Verifique la instancia en el panel de Evolution API.`,
+          variant: 'destructive'
+        })
+      }
+    } catch (err: any) {
+      setStatus('idle')
+      toast({ title: 'Error de sincronizaci\u00f3n', description: err.message, variant: 'destructive' })
     }
   }
 
@@ -273,12 +310,21 @@ function WhatsAppConnectionSection({ institution }: { institution: Institution }
             <Button onClick={handleConnect} className="bg-green-600 hover:bg-green-700">
               Generar Código QR
             </Button>
-            {/* If we have an instance name but it shows disconnected, offer manual check */}
+            {/* If we have an instance name but it shows disconnected, offer force sync */}
             {instanceName && (
-              <p className="text-xs text-slate-400">
-                Instancia registrada: <span className="font-mono">{instanceName}</span>{' '}
-                — <button type="button" onClick={() => checkStatus(instanceName)} className="text-teal-600 hover:underline">verificar estado</button>
-              </p>
+              <div className="pt-2 border-t border-slate-100 space-y-2">
+                <p className="text-xs text-slate-400">
+                  Instancia registrada: <span className="font-mono text-slate-500">{instanceName}</span>
+                </p>
+                <button
+                  type="button"
+                  onClick={handleForceSync}
+                  className="text-xs font-medium text-teal-600 hover:text-teal-700 hover:underline flex items-center gap-1 mx-auto"
+                >
+                  <Loader2 className="h-3 w-3" />
+                  Forzar sincronización con Evolution API
+                </button>
+              </div>
             )}
           </div>
         )}
