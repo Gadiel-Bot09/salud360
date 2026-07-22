@@ -1,5 +1,11 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { createClient as createAdminClient } from '@supabase/supabase-js'
+
+const supabaseAdmin = createAdminClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!
+)
 
 /**
  * POST /api/evolution/sync
@@ -49,7 +55,6 @@ export async function POST(request: Request) {
     const isConnected = state === 'open'
 
     // ── 2. If not explicitly 'open', also try fetchInstances list ─────────────
-    // Some Evolution versions mark it differently in list vs connectionState
     let confirmedConnected = isConnected
     if (!isConnected && instanceName) {
       try {
@@ -58,7 +63,6 @@ export async function POST(request: Request) {
           headers: { apikey: EVO_KEY },
         })
         const listData = await listRes.json()
-        // fetchInstances returns an array
         const inst = Array.isArray(listData)
           ? listData.find((i: any) => i.instance?.instanceName === instanceName || i.name === instanceName)
           : listData
@@ -67,8 +71,8 @@ export async function POST(request: Request) {
       } catch { /* ignore */ }
     }
 
-    // ── 3. Sync Supabase ──────────────────────────────────────────────────────
-    const { error: dbErr } = await supabase
+    // ── 3. Sync Supabase using ADMIN client (bypasses RLS) ────────────────────
+    const { error: dbErr } = await supabaseAdmin
       .from('institutions')
       .update({
         evolution_connected:    confirmedConnected,
@@ -81,7 +85,7 @@ export async function POST(request: Request) {
     return NextResponse.json({
       connected:   confirmedConnected,
       state,
-      rawResponse: stateData,  // full response for debugging
+      rawResponse: stateData,
       synced:      !dbErr,
     })
   } catch (error: any) {
