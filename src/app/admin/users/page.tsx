@@ -3,10 +3,11 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Button } from '@/components/ui/button'
 import { toggleUserStatus } from './actions'
-import { Users, ShieldCheck } from 'lucide-react'
+import { Users, ShieldCheck, UserCircle2 } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { InviteUserForm } from './invite-form'
 import { EditEmailModal } from './edit-email-modal'
+import { EditNameModal } from './edit-name-modal'
 
 export default async function UsersPage() {
   const supabase = await createClient()
@@ -20,7 +21,7 @@ export default async function UsersPage() {
 
   const { data: users } = await supabase
     .from('users')
-    .select(`id, email, active, created_at, role_id, roles(name), institutions(id, name)`)
+    .select(`id, email, full_name, active, created_at, role_id, roles(name), institutions(id, name)`)
     .order('created_at', { ascending: false })
 
   const isSuperAdmin = userProfile.roles?.name === 'Super Admin'
@@ -29,7 +30,6 @@ export default async function UsersPage() {
      ? await supabase.from('institutions').select('id, name') 
      : { data: null }
 
-  // Obtener roles disponibles para asignar
   let rolesQuery = supabase.from('roles').select('id, name, is_system')
   if (!isSuperAdmin) {
      rolesQuery = rolesQuery.or(`institution_id.eq.${userProfile.institution_id},is_system.eq.true`).neq('name', 'Super Admin')
@@ -50,7 +50,7 @@ export default async function UsersPage() {
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         
-        {/* Invite Form — Client Component that shows generated password */}
+        {/* Invite Form */}
         <div className="lg:col-span-1">
           <InviteUserForm
             canCreateSuperAdmin={isSuperAdmin}
@@ -81,53 +81,91 @@ export default async function UsersPage() {
                       <TableBody>
                         {!users || users.length === 0 ? (
                            <TableRow>
-                              <TableCell colSpan={5} className="text-center py-6 text-slate-500">No hay usuarios registrados.</TableCell>
+                              <TableCell colSpan={5} className="text-center py-8 text-slate-500">
+                                <UserCircle2 className="w-10 h-10 mx-auto mb-2 text-slate-200" />
+                                No hay usuarios registrados.
+                              </TableCell>
                            </TableRow>
                         ) : (
                            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                           users.map((u: any) => (
-                              <TableRow key={u.id} className="hover:bg-slate-50/50">
-                                 <TableCell className="font-medium text-slate-800">
-                                    <div className="flex flex-col">
-                                       <span>{u.email}</span>
-                                       <span className="text-[10px] text-slate-400 font-mono tracking-tighter mt-0.5">{u.id}</span>
-                                    </div>
-                                 </TableCell>
-                                 <TableCell>
-                                    {u.institutions?.name ? 
-                                       <Badge variant="outline" className="bg-white">{u.institutions.name}</Badge> 
-                                     : <span className="text-xs text-slate-400 font-medium">GLOBAL SYSTEM</span>}
-                                 </TableCell>
+                           users.map((u: any) => {
+                             // Build initials for avatar
+                             const displayName = u.full_name || u.email
+                             const initials = u.full_name
+                               ? u.full_name.split(' ').map((n: string) => n[0]).slice(0, 2).join('').toUpperCase()
+                               : u.email.charAt(0).toUpperCase()
+                             const isSuperAdminUser = u.roles?.name === 'Super Admin'
+                             const avatarBg = isSuperAdminUser ? 'bg-indigo-600' : 'bg-teal-600'
+
+                             return (
+                               <TableRow key={u.id} className="hover:bg-slate-50/50 group">
+                                  {/* ── User cell: avatar + name + email ── */}
+                                  <TableCell className="font-medium text-slate-800">
+                                     <div className="flex items-center gap-3">
+                                       {/* Avatar */}
+                                       <div className={`w-9 h-9 rounded-full ${avatarBg} text-white flex items-center justify-center text-sm font-bold shrink-0 select-none`}>
+                                         {initials}
+                                       </div>
+                                       <div className="min-w-0">
+                                         {/* Full name (editable) */}
+                                         <div className="flex items-center gap-1.5">
+                                           <span className="font-semibold text-slate-800 text-sm leading-tight">
+                                             {u.full_name || (
+                                               <span className="text-slate-400 italic font-normal text-xs">Sin nombre</span>
+                                             )}
+                                           </span>
+                                           <EditNameModal
+                                             userId={u.id}
+                                             currentName={u.full_name || ''}
+                                           />
+                                         </div>
+                                         {/* Email secondary */}
+                                         <span className="text-xs text-slate-400 truncate max-w-[180px] block">{u.email}</span>
+                                       </div>
+                                     </div>
+                                  </TableCell>
+
                                   <TableCell>
-                                    <Badge className={`${u.roles?.name === 'Super Admin' ? 'bg-indigo-600' : 'bg-slate-100 text-slate-700 hover:bg-slate-100'}`}>
-                                       {u.roles?.name || 'Desconocido'}
-                                    </Badge>
-                                 </TableCell>
-                                 <TableCell>
-                                     <div className="flex items-center gap-2">
-                                        <div className={`w-2 h-2 rounded-full ${u.active ? 'bg-green-500' : 'bg-red-500'}`}></div>
-                                        <span className={`text-sm ${u.active ? 'text-green-700' : 'text-red-700 font-semibold'}`}>{u.active ? 'Activo' : 'Revocado'}</span>
-                                     </div>
-                                 </TableCell>
-                                 <TableCell className="text-right">
-                                     <div className="flex items-center justify-end gap-2">
-                                        {isSuperAdmin && <EditEmailModal userId={u.id} currentEmail={u.email} />}
-                                        <form action={async () => {
-                                           'use server'
-                                           await toggleUserStatus(u.id, u.active)
-                                        }}>
-                                           <Button
-                                             variant={u.active ? 'outline' : 'default'}
-                                             size="sm"
-                                             className={!u.active ? 'bg-teal-600 hover:bg-teal-700 text-white' : 'border-red-200 text-red-600 hover:bg-red-50'}
-                                           >
-                                              {u.active ? 'Suspender' : 'Reactivar'}
-                                           </Button>
-                                        </form>
-                                     </div>
-                                 </TableCell>
-                              </TableRow>
-                           ))
+                                     {u.institutions?.name ? 
+                                        <Badge variant="outline" className="bg-white whitespace-nowrap">{u.institutions.name}</Badge> 
+                                      : <span className="text-xs text-slate-400 font-medium">GLOBAL SYSTEM</span>}
+                                  </TableCell>
+
+                                  <TableCell>
+                                     <Badge className={`whitespace-nowrap ${isSuperAdminUser ? 'bg-indigo-600' : 'bg-slate-100 text-slate-700 hover:bg-slate-100'}`}>
+                                        {u.roles?.name || 'Desconocido'}
+                                     </Badge>
+                                  </TableCell>
+
+                                  <TableCell>
+                                      <div className="flex items-center gap-2">
+                                         <div className={`w-2 h-2 rounded-full ${u.active ? 'bg-green-500' : 'bg-red-500'}`}></div>
+                                         <span className={`text-sm ${u.active ? 'text-green-700' : 'text-red-700 font-semibold'}`}>
+                                           {u.active ? 'Activo' : 'Revocado'}
+                                         </span>
+                                      </div>
+                                  </TableCell>
+
+                                  <TableCell className="text-right">
+                                      <div className="flex items-center justify-end gap-2">
+                                         {isSuperAdmin && <EditEmailModal userId={u.id} currentEmail={u.email} />}
+                                         <form action={async () => {
+                                            'use server'
+                                            await toggleUserStatus(u.id, u.active)
+                                         }}>
+                                            <Button
+                                              variant={u.active ? 'outline' : 'default'}
+                                              size="sm"
+                                              className={!u.active ? 'bg-teal-600 hover:bg-teal-700 text-white' : 'border-red-200 text-red-600 hover:bg-red-50'}
+                                            >
+                                               {u.active ? 'Suspender' : 'Reactivar'}
+                                            </Button>
+                                         </form>
+                                      </div>
+                                  </TableCell>
+                               </TableRow>
+                             )
+                           })
                         )}
                       </TableBody>
                    </Table>

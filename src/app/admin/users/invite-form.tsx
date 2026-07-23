@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { MailPlus, Copy, CheckCheck, Loader2, AlertCircle, UserCheck } from 'lucide-react'
+import { MailPlus, Copy, CheckCheck, Loader2, AlertCircle, UserCheck, User } from 'lucide-react'
 import { inviteAdminUser } from './actions'
 
 interface InviteFormProps {
@@ -97,11 +97,33 @@ export function InviteUserForm({ canCreateSuperAdmin, institutions, roles }: Inv
         )}
 
         <form onSubmit={handleSubmit} className="space-y-4">
+
+          {/* ── Nombre completo ── */}
           <div className="space-y-2">
-            <Label htmlFor="email">Correo Electrónico Oficial</Label>
+            <Label htmlFor="full_name" className="flex items-center gap-1.5">
+              <User className="w-3.5 h-3.5 text-slate-400" />
+              Nombre Completo
+            </Label>
+            <Input
+              id="full_name"
+              name="full_name"
+              type="text"
+              placeholder="Ej: María González"
+              autoComplete="off"
+            />
+            <p className="text-[11px] text-slate-400">Aparecerá en reportes y auditoría del sistema.</p>
+          </div>
+
+          {/* ── Correo ── */}
+          <div className="space-y-2">
+            <Label htmlFor="email" className="flex items-center gap-1.5">
+              <MailPlus className="w-3.5 h-3.5 text-slate-400" />
+              Correo Electrónico Oficial
+            </Label>
             <Input id="email" name="email" type="email" placeholder="gestor@clinica.com" required />
           </div>
 
+          {/* ── Rol ── */}
           <div className="space-y-2">
             <Label htmlFor="role_id">Nivel de Acceso (Rol)</Label>
             <select
@@ -116,6 +138,7 @@ export function InviteUserForm({ canCreateSuperAdmin, institutions, roles }: Inv
             </select>
           </div>
 
+          {/* ── Institución (Super Admin only) ── */}
           {institutions && (
             <div className="space-y-2">
               <Label htmlFor="institutionId">Asignar a Institución</Label>

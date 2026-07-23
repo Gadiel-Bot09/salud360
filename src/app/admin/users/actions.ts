@@ -13,8 +13,9 @@ const supabaseAdmin = createClient(
 )
 
 export async function inviteAdminUser(formData: FormData) {
-  const email = formData.get('email') as string
-  const roleId = formData.get('role_id') as string
+  const email         = formData.get('email') as string
+  const fullName      = (formData.get('full_name') as string)?.trim() || null
+  const roleId        = formData.get('role_id') as string
   const institutionId = formData.get('institutionId') as string || null
 
   // Ensure current user is authenticated
@@ -58,10 +59,11 @@ export async function inviteAdminUser(formData: FormData) {
     return { success: false, error: 'No se pudo crear la credencial de usuario.' }
   }
 
-  // Insert local profile
+  // Insert local profile with full_name
   const { error: dbError } = await supabaseAdmin.from('users').insert({
     id: newAuthUser.user.id,
     email,
+    full_name: fullName,
     role_id: roleId,
     institution_id: assignedInstitution,
     active: true,
@@ -82,10 +84,11 @@ export async function inviteAdminUser(formData: FormData) {
 
   revalidatePath('/admin/users')
   
+  const displayName = fullName || email
   return { 
     success: true, 
     tempPassword,
-    message: `Usuario ${email} creado exitosamente.`,
+    message: `Usuario ${displayName} creado exitosamente.`,
   }
 }
 
@@ -130,3 +133,17 @@ export async function updateUserEmail(userId: string, newEmail: string) {
    return { success: true }
 }
 
+export async function updateUserName(userId: string, fullName: string) {
+  const authClient = await createServerClient()
+  const { data: { user } } = await authClient.auth.getUser()
+  if (!user) return { success: false, error: 'No autorizado' }
+
+  const { error } = await supabaseAdmin
+    .from('users')
+    .update({ full_name: fullName.trim() || null })
+    .eq('id', userId)
+
+  if (error) return { success: false, error: error.message }
+  revalidatePath('/admin/users')
+  return { success: true }
+}
