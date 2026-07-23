@@ -1,6 +1,8 @@
 import { getAppointmentsByDate } from './actions'
 import { AppointmentsTable } from '@/components/admin/appointments-table'
 import { CalendarDays } from 'lucide-react'
+import { todayCO } from '@/lib/utils'
+
 
 export const dynamic = 'force-dynamic'
 
@@ -9,7 +11,7 @@ export default async function AppointmentsPage({
 }: {
   searchParams: { date?: string }
 }) {
-  const today = new Date().toISOString().split('T')[0]
+  const today = todayCO()
   const selectedDate = searchParams.date || today
 
   const appointments = await getAppointmentsByDate(selectedDate)

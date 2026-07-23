@@ -3,6 +3,7 @@ import PizZip from 'pizzip'
 import Docxtemplater from 'docxtemplater'
 import ImageModule from 'docxtemplater-image-module-free'
 import { S3Client, PutObjectCommand, GetObjectCommand } from '@aws-sdk/client-s3'
+import { nowCO } from '@/lib/utils'
 
 export async function generateLegalDocuments(
   institutionId: string,
@@ -113,7 +114,7 @@ export async function generateLegalDocuments(
         })
 
         // Inyectar variables automáticas del sistema (Fechas)
-        const today = new Date()
+        const today = nowCO()
         const meses = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre']
         renderData['fecha_actual'] = today.toLocaleDateString('es-CO')
         renderData['dia_actual'] = today.getDate().toString()

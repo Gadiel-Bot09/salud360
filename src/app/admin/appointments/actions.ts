@@ -4,6 +4,7 @@ import { createClient as createAdminClient } from '@supabase/supabase-js'
 import { createClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
 import { sendWhatsAppMessage } from '@/lib/evolution'
+import { todayCO } from '@/lib/utils'
 
 function sb() {
   return createAdminClient(
@@ -244,7 +245,8 @@ export async function getPendingAppointmentsCountToday(): Promise<number> {
     const filter = await getAuthFilter()
     if (!filter) return 0
 
-    const today = new Date().toISOString().split('T')[0]
+    // Use Colombia date — avoids off-by-one errors at midnight COT (UTC-5)
+    const today = todayCO()
 
     let query = supabase
       .from('appointments')

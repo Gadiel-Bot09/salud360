@@ -1,6 +1,7 @@
 'use server'
 
 import { createClient } from '@/lib/supabase/server'
+import { nowCO, formatCO } from '@/lib/utils'
 
 export interface DashboardMetrics {
   total: number;
@@ -41,15 +42,15 @@ export async function fetchDashboardMetrics(): Promise<DashboardMetrics | null> 
 
   // 4. Compute Bar Chart (Last 7 Days)
   const dateCounter: Record<string, number> = {}
-  // Initialize last 7 days with zero
+  // Initialize last 7 days with zero using Colombia time
   for(let i = 6; i >= 0; i--) {
-     const d = new Date()
+     const d = nowCO()
      d.setDate(d.getDate() - i)
-     dateCounter[d.toISOString().split('T')[0]] = 0
+     dateCounter[formatCO(d, 'yyyy-MM-dd')] = 0
   }
   
   requests.forEach(r => {
-     const dateKey = new Date(r.created_at).toISOString().split('T')[0]
+     const dateKey = formatCO(new Date(r.created_at), 'yyyy-MM-dd')
      if (dateCounter[dateKey] !== undefined) {
          dateCounter[dateKey] += 1
      }

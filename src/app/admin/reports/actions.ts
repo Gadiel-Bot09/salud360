@@ -2,6 +2,7 @@
 
 import { createClient as createAdminClient } from '@supabase/supabase-js'
 import { createClient as createAuthClient } from '@/lib/supabase/server'
+import { todayCO, nowCO, formatCO } from '@/lib/utils'
 
 function getAdminClient() {
   return createAdminClient(
@@ -214,8 +215,10 @@ export async function fetchTrendData(from?: string, to?: string): Promise<TrendP
   if (!filter) return []
 
   const sb = getAdminClient()
-  const defaultFrom = from || new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
-  const defaultTo   = to   || new Date().toISOString().split('T')[0]
+  const d30 = nowCO()
+  d30.setDate(d30.getDate() - 30)
+  const defaultFrom = from || formatCO(d30, 'yyyy-MM-dd')
+  const defaultTo   = to   || todayCO()
 
   let query = sb.from('requests')
     .select('created_at, status, institution_id')

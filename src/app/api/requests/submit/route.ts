@@ -3,6 +3,7 @@ import { createClient } from '@supabase/supabase-js'
 import { sendEmailConfirmation } from '@/lib/resend'
 import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3'
 import { generateLegalDocuments } from '@/lib/document-generator'
+import { nowCO } from '@/lib/utils'
 
 export async function POST(request: Request) {
     try {
@@ -82,7 +83,7 @@ export async function POST(request: Request) {
         patientData['phone'] = phone || ''
 
         // Generate Radicado: RAD-{AÑO}-{SYS}-{SECUENCIAL}
-        const year = new Date().getFullYear()
+        const year = nowCO().getFullYear()
         const shortId = Math.random().toString(36).substring(2, 8).toUpperCase()
         const radicado = `RAD-${year}-SYS-${shortId}`
 

@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { sendAppointmentReminderEmail } from '@/lib/resend'
 import { sendWhatsAppMessage, checkEvolutionConnection } from '@/lib/evolution'
+import { nowCO } from '@/lib/utils'
 
 export const dynamic = 'force-dynamic'
 
@@ -21,26 +22,24 @@ export async function GET(request: Request) {
     process.env.SUPABASE_SERVICE_ROLE_KEY!
   )
 
-  const now = new Date()
+  // ── Use Colombia time for ALL window calculations ─────────────────────────
+  // nowCO() returns the current moment shifted to UTC-5 (America/Bogota).
+  // This guarantees that a cita at "10:00" in Bogotá is compared against
+  // the correct Colombia hour, regardless of where the server is hosted.
+  const now = nowCO()
   let sent24h = 0
   let sent2h  = 0
   let errors  = 0
 
   try {
     // ── Window for 24h reminder: cita between 23h and 25h from now ──────────
-    // 2h wide → guarantees any appointment is caught in at least one hourly run
     const win24hFrom = new Date(now.getTime() + 23 * 60 * 60 * 1000)
     const win24hTo   = new Date(now.getTime() + 25 * 60 * 60 * 1000)
 
     // ── Window for 2h reminder: cita between 1h and 3h from now ─────────────
-    // 2h wide (not ±15min) → guarantees appointments at ANY minute (e.g. 10:20, 9:15)
-    // are caught by at least one hourly cron run.
-    // The reminder_2h_sent flag prevents double-sending if multiple runs overlap.
     const win2hFrom  = new Date(now.getTime() + 1 * 60 * 60 * 1000)
     const win2hTo    = new Date(now.getTime() + 3 * 60 * 60 * 1000)
 
-    const toDateStr = (d: Date) => d.toISOString().split('T')[0]
-    const toTimeStr = (d: Date) => d.toTimeString().slice(0, 5) // HH:MM
 
     // Fetch all pending appointments with related request data
     const { data: appointments, error: fetchError } = await supabase
