@@ -21,7 +21,7 @@ export default async function RequestsPage() {
     // Fetch requests with attachments — RLS will automatically scope to institution if not Super Admin
     const { data: requests, error } = await supabase
         .from('requests')
-        .select('*, request_attachments(id)')
+        .select('*, request_attachments(id), request_history(created_at, action, users(full_name))')
         .order('created_at', { ascending: true })
 
     if (error) {

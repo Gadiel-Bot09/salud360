@@ -53,11 +53,11 @@ export default async function RequestDetailPage({ params }: { params: { id: stri
     process.env.SUPABASE_SERVICE_ROLE_KEY!
   )
 
-  // Fetch request with related data using the Admin client to bypass RLS restrictions on attachments
-  const { data: request, error } = await supabaseAdmin
-    .from('requests')
-    .select('*, request_history(*), request_attachments(*)')
-    .eq('id', params.id)
+    // Fetch request with related data using the Admin client to bypass RLS restrictions on attachments
+    const { data: request, error } = await supabaseAdmin
+      .from('requests')
+      .select('*, request_history(*, users(full_name)), request_attachments(*)')
+      .eq('id', params.id)
     .single()
 
   if (error || !request) {
@@ -487,17 +487,27 @@ export default async function RequestDetailPage({ params }: { params: { id: stri
                       return (
                         <li key={hist.id} className="ml-4">
                           <div className="absolute -left-1.5 mt-1.5 w-3 h-3 rounded-full bg-teal-500 border-2 border-white shadow" />
-                          <div>
-                            <p className="text-sm font-semibold text-slate-800">{hist.action}</p>
-                            <time className="text-xs text-slate-400 block mb-1">
-                              {formatCO(new Date(hist.created_at), "d MMM yyyy · HH:mm")}
-                            </time>
-                            {hist.comment && (
-                              <p className="text-xs text-slate-600 bg-slate-50 border border-slate-100 rounded-lg px-3 py-2 mt-1">
-                                {hist.comment}
-                              </p>
-                            )}
+                          <div className="flex justify-between items-start mb-1">
+                            <span className="text-sm font-semibold text-slate-800">
+                              {hist.action}
+                            </span>
+                            <div className="flex flex-col items-end">
+                              <span className="text-xs text-slate-400 whitespace-nowrap">
+                                {formatCO(new Date(hist.created_at), "d MMM yyyy · HH:mm")}
+                              </span>
+                              {hist.users?.full_name && (
+                                <span className="text-xs text-slate-500 font-medium flex items-center gap-1 mt-0.5">
+                                  <User className="h-3 w-3" />
+                                  {hist.users.full_name}
+                                </span>
+                              )}
+                            </div>
                           </div>
+                          {hist.comment && (
+                            <p className="text-xs text-slate-600 bg-slate-50 border border-slate-100 rounded-lg px-3 py-2 mt-1">
+                              {hist.comment}
+                            </p>
+                          )}
                         </li>
                       )
                     })}

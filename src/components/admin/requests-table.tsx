@@ -131,6 +131,7 @@ export function RequestsTable({ initialData }: { initialData: any[] }) {
                             <TableHead className="font-semibold text-slate-700">Paciente</TableHead>
                             <TableHead className="font-semibold text-slate-700">Tipo</TableHead>
                             <TableHead className="font-semibold text-slate-700">Estado</TableHead>
+                            <TableHead className="font-semibold text-slate-700">Gestor</TableHead>
                             <TableHead className="text-right font-semibold text-slate-700">Acciones</TableHead>
                         </TableRow>
                     </TableHeader>
@@ -150,8 +151,18 @@ export function RequestsTable({ initialData }: { initialData: any[] }) {
                                 const daysElapsed = differenceInDays(new Date(), new Date(req.created_at))
                                 const isDelayed = isPending && daysElapsed > 5
 
+                                // Find the last user who interacted with it
+                                const historyArray = req.request_history || []
+                                const lastUserEntry = [...historyArray].reverse().find((h: any) => h.users?.full_name)
+                                const responderName = lastUserEntry ? lastUserEntry.users.full_name : 'No asignado'
+
+                                // Row highlighting for priority
+                                let rowClass = "hover:bg-slate-50 transition-colors"
+                                if (req.status === 'processing') rowClass += " bg-amber-50/30"
+                                if (req.status === 'escalated') rowClass += " bg-red-50/30"
+
                                 return (
-                                    <TableRow key={req.id} className="hover:bg-slate-50 transition-colors">
+                                    <TableRow key={req.id} className={rowClass}>
                                         <TableCell className="font-medium">
                                             {req.radicado}
                                             <div className="mt-1">{getPriorityBadge(req.priority)}</div>
@@ -179,6 +190,15 @@ export function RequestsTable({ initialData }: { initialData: any[] }) {
                                         </TableCell>
                                         <TableCell>
                                             {getStatusBadge(req.status)}
+                                        </TableCell>
+                                        <TableCell>
+                                            <div className="flex items-center space-x-2">
+                                                <div className="flex flex-col">
+                                                    <span className={`text-xs font-medium ${responderName !== 'No asignado' ? 'text-slate-700' : 'text-slate-400 italic'}`}>
+                                                        {responderName}
+                                                    </span>
+                                                </div>
+                                            </div>
                                         </TableCell>
                                     <TableCell className="text-right">
                                         <div className="flex items-center justify-end gap-2">
