@@ -54,13 +54,13 @@ export default async function RequestDetailPage({ params }: { params: { id: stri
   )
 
     // Fetch request with related data using the Admin client to bypass RLS restrictions on attachments
-    const { data: request, error } = await supabaseAdmin
+    const { data: requestRaw, error } = await supabaseAdmin
       .from('requests')
-      .select('*, request_history(*, users(full_name)), request_attachments(*)')
+      .select('*, request_history(*), request_attachments(*)')
       .eq('id', params.id)
     .single()
 
-  if (error || !request) {
+  if (error || !requestRaw) {
     return (
       <div className="p-8 text-center">
         <AlertTriangle className="h-12 w-12 text-red-400 mx-auto mb-3" />
@@ -68,6 +68,18 @@ export default async function RequestDetailPage({ params }: { params: { id: stri
         <Link href="/admin/requests" className="text-teal-600 text-sm hover:underline mt-2 block">← Volver a solicitudes</Link>
       </div>
     )
+  }
+
+  // Map users manually since there is no explicit Foreign Key between request_history and users
+  const { data: usersList } = await supabaseAdmin.from('users').select('id, full_name')
+  const userMap = (usersList || []).reduce((acc, u) => ({ ...acc, [u.id]: u.full_name }), {} as Record<string, string>)
+
+  const request = {
+      ...requestRaw,
+      request_history: (requestRaw.request_history || []).map((h: any) => ({
+          ...h,
+          users: h.user_id && userMap[h.user_id] ? { full_name: userMap[h.user_id] } : null
+      }))
   }
 
   // Setup S3 Client for Minio

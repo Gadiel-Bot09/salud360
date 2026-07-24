@@ -21,12 +21,24 @@ export default async function RequestsPage() {
     // Fetch requests with attachments — RLS will automatically scope to institution if not Super Admin
     const { data: requests, error } = await supabase
         .from('requests')
-        .select('*, request_attachments(id), request_history(created_at, action, users(full_name))')
+        .select('*, request_attachments(id), request_history(created_at, action, user_id)')
         .order('created_at', { ascending: true })
 
     if (error) {
         console.error('Error fetching requests:', error)
     }
+
+    // Map users manually since there is no explicit Foreign Key between request_history and users
+    const { data: usersList } = await supabase.from('users').select('id, full_name')
+    const userMap = (usersList || []).reduce((acc, u) => ({ ...acc, [u.id]: u.full_name }), {} as Record<string, string>)
+
+    const mappedRequests = (requests || []).map(req => ({
+        ...req,
+        request_history: (req.request_history || []).map((h: any) => ({
+            ...h,
+            users: h.user_id && userMap[h.user_id] ? { full_name: userMap[h.user_id] } : null
+        }))
+    }))
 
     return (
         <div className="p-6 md:p-8 max-w-[1600px] mx-auto space-y-6">
@@ -52,7 +64,7 @@ export default async function RequestsPage() {
 
             {/* Table + Toolbar */}
             <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
-                <RequestsTable initialData={requests || []} />
+                <RequestsTable initialData={mappedRequests} />
             </div>
         </div>
     )
