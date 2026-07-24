@@ -2,7 +2,6 @@ import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { sendAppointmentReminderEmail } from '@/lib/resend'
 import { sendWhatsAppMessage, checkEvolutionConnection } from '@/lib/evolution'
-import { nowCO } from '@/lib/utils'
 
 export const dynamic = 'force-dynamic'
 
@@ -22,11 +21,11 @@ export async function GET(request: Request) {
     process.env.SUPABASE_SERVICE_ROLE_KEY!
   )
 
-  // ── Use Colombia time for ALL window calculations ─────────────────────────
-  // nowCO() returns the current moment shifted to UTC-5 (America/Bogota).
-  // This guarantees that a cita at "10:00" in Bogotá is compared against
-  // the correct Colombia hour, regardless of where the server is hosted.
-  const now = nowCO()
+  // ── Use Absolute Time for Window Calculations ─────────────────────────────
+  // We use standard new Date() because the appointment time is parsed with 
+  // '-05:00', giving us its correct absolute UTC time. Comparing absolute to 
+  // absolute is completely timezone agnostic.
+  const now = new Date()
   let sent24h = 0
   let sent2h  = 0
   let errors  = 0
