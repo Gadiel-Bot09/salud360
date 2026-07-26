@@ -48,6 +48,8 @@ export async function GET(request: Request) {
         reminder_24h_sent, reminder_2h_sent,
         requests ( id, radicado, patient_email, patient_data_json, institutions(id, name, logo_url, colors, evolution_instance_name, evolution_connected) )
       `)
+      .is('attended', null)
+      .not('cancelled', 'is', true)
       .or('reminder_24h_sent.eq.false,reminder_2h_sent.eq.false')
 
     if (fetchError) throw fetchError

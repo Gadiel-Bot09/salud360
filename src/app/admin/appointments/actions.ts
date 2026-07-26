@@ -26,6 +26,10 @@ export interface AppointmentWithPatient {
   attended_by: string | null
   reminder_24h_sent: boolean
   reminder_2h_sent: boolean
+  cancelled: boolean
+  cancelled_at: string | null
+  cancellation_reason: string | null
+  cancelled_by: string | null
   patient_name: string
   patient_phone: string
   patient_email: string
@@ -118,6 +122,10 @@ export async function getAppointmentsByDate(date: string): Promise<AppointmentWi
         attended_by:      appt.attended_by      ?? null,
         reminder_24h_sent: appt.reminder_24h_sent ?? false,
         reminder_2h_sent:  appt.reminder_2h_sent  ?? false,
+        cancelled:           appt.cancelled           ?? false,
+        cancelled_at:        appt.cancelled_at        ?? null,
+        cancellation_reason: appt.cancellation_reason ?? null,
+        cancelled_by:        appt.cancelled_by        ?? null,
         patient_name:     patientJson.fullName || 'Paciente',
         patient_phone:    patientJson.phone || '—',
         patient_email:    req.patient_email || patientJson.email || '—',
@@ -253,6 +261,7 @@ export async function getPendingAppointmentsCountToday(): Promise<number> {
       .select('id, requests!inner(institution_id)', { count: 'exact', head: true })
       .eq('appointment_date', today)
       .is('attended', null)
+      .or('cancelled.is.null,cancelled.eq.false')
 
     if (!filter.isSuperAdmin && filter.institutionId) {
       query = query.eq('requests.institution_id', filter.institutionId)
@@ -271,3 +280,156 @@ export async function getPendingAppointmentsCountToday(): Promise<number> {
     return 0
   }
 }
+
+export async function getDoctorsAndSpecialties(): Promise<{ doctors: string[]; specialties: string[] }> {
+  try {
+    const supabase = sb()
+    const filter = await getAuthFilter()
+    if (!filter) return { doctors: [], specialties: [] }
+
+    let docsQuery = supabase.from('doctors').select('name').eq('active', true)
+    let specsQuery = supabase.from('specialties').select('name').eq('active', true)
+
+    if (!filter.isSuperAdmin && filter.institutionId) {
+      docsQuery = docsQuery.eq('institution_id', filter.institutionId)
+      specsQuery = specsQuery.eq('institution_id', filter.institutionId)
+    }
+
+    const [docsRes, specsRes] = await Promise.all([docsQuery, specsQuery])
+    const doctors = [...new Set((docsRes.data || []).map((d: any) => d.name).filter(Boolean))]
+    const specialties = [...new Set((specsRes.data || []).map((s: any) => s.name).filter(Boolean))]
+
+    return { doctors, specialties }
+  } catch (err) {
+    console.error('getDoctorsAndSpecialties error:', err)
+    return { doctors: [], specialties: [] }
+  }
+}
+
+export async function cancelAppointmentsBulk(params: {
+  appointmentIds?: string[]
+  dateFrom?: string
+  dateTo?: string
+  doctorName?: string
+  specialty?: string
+  reason: string
+}): Promise<{ success: boolean; count: number; notified: number; error?: string }> {
+  try {
+    const supabase = sb()
+    const sbRLS = await createClient()
+    const { data: { user } } = await sbRLS.auth.getUser()
+    const filter = await getAuthFilter()
+    if (!filter) return { success: false, count: 0, notified: 0, error: 'No autorizado' }
+
+    let query = supabase
+      .from('appointments')
+      .select(`
+        id, appointment_date, appointment_time, doctor_name, specialty, request_id,
+        requests!inner ( id, radicado, patient_data_json, institution_id, institutions ( id, name, evolution_instance_name, evolution_connected ) )
+      `)
+      .is('attended', null)
+      .or('cancelled.is.null,cancelled.eq.false')
+
+    if (params.appointmentIds && params.appointmentIds.length > 0) {
+      query = query.in('id', params.appointmentIds)
+    } else {
+      if (params.dateFrom) query = query.gte('appointment_date', params.dateFrom)
+      if (params.dateTo) query = query.lte('appointment_date', params.dateTo)
+      if (params.doctorName && params.doctorName !== 'ALL') {
+        query = query.eq('doctor_name', params.doctorName)
+      }
+      if (params.specialty && params.specialty !== 'ALL') {
+        query = query.eq('specialty', params.specialty)
+      }
+    }
+
+    if (!filter.isSuperAdmin && filter.institutionId) {
+      query = query.eq('requests.institution_id', filter.institutionId)
+    }
+
+    const { data: appts, error } = await query
+    if (error) {
+      console.error('Error searching appointments to cancel:', error)
+      return { success: false, count: 0, notified: 0, error: 'Error al buscar citas en base de datos: ' + error.message }
+    }
+
+    if (!appts || appts.length === 0) {
+      return { success: false, count: 0, notified: 0, error: 'No se encontraron citas pendientes que coincidan con los criterios seleccionados.' }
+    }
+
+    const apptIds = appts.map((a: any) => a.id)
+    const nowIso = new Date().toISOString()
+
+    // 1. Mark as cancelled in DB
+    const { error: updErr } = await supabase
+      .from('appointments')
+      .update({
+        cancelled: true,
+        cancelled_at: nowIso,
+        cancelled_by: user?.id || null,
+        cancellation_reason: params.reason
+      })
+      .in('id', apptIds)
+
+    if (updErr) {
+      console.error('Error updating appointments to cancelled:', updErr)
+      return { success: false, count: 0, notified: 0, error: 'Error al cancelar las citas en base de datos' }
+    }
+
+    // 2. Insert into request_history & send WhatsApp notifications
+    let notifiedCount = 0
+    for (const appt of (appts as any[])) {
+      const req = appt.requests
+      if (!req) continue
+
+      // History
+      await supabase.from('request_history').insert({
+        request_id: req.id,
+        action: `Cita cancelada (${appt.appointment_date} ${appt.appointment_time?.slice(0, 5)}): ${params.reason}`,
+        from_status: 'responded',
+        to_status: 'responded',
+        user_id: user?.id || null,
+        comment: `Cancelación programada de agenda. Motivo: ${params.reason}`
+      })
+
+      // WhatsApp
+      const phone = req.patient_data_json?.phone || req.patient_data_json?.celular || req.patient_data_json?.telefono
+      const fullName = req.patient_data_json?.fullName || 'Paciente'
+      const institution = req.institutions?.name || 'Salud360'
+      const instanceName = req.institutions?.evolution_instance_name
+      const isConnected = req.institutions?.evolution_connected
+
+      if (phone && phone !== '—' && instanceName && isConnected) {
+        const dateStr = appt.appointment_date
+        const timeStr = appt.appointment_time?.slice(0, 5) || '—'
+        const docStr = appt.doctor_name ? `con ${appt.doctor_name}` : appt.specialty ? `en la especialidad de ${appt.specialty}` : ''
+
+        const text = `Hola ${fullName},\n\nTe informamos que tu cita médica programada en *${institution}* para el *${dateStr}* a las *${timeStr}* ${docStr} ha sido *CANCELADA*.\n\n*Motivo de cancelación:* ${params.reason}\n\nPor favor, comunícate con la institución o accede al portal para gestionar tu nueva cita.\n\nLamentamos los inconvenientes,\nEquipo de ${institution}`
+
+        const wpRes = await sendWhatsAppMessage(instanceName, {
+          number: '57' + phone.replace(/\D/g, ''),
+          text
+        })
+
+        await supabase.from('whatsapp_logs').insert({
+          institution_id: req.institutions?.id,
+          request_id: req.id,
+          appointment_id: appt.id,
+          patient_phone: phone,
+          message_content: text,
+          status: wpRes ? 'sent' : 'failed',
+          error_message: wpRes ? null : 'Fallo en envío de WhatsApp por Evolution API'
+        })
+
+        if (wpRes) notifiedCount++
+      }
+    }
+
+    revalidatePath('/admin/appointments')
+    return { success: true, count: apptIds.length, notified: notifiedCount }
+  } catch (err: any) {
+    console.error('cancelAppointmentsBulk exception:', err)
+    return { success: false, count: 0, notified: 0, error: err?.message || 'Error desconocido' }
+  }
+}
+
