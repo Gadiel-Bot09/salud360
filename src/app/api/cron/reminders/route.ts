@@ -80,7 +80,8 @@ export async function GET(request: Request) {
       // Combine appointment date+time as Colombia time (UTC-5, always fixed — no DST)
       // Without the offset, new Date('2026-04-15T10:00') is treated as UTC,
       // meaning a 10:00 Colombia cita would fire at 5:00 AM Colombia — wrong.
-      const apptDateTime = new Date(`${appt.appointment_date}T${appt.appointment_time}:00-05:00`)
+      const cleanTime = (appt.appointment_time || '').slice(0, 5)
+      const apptDateTime = new Date(`${appt.appointment_date}T${cleanTime}:00-05:00`)
 
       // ── Check 24h window ─────────────────────────────────────────────────
       if (!appt.reminder_24h_sent && apptDateTime >= win24hFrom && apptDateTime <= win24hTo) {
