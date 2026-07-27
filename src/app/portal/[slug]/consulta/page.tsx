@@ -236,7 +236,6 @@ function RequestDetail({ data, onBack }: { data: any; onBack: () => void }) {
           </h3>
           <div className="grid gap-3 sm:grid-cols-1">
             {data.appointments.map((appt: any) => {
-              const isPast = new Date(`${appt.appointment_date}T23:59:59`) < new Date()
               return (
                 <div key={appt.id} className={`rounded-2xl border-2 p-4 transition-all ${
                   appt.cancelled ? 'border-red-200 bg-red-50/50' :
@@ -283,17 +282,15 @@ function RequestDetail({ data, onBack }: { data: any; onBack: () => void }) {
                           <span className="inline-flex items-center gap-1 bg-teal-100 text-teal-800 border border-teal-200 px-3 py-1 rounded-full text-xs font-bold">
                             ⏳ Programada / Activa
                           </span>
-                          {!isPast && (
-                            <Button
-                              type="button"
-                              size="sm"
-                              variant="destructive"
-                              onClick={() => { setCancellingAppt(appt); setCancelReason(''); setCancelError(null); }}
-                              className="rounded-xl h-8 text-xs font-bold shadow-sm gap-1 hover:bg-red-600"
-                            >
-                              <X className="h-3.5 w-3.5" /> Cancelar Cita
-                            </Button>
-                          )}
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="destructive"
+                            onClick={() => { setCancellingAppt(appt); setCancelReason(''); setCancelError(null); }}
+                            className="rounded-xl h-8 text-xs font-bold shadow-sm gap-1 hover:bg-red-600"
+                          >
+                            <X className="h-3.5 w-3.5" /> Cancelar Cita
+                          </Button>
                         </div>
                       )}
                     </div>
