@@ -141,7 +141,7 @@ export default async function PortalPage({ params }: { params: { slug: string } 
               }}
             >
               <Search className="w-4 h-4" />
-              Consultar Estado de mi Radicado
+              Consultar Estado o Cancelar mi Cita
             </Link>
           </div>
         </div>

@@ -9,7 +9,7 @@ import {
   AlertTriangle, Send, X, ChevronRight, CalendarDays, ClipboardList,
   MessageSquare, Sparkles, ArrowRight, RotateCcw, Building2
 } from 'lucide-react'
-import { trackRequest, TrackResult } from './actions'
+import { trackRequest, TrackResult, cancelPatientAppointmentFromPortal } from './actions'
 import { formatCO } from '@/lib/utils'
 import Link from 'next/link'
 import { useParams } from 'next/navigation'
@@ -55,10 +55,15 @@ function RequestCard({ request, isSelected, onClick }: { request: any; isSelecte
       <div className="flex items-start justify-between gap-3">
         <div className="flex-1 min-w-0">
           {/* Radicado */}
-          <div className="flex items-center gap-2 mb-1">
+          <div className="flex items-center gap-2 mb-1 flex-wrap">
             <span className="font-mono text-sm font-black text-teal-700 bg-teal-50 border border-teal-200 px-2 py-0.5 rounded-lg">
               {request.radicado}
             </span>
+            {request.appointments?.length > 0 && (
+              <span className="text-[11px] font-bold bg-blue-100 text-blue-700 border border-blue-200 px-2 py-0.5 rounded-md flex items-center gap-1">
+                📅 {request.appointments.length} Cita{request.appointments.length > 1 ? 's' : ''}
+              </span>
+            )}
           </div>
           {/* Type */}
           <p className="text-slate-700 font-semibold text-sm truncate">{request.type}</p>
@@ -82,6 +87,14 @@ function RequestCard({ request, isSelected, onClick }: { request: any; isSelecte
 function RequestDetail({ data, onBack }: { data: any; onBack: () => void }) {
   const cfg = getStatus(data.status)
   const hasResponse = data.status === 'responded' || data.status === 'closed'
+
+  const [cancellingAppt, setCancellingAppt] = useState<any | null>(null)
+  const [cancelReason, setCancelReason] = useState('')
+  const [isCancelling, setIsCancelling] = useState(false)
+  const [cancelError, setCancelError] = useState<string | null>(null)
+  const [cancelSuccess, setCancelSuccess] = useState<string | null>(null)
+  const params = useParams()
+  const slug = (params?.slug as string) || ''
 
   // Find the latest response comment from history
   const responseEntry = data.request_history?.find(
@@ -118,6 +131,180 @@ function RequestDetail({ data, onBack }: { data: any; onBack: () => void }) {
           </div>
         </div>
       </div>
+
+      {/* Cancellation Dialog Modal */}
+      {cancellingAppt && (
+        <div className="fixed inset-0 z-[70] flex items-center justify-center p-4" style={{ background: 'rgba(15,23,42,0.7)', backdropFilter: 'blur(4px)' }}>
+          <div className="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl border border-slate-100 space-y-4 animate-in fade-in zoom-in-95 duration-200">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <div className="flex items-center gap-2 text-red-600 font-bold">
+                <AlertTriangle className="h-5 w-5" />
+                <span>Cancelar Cita Programada</span>
+              </div>
+              <button onClick={() => { setCancellingAppt(null); setCancelError(null); }} className="text-slate-400 hover:text-slate-700">
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            <div className="bg-red-50 border border-red-100 rounded-2xl p-3.5 text-xs text-red-800 space-y-1">
+              <p className="font-bold">¿Estás seguro de que deseas cancelar esta cita?</p>
+              <p>• <strong>Fecha:</strong> {cancellingAppt.appointment_date} a las {cancellingAppt.appointment_time}</p>
+              <p>• <strong>Médico:</strong> {cancellingAppt.doctor_name || 'Asignado'}</p>
+              <p className="mt-1 text-red-600 font-semibold">Al confirmar, se liberará el espacio en la agenda del médico y no recibirás más recordatorios.</p>
+            </div>
+
+            {cancelError && (
+              <div className="bg-red-100 border border-red-300 text-red-700 px-3 py-2 rounded-xl text-xs font-semibold">
+                {cancelError}
+              </div>
+            )}
+
+            <div className="space-y-1.5">
+              <Label className="text-xs font-bold text-slate-700">Motivo de la Cancelación <span className="text-red-500">*</span></Label>
+              <select
+                value={cancelReason}
+                onChange={(e) => setCancelReason(e.target.value)}
+                className="w-full h-10 rounded-xl border border-slate-200 bg-white px-3 text-sm focus:outline-none focus:ring-2 focus:ring-red-500"
+              >
+                <option value="" disabled>Selecciona un motivo...</option>
+                <option value="Motivos personales o familiares">Motivos personales o familiares</option>
+                <option value="Incapacidad médica o enfermedad">Incapacidad médica o enfermedad</option>
+                <option value="Cruce con horario laboral o de estudio">Cruce con horario laboral o de estudio</option>
+                <option value="Ya no requiero el servicio / consulta">Ya no requiero el servicio / consulta</option>
+                <option value="Solicitaré reprogramación para otra fecha">Solicitaré reprogramación para otra fecha</option>
+                <option value="Otro motivo">Otro motivo</option>
+              </select>
+            </div>
+
+            <div className="flex gap-2 pt-2">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => { setCancellingAppt(null); setCancelError(null); }}
+                disabled={isCancelling}
+                className="flex-1 rounded-xl"
+              >
+                Volver
+              </Button>
+              <Button
+                type="button"
+                variant="destructive"
+                disabled={!cancelReason || isCancelling}
+                onClick={async () => {
+                  setIsCancelling(true)
+                  setCancelError(null)
+                  const res = await cancelPatientAppointmentFromPortal(cancellingAppt.id, cancelReason, slug)
+                  setIsCancelling(false)
+                  if (!res.success) {
+                    setCancelError(res.message || 'Error al cancelar la cita')
+                  } else {
+                    cancellingAppt.cancelled = true
+                    cancellingAppt.cancelled_at = new Date().toISOString()
+                    cancellingAppt.cancellation_reason = `Cancelada por el paciente (Portal Web): ${cancelReason}`
+                    setCancelSuccess(res.message || 'Cita cancelada exitosamente y notificada a la institución.')
+                    setCancellingAppt(null)
+                    setCancelReason('')
+                  }
+                }}
+                className="flex-1 rounded-xl gap-1.5 font-bold"
+              >
+                {isCancelling ? <Loader2 className="h-4 w-4 animate-spin" /> : <X className="h-4 w-4" />}
+                Confirmar Cancelación
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Success banner if cancelled */}
+      {cancelSuccess && (
+        <div className="rounded-2xl border-2 border-emerald-300 bg-emerald-50 p-4 flex items-center justify-between text-emerald-800 text-sm font-semibold animate-in fade-in duration-300">
+          <div className="flex items-center gap-2">
+            <CheckCircle2 className="h-5 w-5 text-emerald-600 shrink-0" />
+            <span>{cancelSuccess}</span>
+          </div>
+          <button onClick={() => setCancelSuccess(null)} className="text-emerald-600 hover:text-emerald-800">
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+      )}
+
+      {/* Scheduled Appointments */}
+      {data.appointments?.length > 0 && (
+        <div className="space-y-3">
+          <h3 className="text-sm font-bold text-slate-700 uppercase tracking-wider flex items-center gap-2">
+            <CalendarDays className="h-4 w-4 text-teal-600" /> Citas Médicas Programadas ({data.appointments.length})
+          </h3>
+          <div className="grid gap-3 sm:grid-cols-1">
+            {data.appointments.map((appt: any) => {
+              const isPast = new Date(`${appt.appointment_date}T23:59:59`) < new Date()
+              return (
+                <div key={appt.id} className={`rounded-2xl border-2 p-4 transition-all ${
+                  appt.cancelled ? 'border-red-200 bg-red-50/50' :
+                  appt.attended ? 'border-emerald-200 bg-emerald-50/50' :
+                  'border-teal-200 bg-gradient-to-br from-white to-teal-50/30 shadow-sm'
+                }`}>
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                    <div className="space-y-1">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="font-bold text-slate-800 text-base">
+                          📅 {formatCO(new Date(`${appt.appointment_date}T00:00:00`), "EEEE, d 'de' MMMM yyyy")}
+                        </span>
+                        <span className="bg-teal-700 text-white font-mono font-bold text-xs px-2.5 py-0.5 rounded-lg shadow-sm">
+                          🕐 {appt.appointment_time}
+                        </span>
+                      </div>
+                      <p className="text-sm font-semibold text-slate-600">
+                        👨‍⚕️ Médico: <span className="text-slate-800 font-bold">{appt.doctor_name || 'Por asignar'}</span> <span className="text-xs text-slate-500">({appt.specialty || 'Especialidad General'})</span>
+                      </p>
+                    </div>
+
+                    <div className="flex flex-col sm:items-end gap-2 shrink-0">
+                      {appt.cancelled ? (
+                        <div className="text-left sm:text-right">
+                          <span className="inline-flex items-center gap-1 bg-red-100 text-red-700 border border-red-200 px-3 py-1 rounded-full text-xs font-bold">
+                            🚫 Cita Cancelada
+                          </span>
+                          {appt.cancellation_reason && (
+                            <p className="text-[11px] text-red-600 max-w-[240px] mt-1 font-medium bg-red-50 p-1.5 rounded-lg border border-red-100">
+                              {appt.cancellation_reason}
+                            </p>
+                          )}
+                        </div>
+                      ) : appt.attended === true ? (
+                        <span className="inline-flex items-center gap-1 bg-emerald-100 text-emerald-700 border border-emerald-200 px-3 py-1 rounded-full text-xs font-bold">
+                          ✅ Asistida
+                        </span>
+                      ) : appt.attended === false ? (
+                        <span className="inline-flex items-center gap-1 bg-amber-100 text-amber-700 border border-amber-200 px-3 py-1 rounded-full text-xs font-bold">
+                          ❌ No Asistió
+                        </span>
+                      ) : (
+                        <div className="flex flex-col sm:items-end gap-1.5">
+                          <span className="inline-flex items-center gap-1 bg-teal-100 text-teal-800 border border-teal-200 px-3 py-1 rounded-full text-xs font-bold">
+                            ⏳ Programada / Activa
+                          </span>
+                          {!isPast && (
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="destructive"
+                              onClick={() => { setCancellingAppt(appt); setCancelReason(''); setCancelError(null); }}
+                              className="rounded-xl h-8 text-xs font-bold shadow-sm gap-1 hover:bg-red-600"
+                            >
+                              <X className="h-3.5 w-3.5" /> Cancelar Cita
+                            </Button>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      )}
+
 
       {/* Response box (if responded/closed) */}
       {hasResponse && responseEntry?.comment && (

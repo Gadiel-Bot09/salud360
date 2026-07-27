@@ -397,3 +397,79 @@ export async function sendAppointmentReminderEmail(
     return null
   }
 }
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// 6. NOTIFICACIÓN DE CANCELACIÓN DE CITA DESDE PORTAL WEB (PACIENTE / GESTOR)
+// ═══════════════════════════════════════════════════════════════════════════════
+export async function sendPortalCancellationNotification(
+  toEmail: string,
+  radicado: string,
+  patientName: string,
+  apptDate: string,
+  apptTime: string,
+  doctorName: string,
+  specialty: string,
+  reason: string,
+  isForGestor: boolean,
+  institution?: EmailInstitution | null
+) {
+  if (!process.env.RESEND_API_KEY) return null
+
+  const primary = institution?.colors?.primary || '#e11d48'
+
+  let subject = ''
+  let title = ''
+  let subtitle = ''
+  let body = ''
+
+  if (isForGestor) {
+    subject = `⚠️ Notificación de Gestión: Cita Cancelada por Paciente — Radicado ${radicado}`
+    title = '⚠️ Cita Cancelada en Portal Web'
+    subtitle = 'Un paciente ha liberado un espacio en la agenda médica'
+    body = `
+      <p style="margin:0 0 16px 0;font-size:15px;">El paciente <strong>${patientName}</strong> ha cancelado su cita médica directamente desde el portal web.</p>
+      <div style="background:#fef2f2;border:2px solid #ef444440;border-radius:14px;padding:20px;margin:0 0 24px 0;">
+        <p style="margin:0 0 6px 0;font-size:12px;color:#991b1b;text-transform:uppercase;letter-spacing:1px;font-weight:700;">Detalle de la Cita Anulada</p>
+        <p style="margin:0 0 8px 0;font-size:15px;color:#7f1d1d;"><strong>Fecha y Hora:</strong> ${apptDate} a las ${apptTime}</p>
+        <p style="margin:0 0 8px 0;font-size:15px;color:#7f1d1d;"><strong>Médico:</strong> ${doctorName || 'No asignado'} (${specialty || 'General'})</p>
+        <p style="margin:0 0 8px 0;font-size:15px;color:#7f1d1d;"><strong>Radicado:</strong> ${radicado}</p>
+        <div style="font-size:14px;color:#991b1b;background:#fee2e2;padding:12px 16px;border-radius:8px;margin-top:14px;">
+          <strong>Motivo indicado por el paciente:</strong><br/>"${reason}"
+        </div>
+      </div>
+      <p style="margin:0;color:#64748b;font-size:13px;">El sistema ha actualizado el estado de la cita a cancelada en el módulo de administración y ha excluido al paciente de los recordatorios automáticos.</p>
+    `
+  } else {
+    subject = `🚫 Confirmación de Cancelación de Cita — Radicado ${radicado}`
+    title = '🚫 Cita Cancelada Exitosamente'
+    subtitle = 'Confirmación de anulación de cita médica'
+    body = `
+      <p style="margin:0 0 16px 0;font-size:15px;">Hola <strong>${patientName}</strong>,</p>
+      <p style="margin:0 0 20px 0;font-size:14px;color:#475569;">Confirmamos que tu cita médica programada ha sido cancelada en nuestro sistema según tu solicitud desde el portal web.</p>
+      <div style="background:#f8fafc;border:2px solid #e2e8f0;border-radius:14px;padding:20px;margin:0 0 24px 0;">
+        <p style="margin:0 0 8px 0;font-size:14px;color:#334155;"><strong>Fecha que estaba programada:</strong> ${apptDate} a las ${apptTime}</p>
+        <p style="margin:0 0 8px 0;font-size:14px;color:#334155;"><strong>Médico:</strong> ${doctorName || 'No asignado'} (${specialty || 'General'})</p>
+        <p style="margin:0;font-size:13px;color:#64748b;margin-top:12px;"><strong>Motivo registrado:</strong> "${reason}"</p>
+      </div>
+      <p style="margin:0 0 16px 0;font-size:14px;color:#475569;">Si necesitas reagendar o solicitar un nuevo servicio, puedes hacerlo en cualquier momento ingresando nuevamente a nuestro portal de servicios en línea.</p>
+      <p style="margin:0;color:#64748b;font-size:13px;">Atentamente,<br/><strong style="color:#1e293b;">${institution?.name || 'Salud360'}</strong></p>
+    `
+  }
+
+  const html = emailLayout(institution, isForGestor ? '⚠️' : '🚫', title, subtitle, body)
+
+  try {
+    const { data, error } = await resend.emails.send({
+      from: process.env.RESEND_FROM_EMAIL || 'Salud360 <noreply@mail.sinuhub.com>',
+      to: [toEmail],
+      subject,
+      html,
+    })
+    if (error) console.error('Error sending portal cancellation email:', error)
+    return data
+  } catch (err) {
+    console.error('Exception sending portal cancellation email:', err)
+    return null
+  }
+}
+
