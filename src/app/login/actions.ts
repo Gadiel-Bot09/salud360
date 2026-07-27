@@ -55,10 +55,10 @@ export async function resetPassword(formData: FormData) {
         return { error: 'Por favor ingrese su correo electrónico.' }
     }
 
-    const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL?.replace('.supabase.co', '') || 'http://localhost:3000'
+    const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://salud360.sinuhub.com'
 
     const { error } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: `${siteUrl}/login/reset-password`,
+        redirectTo: `${siteUrl}/auth/callback?next=/login/reset-password`,
     })
 
     if (error) {

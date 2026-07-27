@@ -34,7 +34,7 @@ export async function updateSession(request: NextRequest) {
 
     // Define protected routes
     const isAdminRoute = request.nextUrl.pathname.startsWith('/admin')
-    const isAuthRoute = request.nextUrl.pathname.startsWith('/login')
+    const isAuthRoute = request.nextUrl.pathname.startsWith('/login') && !request.nextUrl.pathname.startsWith('/login/reset-password')
 
     if (isAdminRoute && !user) {
         // Redirect unauthenticated users trying to access admin
