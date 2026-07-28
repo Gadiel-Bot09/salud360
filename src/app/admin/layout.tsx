@@ -21,6 +21,7 @@ import { logout } from '@/app/login/actions'
 import { Button } from '@/components/ui/button'
 import { Toaster } from '@/components/ui/toaster'
 import { getPendingAppointmentsCountToday } from '@/app/admin/appointments/actions'
+import { UserMenu } from '@/components/admin/user-menu'
 
 export default async function AdminLayout({ children }: { children: ReactNode }) {
     const supabase = await createClient()
@@ -120,17 +121,7 @@ export default async function AdminLayout({ children }: { children: ReactNode })
                     )}
                 </nav>
 
-                <div className="w-full px-4 mt-auto">
-                    <div className="bg-slate-800 rounded-lg p-4 mb-4">
-                        <p className="text-xs text-slate-400 truncate">{user.email}</p>
-                    </div>
-                    <form action={logout}>
-                        <Button variant="ghost" className="w-full justify-start text-slate-400 hover:text-white hover:bg-slate-800">
-                            <LogOut className="mr-2 h-4 w-4" />
-                            Cerrar Sesión
-                        </Button>
-                    </form>
-                </div>
+                <UserMenu email={user.email || 'usuario@salud360.com'} />
             </aside>
 
             {/* Main Content */}
