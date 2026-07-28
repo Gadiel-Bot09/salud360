@@ -47,7 +47,7 @@ export default async function AdminLayout({ children }: { children: ReactNode })
                     <Image src="/logo-white.svg" alt="Salud360 Logo" width={140} height={35} priority />
                 </div>
 
-                <nav className="flex-1 w-full flex flex-col space-y-2 px-4">
+                <nav className="flex-1 w-full flex flex-col space-y-2 px-4 overflow-y-auto pb-4">
                     <Link href="/admin/dashboard" className="flex items-center space-x-3 px-4 py-3 rounded-lg bg-slate-800 text-white transition">
                         <BarChart3 className="h-5 w-5 text-teal-400" />
                         <span>Dashboard</span>
