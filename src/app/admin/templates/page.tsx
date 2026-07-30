@@ -15,7 +15,8 @@ export default async function TemplatesPage() {
 
   const { data: userProfile } = await supabase.from('users').select('role_id, institution_id, roles(permissions)').eq('id', user.id).single()
   
-  const perms = userProfile?.roles?.permissions || []
+  const profile = userProfile as any;
+  const perms = profile?.roles?.permissions || []
   if (!perms.includes('templates.manage') && !perms.includes('*')) {
     redirect('/admin/dashboard')
   }
@@ -55,7 +56,7 @@ export default async function TemplatesPage() {
                 </span>
               </CardTitle>
               <CardDescription className="text-xs">
-                Asociado al form: <span className="font-medium text-slate-700">{t.form_templates?.name || 'Ninguno'}</span>
+                Asociado al form: <span className="font-medium text-slate-700">{(t as any).form_templates?.name || 'Ninguno'}</span>
               </CardDescription>
             </CardHeader>
             <CardContent>

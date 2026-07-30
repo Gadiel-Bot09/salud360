@@ -24,7 +24,8 @@ export default async function UsersPage() {
     .select(`id, email, full_name, active, created_at, role_id, roles(name), institutions(id, name)`)
     .order('created_at', { ascending: false })
 
-  const isSuperAdmin = userProfile.roles?.name === 'Super Admin'
+  const profile = userProfile as any;
+  const isSuperAdmin = profile.roles?.name === 'Super Admin'
 
   const { data: institutions } = isSuperAdmin
      ? await supabase.from('institutions').select('id, name') 

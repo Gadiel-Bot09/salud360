@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Plus, Trash2, Pencil, Save, X, FileText, Variable } from 'lucide-react'
-import type { ResponseTemplate } from './template-actions'
+import type { ResponseTemplate } from '@/app/admin/settings/template-actions'
 
 const VARIABLES = [
   { tag: '{{nombre_paciente}}', desc: 'Nombre del paciente' },

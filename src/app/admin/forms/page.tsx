@@ -12,7 +12,8 @@ export default async function FormsAdminPage({ searchParams }: { searchParams: {
   const { data: { user } } = await supabase.auth.getUser()
   const { data: userProfile } = await supabase.from('users').select('role_id, institution_id, roles(name)').eq('id', user?.id).single()
 
-  const isSuperAdmin = userProfile?.roles?.name === 'Super Admin'
+  const profile = userProfile as any;
+  const isSuperAdmin = profile?.roles?.name === 'Super Admin'
 
   // Determine active institution context
   let activeInstitutionId = userProfile?.institution_id

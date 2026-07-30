@@ -63,7 +63,7 @@ async function exportToExcel(data: RequestRow[]) {
 // ── PDF Export ────────────────────────────────────────────────────────────────
 async function exportToPDF(data: RequestRow[]) {
   const { default: jsPDF } = await import('jspdf')
-  // @ts-expect-error: no types package for jspdf-autotable
+  // jspdf-autotable doesn't export the type properly in some environments
   const { default: autoTable } = await import('jspdf-autotable')
 
   const doc = new jsPDF({ orientation: 'landscape', unit: 'pt', format: 'a4' })

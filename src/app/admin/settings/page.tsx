@@ -87,7 +87,7 @@ export default async function SettingsPage() {
         </h2>
         <SettingsClient
           userEmail={user?.email ?? ''}
-          userRole={userProfile?.roles?.name ?? 'Gestor'}
+          userRole={(userProfile as any)?.roles?.name ?? 'Gestor'}
           institution={institution}
           siteUrl={siteUrl}
           initialEvolutionConnected={initialEvolutionConnected}

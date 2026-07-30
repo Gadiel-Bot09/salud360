@@ -15,7 +15,8 @@ export default async function RolesPage() {
      return <div className="p-8">No autorizado. Perfil de usuario no encontrado.</div>
   }
 
-  const isSuperAdmin = userProfile.roles?.name === 'Super Admin'
+  const profile = userProfile as any;
+  const isSuperAdmin = profile.roles?.name === 'Super Admin'
 
   let rolesQuery = supabase.from('roles').select('id, name, description, is_system, permissions')
   if (!isSuperAdmin) {

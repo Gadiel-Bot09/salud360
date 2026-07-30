@@ -13,7 +13,8 @@ export default async function DashboardPage() {
     const { data: { user } } = await supabase.auth.getUser()
     const { data: userProfile } = await supabase.from('users').select('role_id, roles(name), institutions(name)').eq('id', user?.id).single()
 
-    const isGlobal = userProfile?.roles?.name === 'Super Admin'
+    const profile = userProfile as any;
+    const isGlobal = profile?.roles?.name === 'Super Admin'
     // Safe typing since we did a join `institutions(name)`
     const institutionName = (userProfile?.institutions as any)?.name || 'Red Desconocida'
 

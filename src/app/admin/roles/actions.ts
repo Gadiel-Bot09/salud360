@@ -28,8 +28,9 @@ export async function createCustomRole(formData: FormData) {
   if (!user) return { success: false, error: 'No autorizado' }
 
   const { data: myProfile } = await authClient.from('users').select('role_id, institution_id, roles(name, permissions)').eq('id', user.id).single()
-  const isSuperAdmin = myProfile?.roles?.name === 'Super Admin'
-  const myPerms = (myProfile?.roles?.permissions as string[]) || []
+  const profile = myProfile as any;
+  const isSuperAdmin = profile?.roles?.name === 'Super Admin'
+  const myPerms = (profile?.roles?.permissions as string[]) || []
   const hasManageRoles = isSuperAdmin || myPerms.includes('roles.manage') || myPerms.includes('*')
 
   if (!hasManageRoles) {

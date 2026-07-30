@@ -45,7 +45,8 @@ async function getAuthFilter() {
   const supabase = sb()
   const { data: myProfile } = await supabase.from('users').select('institution_id, roles(name)').eq('id', user.id).single()
   
-  const isSuperAdmin = myProfile?.roles?.name === 'Super Admin'
+  const profile = myProfile as any;
+  const isSuperAdmin = profile?.roles?.name === 'Super Admin'
   return { isSuperAdmin, institutionId: myProfile?.institution_id }
 }
 

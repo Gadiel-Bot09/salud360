@@ -15,7 +15,8 @@ export default async function RequestsPage() {
         .eq('id', user?.id ?? '')
         .single()
 
-    const isGlobal = userProfile?.roles?.name === 'Super Admin'
+    const profile = userProfile as any;
+    const isGlobal = profile?.roles?.name === 'Super Admin'
     const institutionName = (userProfile?.institutions as any)?.name || ''
 
     // Fetch requests with attachments — RLS will automatically scope to institution if not Super Admin

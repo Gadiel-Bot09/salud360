@@ -32,8 +32,9 @@ export default async function AdminLayout({ children }: { children: ReactNode })
     }
     
     const { data: userProfile } = await supabase.from('users').select('role_id, roles(name, permissions, is_system)').eq('id', user.id).single()
-    const roleName = userProfile?.roles?.name || '';
-    const permissions = (userProfile?.roles?.permissions as string[]) || [];
+    const profile = userProfile as any;
+    const roleName = profile?.roles?.name || '';
+    const permissions = (profile?.roles?.permissions as string[]) || [];
     const isSuperAdmin = roleName === 'Super Admin';
     const hasPerm = (p: string) => isSuperAdmin || permissions.includes('*') || permissions.includes(p);
 

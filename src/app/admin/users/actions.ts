@@ -24,7 +24,8 @@ export async function inviteAdminUser(formData: FormData) {
   if (!user) return { success: false, error: 'No autorizado' }
 
   const { data: myProfile } = await supabaseAdmin.from('users').select('role_id, institution_id, roles(name)').eq('id', user.id).single()
-  const isSuperAdmin = myProfile?.roles?.name === 'Super Admin'
+  const profile = myProfile as any;
+  const isSuperAdmin = profile?.roles?.name === 'Super Admin'
   
   const { data: roleData } = await supabaseAdmin.from('roles').select('name').eq('id', roleId).single()
   const roleName = roleData?.name || 'Desconocido'
@@ -110,7 +111,8 @@ export async function updateUserEmail(userId: string, newEmail: string) {
    if (!user) return { success: false, error: 'No autorizado' }
 
    const { data: myProfile } = await supabaseAdmin.from('users').select('roles(name)').eq('id', user.id).single()
-   if (myProfile?.roles?.name !== 'Super Admin') {
+   const profile = myProfile as any;
+   if (profile?.roles?.name !== 'Super Admin') {
       return { success: false, error: 'Solo los Super Administradores pueden cambiar correos.' }
    }
 
