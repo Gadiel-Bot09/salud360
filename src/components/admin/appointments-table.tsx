@@ -3,7 +3,7 @@
 import { useState, useTransition } from 'react'
 import {
   CheckCircle2, XCircle, Clock, RotateCcw, Search,
-  ChevronDown, Stethoscope, Building2, CalendarClock, MessageCircle, AlertTriangle
+  ChevronDown, Stethoscope, Building2, CalendarClock, MessageCircle, AlertTriangle, Trash2
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -22,6 +22,7 @@ import {
   sendManualWhatsAppReminder,
   getDoctorsAndSpecialties,
   cancelAppointmentsBulk,
+  silentDeleteAppointment,
   type AppointmentWithPatient
 } from '@/app/admin/appointments/actions'
 import { useToast } from '@/hooks/use-toast'
@@ -38,9 +39,10 @@ const FILTER_OPTIONS: { id: FilterState; label: string; emoji: string }[] = [
 
 interface Props {
   appointments: AppointmentWithPatient[]
+  isAdmin?: boolean
 }
 
-export function AppointmentsTable({ appointments: initial }: Props) {
+export function AppointmentsTable({ appointments: initial, isAdmin = false }: Props) {
   const router                    = useRouter()
   const [appts, setAppts]         = useState<AppointmentWithPatient[]>(initial)
   const [filter, setFilter]       = useState<FilterState>('all')
@@ -63,6 +65,10 @@ export function AppointmentsTable({ appointments: initial }: Props) {
   // Single cancel modal state
   const [singleCancelId, setSingleCancelId]   = useState<string | null>(null)
   const [singleReason, setSingleReason]       = useState('')
+
+  // Silent delete modal state (admin only)
+  const [silentDeleteAppt, setSilentDeleteAppt] = useState<AppointmentWithPatient | null>(null)
+  const [silentObs, setSilentObs]               = useState('')
 
   const openBulkModal = async () => {
     setIsBulkOpen(true)
@@ -131,6 +137,30 @@ export function AppointmentsTable({ appointments: initial }: Props) {
         setAppts(prev => prev.map(a => a.id === id ? { ...a, cancelled: true, cancelled_at: new Date().toISOString(), cancellation_reason: reason } : a))
       } else {
         toast({ title: 'Error al cancelar', description: res.error || 'No se pudo cancelar la cita.', variant: 'destructive' })
+      }
+    })
+  }
+
+  const handleSilentDelete = () => {
+    if (!silentDeleteAppt || !silentObs.trim()) {
+      toast({ title: 'Observación requerida', description: 'Debes ingresar una observación para continuar.', variant: 'destructive' })
+      return
+    }
+    start(async () => {
+      const res = await silentDeleteAppointment(silentDeleteAppt.id, silentObs.trim())
+      if (res.success) {
+        toast({
+          title: '🔧 Cita eliminada',
+          description: 'La cita fue eliminada sin notificar al paciente. El registro de auditoría quedó guardado.',
+          variant: 'default'
+        })
+        const deletedId = silentDeleteAppt.id
+        setSilentDeleteAppt(null)
+        setSilentObs('')
+        setAppts(prev => prev.filter(a => a.id !== deletedId))
+        router.refresh()
+      } else {
+        toast({ title: 'Error', description: res.error || 'No se pudo eliminar la cita.', variant: 'destructive' })
       }
     })
   }
@@ -400,6 +430,16 @@ export function AppointmentsTable({ appointments: initial }: Props) {
                               >
                                 🚫 Cancelar
                               </button>
+                              {isAdmin && (
+                                <button
+                                  onClick={() => { setSilentDeleteAppt(appt); setSilentObs('') }}
+                                  disabled={isPending}
+                                  className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-semibold bg-slate-100 hover:bg-red-50 text-slate-500 hover:text-red-700 border border-slate-200 hover:border-red-300 transition-colors"
+                                  title="[Admin] Eliminar cita sin notificar al paciente"
+                                >
+                                  <Trash2 className="w-3 h-3" /> Eliminar
+                                </button>
+                              )}
                             </>
                           ) : (
                             <button
@@ -541,6 +581,62 @@ export function AppointmentsTable({ appointments: initial }: Props) {
             </Button>
             <Button variant="destructive" onClick={handleSingleCancel} disabled={isPending} className="bg-rose-700 hover:bg-rose-800">
               {isPending ? 'Procesando...' : 'Cancelar Cita'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </div>
+
+      {/* Dialog: Silent Delete (Admin only) */}
+      <Dialog open={!!silentDeleteAppt} onOpenChange={val => !val && setSilentDeleteAppt(null)}>
+        <DialogContent className="sm:max-w-[460px]">
+          <DialogHeader>
+            <DialogTitle className="text-lg font-bold text-slate-800 flex items-center gap-2">
+              <Trash2 className="w-5 h-5 text-red-600" />
+              Eliminar Cita sin Notificar
+            </DialogTitle>
+            <DialogDescription className="text-sm text-slate-500">
+              Esta acción elimina la cita de la base de datos <strong>sin enviar ningún mensaje al paciente</strong>. Se guardará un registro de auditoría en el historial de la solicitud.
+            </DialogDescription>
+          </DialogHeader>
+
+          {silentDeleteAppt && (
+            <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 text-sm space-y-0.5">
+              <p className="font-bold text-amber-800">⚠️ Datos de la cita a eliminar:</p>
+              <p className="text-amber-700">👤 Paciente: <strong>{silentDeleteAppt.patient_name}</strong></p>
+              <p className="text-amber-700">📋 Radicado: <strong>{silentDeleteAppt.radicado}</strong></p>
+              <p className="text-amber-700">📅 Fecha: <strong>{silentDeleteAppt.appointment_date}</strong> · 🕐 <strong>{silentDeleteAppt.appointment_time?.slice(0,5)}</strong></p>
+              {silentDeleteAppt.doctor_name && <p className="text-amber-700">👨‍⚕️ Médico: <strong>{silentDeleteAppt.doctor_name}</strong></p>}
+            </div>
+          )}
+
+          <div className="space-y-2 pt-1">
+            <label className="text-xs font-bold text-slate-700 uppercase tracking-wider block">
+              Observación de corrección <span className="text-red-600">*</span>
+            </label>
+            <textarea
+              value={silentObs}
+              onChange={e => setSilentObs(e.target.value)}
+              placeholder="Ej: Error de asignación por gestor [Nombre]. Se elimina para reasignar correctamente. Sin notificar al paciente."
+              className="w-full border border-slate-200 rounded-lg p-2.5 text-sm h-24 focus:outline-none focus:ring-2 focus:ring-red-400 resize-none"
+            />
+            <p className="text-xs text-slate-400">Este texto quedará registrado en el historial de la solicitud para efectos de auditoría y procesos disciplinarios.</p>
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setSilentDeleteAppt(null)} disabled={isPending}>
+              Cancelar
+            </Button>
+            <Button
+              onClick={handleSilentDelete}
+              disabled={isPending || !silentObs.trim()}
+              className="bg-red-700 hover:bg-red-800 text-white font-semibold"
+            >
+              {isPending ? (
+                <><span className="mr-2 animate-spin">⏳</span> Eliminando...</>
+              ) : (
+                <><Trash2 className="w-4 h-4 mr-2" /> Eliminar sin Notificar</>
+              )}
             </Button>
           </DialogFooter>
         </DialogContent>

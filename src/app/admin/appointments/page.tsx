@@ -2,7 +2,8 @@ import { getAppointmentsByDate } from './actions'
 import { AppointmentsTable } from '@/components/admin/appointments-table'
 import { CalendarDays } from 'lucide-react'
 import { todayCO } from '@/lib/utils'
-
+import { createClient } from '@/lib/supabase/server'
+import { createClient as createAdmin } from '@supabase/supabase-js'
 
 export const dynamic = 'force-dynamic'
 
@@ -15,6 +16,27 @@ export default async function AppointmentsPage({
   const selectedDate = searchParams.date || today
 
   const appointments = await getAppointmentsByDate(selectedDate)
+
+  // Determine if current user is admin (has settings.manage or Super Admin)
+  let isAdmin = false
+  try {
+    const authClient = await createClient()
+    const { data: { user } } = await authClient.auth.getUser()
+    if (user) {
+      const supabase = createAdmin(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.SUPABASE_SERVICE_ROLE_KEY!
+      )
+      const { data: profile } = await supabase
+        .from('users')
+        .select('roles(name, permissions)')
+        .eq('id', user.id)
+        .single()
+      const roleName    = (profile?.roles as any)?.name || ''
+      const permissions = ((profile?.roles as any)?.permissions as string[]) || []
+      isAdmin = roleName === 'Super Admin' || permissions.includes('*') || permissions.includes('settings.manage')
+    }
+  } catch { /* fail silently */ }
 
   const dateLabel = new Date(selectedDate + 'T12:00:00').toLocaleDateString('es-CO', {
     weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
@@ -52,7 +74,8 @@ export default async function AppointmentsPage({
         </form>
       </div>
 
-      <AppointmentsTable appointments={appointments} />
+      <AppointmentsTable appointments={appointments} isAdmin={isAdmin} />
     </div>
   )
 }
+

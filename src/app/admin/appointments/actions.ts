@@ -432,4 +432,68 @@ export async function cancelAppointmentsBulk(params: {
     return { success: false, count: 0, notified: 0, error: err?.message || 'Error desconocido' }
   }
 }
+// ── Silent Delete: Admin-only, no patient notification ────────────────────────
+export async function silentDeleteAppointment(appointmentId: string, observation: string): Promise<{ success: boolean; error?: string }> {
+  try {
+    const authClient = await createClient()
+    const { data: { user } } = await authClient.auth.getUser()
+    if (!user) return { success: false, error: 'No autenticado.' }
 
+    const supabase = sb()
+
+    // Verify caller is Admin Institución or Super Admin
+    const { data: myProfile } = await supabase
+      .from('users')
+      .select('full_name, institution_id, roles(name, permissions, is_system)')
+      .eq('id', user.id)
+      .single()
+
+    const roleName    = (myProfile?.roles as any)?.name || ''
+    const permissions = ((myProfile?.roles as any)?.permissions as string[]) || []
+    const isSuperAdmin = roleName === 'Super Admin'
+    const isAdmin      = isSuperAdmin || permissions.includes('*') || permissions.includes('settings.manage')
+
+    if (!isAdmin) {
+      return { success: false, error: 'No tienes permisos para realizar esta acción.' }
+    }
+
+    // Fetch the appointment and its request to write audit log
+    const { data: appt, error: fetchErr } = await supabase
+      .from('appointments')
+      .select('id, request_id, appointment_date, appointment_time, doctor_name, specialty')
+      .eq('id', appointmentId)
+      .single()
+
+    if (fetchErr || !appt) return { success: false, error: 'Cita no encontrada.' }
+
+    const adminName = myProfile?.full_name || user.email || 'Administrador'
+    const dateStr   = appt.appointment_date
+    const timeStr   = (appt.appointment_time as string)?.slice(0, 5) || '—'
+    const doctorStr = appt.doctor_name || appt.specialty || 'Médico no especificado'
+
+    // Write audit record BEFORE deleting
+    await supabase.from('request_history').insert({
+      request_id: appt.request_id,
+      action:     `🔧 Corrección administrativa: Cita del ${dateStr} a las ${timeStr} con ${doctorStr} eliminada sin notificar al paciente.`,
+      from_status: 'responded',
+      to_status:   'responded',
+      user_id:     user.id,
+      comment:     `Eliminación realizada por: ${adminName}. Observación: ${observation}`
+    })
+
+    // Delete the appointment (silent — no WhatsApp, no email)
+    const { error: delErr } = await supabase
+      .from('appointments')
+      .delete()
+      .eq('id', appointmentId)
+
+    if (delErr) return { success: false, error: delErr.message }
+
+    revalidatePath('/admin/appointments')
+    revalidatePath('/admin/requests')
+    return { success: true }
+  } catch (err: any) {
+    console.error('silentDeleteAppointment error:', err)
+    return { success: false, error: err?.message || 'Error desconocido' }
+  }
+}
