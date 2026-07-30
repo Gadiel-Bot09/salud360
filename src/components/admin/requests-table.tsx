@@ -14,17 +14,19 @@ import {
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Eye, FileText, Search, X, Paperclip, AlertTriangle } from 'lucide-react'
+import { Eye, FileText, Search, X, Paperclip, AlertTriangle, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from 'lucide-react'
 import { formatCO } from '@/lib/utils'
 import { differenceInDays } from 'date-fns'
-import { es } from 'date-fns/locale'
 import Link from 'next/link'
 import { ExportButtons } from './export-buttons'
+
+const PAGE_SIZE = 30
 
 export function RequestsTable({ initialData }: { initialData: any[] }) {
     const router = useRouter()
     const [search, setSearch] = useState('')
     const [statusFilter, setStatusFilter] = useState('all')
+    const [page, setPage] = useState(1)
 
     // Auto-refresh the page data every 15 seconds
     useEffect(() => {
@@ -33,6 +35,11 @@ export function RequestsTable({ initialData }: { initialData: any[] }) {
         }, 15000)
         return () => clearInterval(interval)
     }, [router])
+
+    // Reset to page 1 whenever search or filter changes
+    useEffect(() => {
+        setPage(1)
+    }, [search, statusFilter])
 
     // Filter data based on search & status
     const filtered = useMemo(() => {
@@ -51,6 +58,11 @@ export function RequestsTable({ initialData }: { initialData: any[] }) {
             return matchesSearch && matchesStatus
         })
     }, [initialData, search, statusFilter])
+
+    // Pagination
+    const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE))
+    const safePage = Math.min(page, totalPages)
+    const paginated = filtered.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE)
 
     const getStatusBadge = (status: string) => {
         switch (status) {
@@ -117,7 +129,7 @@ export function RequestsTable({ initialData }: { initialData: any[] }) {
                     </select>
                 </div>
 
-                {/* Export Buttons — gets the currently filtered data */}
+                {/* Export Buttons — gets the currently filtered data (all pages) */}
                 <ExportButtons data={filtered} />
             </div>
 
@@ -136,7 +148,7 @@ export function RequestsTable({ initialData }: { initialData: any[] }) {
                         </TableRow>
                     </TableHeader>
                     <TableBody>
-                        {filtered.length === 0 ? (
+                        {paginated.length === 0 ? (
                             <TableRow>
                                 <TableCell colSpan={6} className="text-center py-12 text-slate-400">
                                     {search || statusFilter !== 'all'
@@ -145,7 +157,7 @@ export function RequestsTable({ initialData }: { initialData: any[] }) {
                                 </TableCell>
                             </TableRow>
                         ) : (
-                            filtered.map((req) => {
+                            paginated.map((req) => {
                                 // Indicator logic for requests older than 5 days without response
                                 const isPending = req.status === 'received' || req.status === 'processing' || req.status === 'escalated'
                                 const daysElapsed = differenceInDays(new Date(), new Date(req.created_at))
@@ -214,20 +226,93 @@ export function RequestsTable({ initialData }: { initialData: any[] }) {
                                             </Button>
                                         </div>
                                     </TableCell>
-                                </TableRow>
-                                )
+                                    </TableRow>
+                                    )
                             })
                         )}
                     </TableBody>
                 </Table>
             </div>
 
-            {/* Summary footer */}
-            {initialData.length > 0 && (
-                <p className="text-xs text-slate-400 text-right">
-                    Mostrando {filtered.length} de {initialData.length} solicitudes
+            {/* Pagination + Summary footer */}
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-1">
+                {/* Summary */}
+                <p className="text-xs text-slate-400 order-2 sm:order-1">
+                    {filtered.length === 0
+                        ? 'Sin resultados'
+                        : `Mostrando ${(safePage - 1) * PAGE_SIZE + 1}–${Math.min(safePage * PAGE_SIZE, filtered.length)} de ${filtered.length} solicitudes`}
                 </p>
-            )}
+
+                {/* Pagination controls */}
+                {totalPages > 1 && (
+                    <div className="flex items-center gap-1 order-1 sm:order-2">
+                        {/* First */}
+                        <button
+                            onClick={() => setPage(1)}
+                            disabled={safePage === 1}
+                            className="p-1.5 rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                            title="Primera página"
+                        >
+                            <ChevronsLeft className="w-4 h-4" />
+                        </button>
+                        {/* Prev */}
+                        <button
+                            onClick={() => setPage(p => Math.max(1, p - 1))}
+                            disabled={safePage === 1}
+                            className="p-1.5 rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                            title="Página anterior"
+                        >
+                            <ChevronLeft className="w-4 h-4" />
+                        </button>
+
+                        {/* Page numbers */}
+                        {Array.from({ length: totalPages }, (_, i) => i + 1)
+                            .filter(p => p === 1 || p === totalPages || Math.abs(p - safePage) <= 2)
+                            .reduce<(number | '...')[]>((acc, p, idx, arr) => {
+                                if (idx > 0 && (p as number) - (arr[idx - 1] as number) > 1) acc.push('...')
+                                acc.push(p)
+                                return acc
+                            }, [])
+                            .map((p, i) =>
+                                p === '...' ? (
+                                    <span key={`ellipsis-${i}`} className="px-2 text-slate-400 text-sm select-none">…</span>
+                                ) : (
+                                    <button
+                                        key={p}
+                                        onClick={() => setPage(p as number)}
+                                        className={`min-w-[32px] h-8 px-2 rounded-lg text-sm font-semibold border transition-colors ${
+                                            safePage === p
+                                                ? 'bg-teal-700 text-white border-teal-700 shadow-sm'
+                                                : 'border-slate-200 text-slate-600 hover:bg-slate-50'
+                                        }`}
+                                    >
+                                        {p}
+                                    </button>
+                                )
+                            )
+                        }
+
+                        {/* Next */}
+                        <button
+                            onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+                            disabled={safePage === totalPages}
+                            className="p-1.5 rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                            title="Página siguiente"
+                        >
+                            <ChevronRight className="w-4 h-4" />
+                        </button>
+                        {/* Last */}
+                        <button
+                            onClick={() => setPage(totalPages)}
+                            disabled={safePage === totalPages}
+                            className="p-1.5 rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                            title="Última página"
+                        >
+                            <ChevronsRight className="w-4 h-4" />
+                        </button>
+                    </div>
+                )}
+            </div>
         </div>
     )
 }
