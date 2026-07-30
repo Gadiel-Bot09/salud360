@@ -585,7 +585,6 @@ export function AppointmentsTable({ appointments: initial, isAdmin = false }: Pr
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </div>
 
       {/* Dialog: Silent Delete (Admin only) */}
       <Dialog open={!!silentDeleteAppt} onOpenChange={val => !val && setSilentDeleteAppt(null)}>
