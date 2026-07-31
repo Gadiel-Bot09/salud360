@@ -633,7 +633,7 @@ export function ReportsDashboard({ initialData, onRefresh, onFetchDetail, onFetc
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart data={rows.slice(0, 10)} margin={{ top: 16, right: 24, left: 0, bottom: 40 }}>
                     <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
-                    <XAxis dataKey="user_email" tick={{ fontSize: 10, angle: -30, textAnchor: 'end' }} />
+                    <XAxis dataKey="user_name" tick={{ fontSize: 10, angle: -30, textAnchor: 'end' }} />
                     <YAxis tick={{ fontSize: 11 }} />
                     <Tooltip />
                     <Legend />
@@ -650,14 +650,17 @@ export function ReportsDashboard({ initialData, onRefresh, onFetchDetail, onFetc
                   <tbody className="divide-y divide-slate-100">
                     {rows.map((r, i) => (
                       <tr key={i} className="hover:bg-indigo-50/30 transition-colors group">
-                        <td className="px-4 py-3 font-medium text-slate-800 truncate max-w-xs">{r.user_email}</td>
+                        <td className="px-4 py-3 max-w-xs">
+                          <p className="font-semibold text-slate-800 truncate">{r.user_name}</p>
+                          <p className="text-xs text-slate-400 truncate">{r.user_email}</p>
+                        </td>
                         <td className="px-4 py-3"><span className="bg-indigo-100 text-indigo-700 rounded-full px-2 py-0.5 text-xs font-semibold">{r.role}</span></td>
                         <td className="px-4 py-3 font-bold text-teal-700">{r.actions}</td>
                         <td className="px-4 py-3 text-emerald-600">{r.responded}</td>
                         <td className="px-4 py-3 text-slate-500">{r.comments}</td>
                         <td className="px-4 py-3">
                           <button
-                            onClick={() => openDetail('user', r.user_email, `Solicitudes gestionadas: ${r.user_email}`)}
+                            onClick={() => openDetail('user', r.user_email, `Solicitudes gestionadas: ${r.user_name}`)}
                             className="flex items-center gap-1 text-xs text-indigo-700 font-semibold opacity-0 group-hover:opacity-100 transition-opacity hover:underline"
                           >
                             Ver detalle <ChevronRight className="w-3.5 h-3.5" />
@@ -673,7 +676,7 @@ export function ReportsDashboard({ initialData, onRefresh, onFetchDetail, onFetc
               <Button size="sm" variant="outline" onClick={() => exportCSV('reporte_usuarios.csv', rows as any)}>
                 <Download className="w-4 h-4 mr-2" /> Exportar CSV
               </Button>
-              <Button size="sm" className="bg-teal-700 hover:bg-teal-800" onClick={() => exportPDF('Actividad por Usuario', ['Usuario','Rol','Acciones','Respondidas','Comentarios'], rows.map(r => [r.user_email, r.role, r.actions, r.responded, r.comments]))}>
+              <Button size="sm" className="bg-teal-700 hover:bg-teal-800" onClick={() => exportPDF('Actividad por Usuario', ['Gestor','Correo','Rol','Acciones','Respondidas','Comentarios'], rows.map(r => [r.user_name, r.user_email, r.role, r.actions, r.responded, r.comments]))}>
                 <FileText className="w-4 h-4 mr-2" /> Exportar PDF
               </Button>
             </div>

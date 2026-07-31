@@ -109,6 +109,7 @@ export async function fetchRequestsByType(from?: string, to?: string): Promise<T
 // ── 3. Actividad por Usuario Gestor ──────────────────────────────────────────
 export interface UserActivityReport {
   user_email: string
+  user_name: string
   role: string
   actions: number
   responded: number
@@ -135,15 +136,16 @@ export async function fetchActivityByUser(from?: string, to?: string): Promise<U
   if (error || !history) { console.error(error); return [] }
 
   const userIds = [...new Set((history as any[]).map(h => h.user_id))]
-  const { data: users } = await sb.from('users').select('id, email, roles(name)').in('id', userIds)
-  const userMap: Record<string, { email: string; role: string }> = {}
-  for (const u of (users || []) as any[]) userMap[u.id] = { email: u.email, role: u.roles?.name || 'Desconocido' }
+  const { data: users } = await sb.from('users').select('id, email, full_name, roles(name)').in('id', userIds)
+  const userMap: Record<string, { email: string; full_name: string; role: string }> = {}
+  for (const u of (users || []) as any[]) userMap[u.id] = { email: u.email, full_name: u.full_name || u.email, role: u.roles?.name || 'Desconocido' }
 
   const map: Record<string, UserActivityReport> = {}
   for (const h of history as any[]) {
     const uid = h.user_id
     if (!map[uid]) map[uid] = {
       user_email: userMap[uid]?.email || uid,
+      user_name: userMap[uid]?.full_name || userMap[uid]?.email || uid,
       role: userMap[uid]?.role || '—',
       actions: 0,
       responded: 0,
