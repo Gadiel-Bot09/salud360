@@ -42,6 +42,18 @@ export function StatusManagementForm({ action, templates, currentStatus, request
 
   const hasAppointment = !!(apptDate && apptTime)
 
+  // Reemplaza un placeholder en el texto si ya fue cargada una plantilla
+  const liveReplace = (placeholder: string, value: string) => {
+    if (!value || value === 'none') return
+    setComment(prev => prev.replace(new RegExp(placeholder.replace(/[{}]/g, '\\$&'), 'g'), value))
+  }
+
+  const handleDateChange = (val: string) => { setApptDate(val);   liveReplace('{{fecha_cita}}',   val) }
+  const handleTimeChange = (val: string) => { setApptTime(val);   liveReplace('{{hora_cita}}',    val) }
+  const handleDoctorChange = (val: string) => { setApptDoctor(val); liveReplace('{{doctor}}',       val) }
+  const handleSpecChange   = (val: string) => { setApptSpec(val);   liveReplace('{{especialidad}}', val) }
+  const handleBranchChange = (val: string) => { setApptBranch(val); liveReplace('{{sede}}',         val) }
+
   const applyTemplate = (tmpl: ResponseTemplate) => {
     let body = tmpl.body
     body = body.replace(/{{nombre_paciente}}/g, requestData.patientName)
@@ -51,7 +63,7 @@ export function StatusManagementForm({ action, templates, currentStatus, request
     body = body.replace(/{{hora_cita}}/g,    apptTime      || '{{hora_cita}}')
     body = body.replace(/{{doctor}}/g,       apptDoctor    || '{{doctor}}')
     body = body.replace(/{{especialidad}}/g, apptSpecialty || '{{especialidad}}')
-    body = body.replace(/{{sede}}/g,         apptBranch    || '{{sede}}')
+    body = body.replace(/{{sede}}/g,         (apptBranch && apptBranch !== 'none') ? apptBranch : '{{sede}}')
     setComment(body)
     textareaRef.current?.focus()
   }
@@ -134,7 +146,7 @@ export function StatusManagementForm({ action, templates, currentStatus, request
               <Input
                 type="date"
                 value={apptDate}
-                onChange={e => setApptDate(e.target.value)}
+                onChange={e => handleDateChange(e.target.value)}
                 className="h-9 text-sm border-teal-200 bg-white"
                 min={new Date().toISOString().split('T')[0]}
               />
@@ -144,7 +156,7 @@ export function StatusManagementForm({ action, templates, currentStatus, request
               <Input
                 type="time"
                 value={apptTime}
-                onChange={e => setApptTime(e.target.value)}
+                onChange={e => handleTimeChange(e.target.value)}
                 className="h-9 text-sm border-teal-200 bg-white"
               />
             </div>
@@ -154,7 +166,7 @@ export function StatusManagementForm({ action, templates, currentStatus, request
               <Label className="text-xs font-semibold text-slate-600">Doctor / Médico</Label>
               <CatalogManager institutionId={requestData.institutionId} doctors={doctors} specialties={specialties} />
             </div>
-            <Select value={apptDoctor} onValueChange={setApptDoctor}>
+            <Select value={apptDoctor} onValueChange={handleDoctorChange}>
               <SelectTrigger className="h-9 text-sm border-teal-200 bg-white">
                 <SelectValue placeholder="Seleccione un médico..." />
               </SelectTrigger>
@@ -168,7 +180,7 @@ export function StatusManagementForm({ action, templates, currentStatus, request
           </div>
           <div className="space-y-1">
             <Label className="text-xs font-semibold text-slate-600">Especialidad</Label>
-            <Select value={apptSpecialty} onValueChange={setApptSpec}>
+            <Select value={apptSpecialty} onValueChange={handleSpecChange}>
               <SelectTrigger className="h-9 text-sm border-teal-200 bg-white">
                 <SelectValue placeholder="Seleccione una especialidad..." />
               </SelectTrigger>
@@ -184,7 +196,7 @@ export function StatusManagementForm({ action, templates, currentStatus, request
           {branches.length > 0 && (
             <div className="space-y-1">
               <Label className="text-xs font-semibold text-slate-600">Sede / Sucursal</Label>
-              <Select value={apptBranch} onValueChange={setApptBranch}>
+              <Select value={apptBranch} onValueChange={handleBranchChange}>
                 <SelectTrigger className="h-9 text-sm border-teal-200 bg-white">
                   <SelectValue placeholder="Seleccione la sede..." />
                 </SelectTrigger>
