@@ -10,6 +10,7 @@ import { Send, FileText, CalendarPlus, ChevronDown, ChevronUp, Loader2, CheckCir
 import type { ResponseTemplate } from '@/app/admin/settings/template-actions'
 import { CatalogManager } from './catalog-manager'
 import type { Doctor, Specialty } from '@/app/admin/requests/catalog-actions'
+import type { Branch } from '@/app/admin/requests/branches-actions'
 
 interface Props {
   action: (fd: FormData) => void
@@ -23,15 +24,17 @@ interface Props {
   }
   doctors: Doctor[]
   specialties: Specialty[]
+  branches: Branch[]
 }
 
-export function StatusManagementForm({ action, templates, currentStatus, requestData, doctors, specialties }: Props) {
+export function StatusManagementForm({ action, templates, currentStatus, requestData, doctors, specialties, branches }: Props) {
   const [comment, setComment]         = useState('')
   const [showAppt, setShowAppt]       = useState(false)
   const [apptDate, setApptDate]       = useState('')
   const [apptTime, setApptTime]       = useState('')
   const [apptDoctor, setApptDoctor]   = useState('')
   const [apptSpecialty, setApptSpec]  = useState('')
+  const [apptBranch, setApptBranch]   = useState('')
   const [done, setDone]               = useState(false)
   const [isPending, startTransition]  = useTransition()
   const textareaRef = useRef<HTMLTextAreaElement>(null)
@@ -48,6 +51,7 @@ export function StatusManagementForm({ action, templates, currentStatus, request
     body = body.replace(/{{hora_cita}}/g,    apptTime      || '{{hora_cita}}')
     body = body.replace(/{{doctor}}/g,       apptDoctor    || '{{doctor}}')
     body = body.replace(/{{especialidad}}/g, apptSpecialty || '{{especialidad}}')
+    body = body.replace(/{{sede}}/g,         apptBranch    || '{{sede}}')
     setComment(body)
     textareaRef.current?.focus()
   }
@@ -56,10 +60,11 @@ export function StatusManagementForm({ action, templates, currentStatus, request
     e.preventDefault()
     const fd = new FormData(e.currentTarget)
     // Inject appointment fields (managed via state, not direct inputs)
-    fd.set('appt_date',      apptDate)
-    fd.set('appt_time',      apptTime)
-    fd.set('appt_doctor',    apptDoctor === 'none' ? '' : apptDoctor)
-    fd.set('appt_specialty', apptSpecialty === 'none' ? '' : apptSpecialty)
+    fd.set('appt_date',        apptDate)
+    fd.set('appt_time',        apptTime)
+    fd.set('appt_doctor',      apptDoctor === 'none' ? '' : apptDoctor)
+    fd.set('appt_specialty',   apptSpecialty === 'none' ? '' : apptSpecialty)
+    fd.set('appt_branch_name', apptBranch === 'none' ? '' : apptBranch)
 
     startTransition(async () => {
       await (action as (fd: FormData) => Promise<void>)(fd)
@@ -175,6 +180,25 @@ export function StatusManagementForm({ action, templates, currentStatus, request
               </SelectContent>
             </Select>
           </div>
+          {/* Sede selector — solo si hay sedes configuradas */}
+          {branches.length > 0 && (
+            <div className="space-y-1">
+              <Label className="text-xs font-semibold text-slate-600">Sede / Sucursal</Label>
+              <Select value={apptBranch} onValueChange={setApptBranch}>
+                <SelectTrigger className="h-9 text-sm border-teal-200 bg-white">
+                  <SelectValue placeholder="Seleccione la sede..." />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">Sin sede específica</SelectItem>
+                  {branches.filter(b => b.active).map(b => (
+                    <SelectItem key={b.id} value={b.name}>
+                      {b.name} — {b.address}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
           {apptDate && (
             <p className="text-xs text-teal-600 flex items-center gap-1.5">
               ⏰ Se enviarán recordatorios automáticos 24h y 2h antes vía cron-job.org

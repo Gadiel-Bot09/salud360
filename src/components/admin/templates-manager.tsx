@@ -14,6 +14,7 @@ const VARIABLES = [
   { tag: '{{hora_cita}}',       desc: 'Hora de la cita' },
   { tag: '{{doctor}}',          desc: 'Nombre del doctor' },
   { tag: '{{especialidad}}',    desc: 'Especialidad médica' },
+  { tag: '{{sede}}',            desc: 'Sede / Sucursal donde se atenderá la cita' },
   { tag: '{{institucion}}',     desc: 'Nombre de la institución' },
 ]
 

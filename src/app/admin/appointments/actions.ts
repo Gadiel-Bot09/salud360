@@ -36,6 +36,7 @@ export interface AppointmentWithPatient {
   radicado: string
   request_type: string
   institution_name: string
+  branch_name: string | null
 }
 
 async function getAuthFilter() {
@@ -132,7 +133,8 @@ export async function getAppointmentsByDate(date: string): Promise<AppointmentWi
         patient_email:    req.patient_email || patientJson.email || '—',
         radicado:         req.radicado      || '—',
         request_type:     req.type          || '—',
-        institution_name: institutionMap[req.institution_id] || 'Sin institución'
+        institution_name: institutionMap[req.institution_id] || 'Sin institución',
+        branch_name:      appt.branch_name  ?? null
       }
     })
   } catch (err) {

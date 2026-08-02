@@ -21,6 +21,7 @@ import { getResponseTemplates } from '@/app/admin/settings/template-actions'
 import { S3Client, GetObjectCommand, PutObjectCommand } from '@aws-sdk/client-s3'
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner'
 import { StatusManagementForm } from '@/components/admin/status-management-form'
+import { getBranches } from '@/app/admin/requests/branches-actions'
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -125,11 +126,12 @@ export default async function RequestDetailPage({ params }: { params: { id: stri
   const adminAttachments   = attachmentsWithUrls.filter(a =>  a.file_path.includes('/admin/'))
 
   // Fetch response templates and institution name for UI
-  const [templates, institutionResult, specialtiesRes, doctorsRes] = await Promise.all([
+  const [templates, institutionResult, specialtiesRes, doctorsRes, branches] = await Promise.all([
     getResponseTemplates(),
     supabaseAdmin.from('institutions').select('name, logo_url, colors, evolution_connected, evolution_instance_name').eq('id', request.institution_id).single(),
     supabaseAdmin.from('specialties').select('*').eq('institution_id', request.institution_id).eq('active', true),
-    supabaseAdmin.from('doctors').select('*').eq('institution_id', request.institution_id).eq('active', true)
+    supabaseAdmin.from('doctors').select('*').eq('institution_id', request.institution_id).eq('active', true),
+    getBranches()
   ])
   const institutionName = institutionResult.data?.name || 'Salud360'
   const specialties = specialtiesRes.data || []
@@ -138,14 +140,15 @@ export default async function RequestDetailPage({ params }: { params: { id: stri
   // Server Action
   async function updateStatus(formData: FormData) {
     'use server'
-    const newStatus     = formData.get('status') as string
-    const comment       = formData.get('comment') as string
-    const fileEntries   = formData.getAll('attachments') as File[]
-    const validFiles    = fileEntries.filter(f => f.size > 0)
-    const apptDate      = formData.get('appt_date') as string
-    const apptTime      = formData.get('appt_time') as string
-    const apptDoctor    = formData.get('appt_doctor') as string
-    const apptSpecialty = formData.get('appt_specialty') as string
+    const newStatus      = formData.get('status') as string
+    const comment        = formData.get('comment') as string
+    const fileEntries    = formData.getAll('attachments') as File[]
+    const validFiles     = fileEntries.filter(f => f.size > 0)
+    const apptDate       = formData.get('appt_date') as string
+    const apptTime       = formData.get('appt_time') as string
+    const apptDoctor     = formData.get('appt_doctor') as string
+    const apptSpecialty  = formData.get('appt_specialty') as string
+    const apptBranchName = formData.get('appt_branch_name') as string
 
     const sbAdm = createAdminClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!)
     const sbRLS = await createClient()
@@ -179,6 +182,7 @@ export default async function RequestDetailPage({ params }: { params: { id: stri
       await sbAdm.from('appointments').insert({
         request_id: request.id, appointment_date: apptDate, appointment_time: apptTime,
         doctor_name: apptDoctor || null, specialty: apptSpecialty || null,
+        branch_name: apptBranchName || null,
         reminder_24h_sent: false, reminder_2h_sent: false
       })
       const { data: inst } = await sbAdm.from('institutions').select('name').eq('id', request.institution_id).single()
@@ -194,7 +198,7 @@ export default async function RequestDetailPage({ params }: { params: { id: stri
     await sbAdm.from('requests').update({ status: newStatus, updated_at: new Date().toISOString() }).eq('id', request.id)
     await sbAdm.from('request_history').insert({
       request_id: request.id,
-      action: `Estado actualizado a ${STATUS_MAP[newStatus]?.label || newStatus}${apptDate ? ` · Cita: ${apptDate} ${apptTime}` : ''}`,
+      action: `Estado actualizado a ${STATUS_MAP[newStatus]?.label || newStatus}${apptDate ? ` · Cita: ${apptDate} ${apptTime}${apptBranchName ? ` · Sede: ${apptBranchName}` : ''}` : ''}`,
       from_status: request.status, to_status: newStatus,
       user_id: user?.id, comment: comment || null
     })
@@ -479,6 +483,7 @@ export default async function RequestDetailPage({ params }: { params: { id: stri
                   }}
                   doctors={doctors}
                   specialties={specialties}
+                  branches={branches}
                 />
               </div>
             </div>

@@ -3,7 +3,7 @@
 import { useState, useTransition } from 'react'
 import {
   CheckCircle2, XCircle, Clock, RotateCcw, Search,
-  ChevronDown, Stethoscope, Building2, CalendarClock, MessageCircle, AlertTriangle, Trash2
+  ChevronDown, Stethoscope, Building2, CalendarClock, MessageCircle, AlertTriangle, Trash2, MapPin
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -356,6 +356,11 @@ export function AppointmentsTable({ appointments: initial, isAdmin = false }: Pr
                         {appt.specialty && (
                           <span className="flex items-center gap-1">
                             <Building2 className="w-3 h-3" /> {appt.specialty}
+                          </span>
+                        )}
+                        {appt.branch_name && (
+                          <span className="flex items-center gap-1 text-teal-700 font-medium">
+                            <MapPin className="w-3 h-3" /> {appt.branch_name}
                           </span>
                         )}
                       </div>

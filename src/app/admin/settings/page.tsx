@@ -4,7 +4,9 @@ import { SettingsClient } from './settings-client'
 import { headers } from 'next/headers'
 import { getResponseTemplates, createResponseTemplate, updateResponseTemplate, deleteResponseTemplate } from './template-actions'
 import { TemplatesManager } from '@/components/admin/templates-manager'
-import { Settings, FileText } from 'lucide-react'
+import { BranchesManager } from '@/components/admin/branches-manager'
+import { getBranches } from '@/app/admin/requests/branches-actions'
+import { Settings, FileText, Building2 } from 'lucide-react'
 
 export const dynamic = 'force-dynamic'
 
@@ -69,6 +71,7 @@ export default async function SettingsPage() {
   const siteUrl = `${proto}://${host}`
 
   const templates = await getResponseTemplates()
+  const branches  = await getBranches()
 
   return (
     <div className="p-6 md:p-8 max-w-5xl mx-auto space-y-8">
@@ -92,6 +95,20 @@ export default async function SettingsPage() {
           siteUrl={siteUrl}
           initialEvolutionConnected={initialEvolutionConnected}
         />
+      </div>
+
+      {/* Divider */}
+      <div className="border-t border-slate-200" />
+
+      {/* Section: Sedes / Sucursales */}
+      <div>
+        <h2 className="text-sm font-bold text-slate-500 uppercase tracking-wider mb-1 flex items-center gap-2">
+          <Building2 className="w-4 h-4" /> Sedes / Sucursales
+        </h2>
+        <p className="text-xs text-slate-400 mb-4">Registra las sedes o sucursales de tu institución para indicarlas en la asignación de citas.</p>
+        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6">
+          <BranchesManager initialBranches={branches} />
+        </div>
       </div>
 
       {/* Divider */}
