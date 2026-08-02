@@ -34,8 +34,9 @@ export function StatusManagementForm({ action, templates, currentStatus, request
   const [apptTime, setApptTime]       = useState('')
   const [apptDoctor, setApptDoctor]   = useState('')
   const [apptSpecialty, setApptSpec]  = useState('')
-  const [apptBranch, setApptBranch]         = useState('')
-  const [apptBranchAddress, setApptBranchAddress] = useState('')
+  const [apptBranch, setApptBranch]               = useState('')  // nombre de la sede
+  const [apptBranchAddress, setApptBranchAddress] = useState('')  // dirección de la sede
+  const [apptBranchId, setApptBranchId]           = useState('')  // id para el select
   const [done, setDone]               = useState(false)
   const [isPending, startTransition]  = useTransition()
   const textareaRef = useRef<HTMLTextAreaElement>(null)
@@ -44,9 +45,10 @@ export function StatusManagementForm({ action, templates, currentStatus, request
   const hasAppointment = !!(apptDate && apptTime)
 
   // Reemplaza un placeholder en el texto si ya fue cargada una plantilla
+  // Usa split/join para evitar problemas de escapado con {{ }} en regex
   const liveReplace = (placeholder: string, value: string) => {
     if (!value || value === 'none') return
-    setComment(prev => prev.replace(new RegExp(placeholder.replace(/[{}]/g, '\\$&'), 'g'), value))
+    setComment(prev => prev.split(placeholder).join(value))
   }
 
   const handleDateChange   = (val: string) => { setApptDate(val);    liveReplace('{{fecha_cita}}',     val) }
@@ -54,11 +56,19 @@ export function StatusManagementForm({ action, templates, currentStatus, request
   const handleDoctorChange = (val: string) => { setApptDoctor(val);  liveReplace('{{doctor}}',         val) }
   const handleSpecChange   = (val: string) => { setApptSpec(val);    liveReplace('{{especialidad}}',   val) }
   const handleBranchChange = (val: string) => {
-    setApptBranch(val)
-    const branch = branches.find(b => b.name === val)
+    setApptBranchId(val)
+    if (val === 'none' || !val) {
+      setApptBranch('')
+      setApptBranchAddress('')
+      return
+    }
+    // Buscar por ID (único, sin riesgo de mismatch por nombre)
+    const branch = branches.find(b => b.id === val)
+    const name   = branch?.name    || ''
     const addr   = branch?.address || ''
+    setApptBranch(name)
     setApptBranchAddress(addr)
-    liveReplace('{{sede}}',          val)
+    if (name) liveReplace('{{sede}}',          name)
     if (addr) liveReplace('{{direccion_sede}}', addr)
   }
 
@@ -85,7 +95,7 @@ export function StatusManagementForm({ action, templates, currentStatus, request
     fd.set('appt_time',           apptTime)
     fd.set('appt_doctor',         apptDoctor === 'none' ? '' : apptDoctor)
     fd.set('appt_specialty',      apptSpecialty === 'none' ? '' : apptSpecialty)
-    fd.set('appt_branch_name',    apptBranch === 'none' ? '' : apptBranch)
+    fd.set('appt_branch_name',    apptBranch)
     fd.set('appt_branch_address', apptBranchAddress)
 
     startTransition(async () => {
@@ -206,14 +216,14 @@ export function StatusManagementForm({ action, templates, currentStatus, request
           {branches.length > 0 && (
             <div className="space-y-1">
               <Label className="text-xs font-semibold text-slate-600">Sede / Sucursal</Label>
-              <Select value={apptBranch} onValueChange={handleBranchChange}>
+              <Select value={apptBranchId} onValueChange={handleBranchChange}>
                 <SelectTrigger className="h-9 text-sm border-teal-200 bg-white">
                   <SelectValue placeholder="Seleccione la sede..." />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="none">Sin sede específica</SelectItem>
                   {branches.filter(b => b.active).map(b => (
-                    <SelectItem key={b.id} value={b.name}>
+                    <SelectItem key={b.id} value={b.id}>
                       {b.name} — {b.address}
                     </SelectItem>
                   ))}
