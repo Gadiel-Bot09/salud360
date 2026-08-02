@@ -15,6 +15,7 @@ const VARIABLES = [
   { tag: '{{doctor}}',          desc: 'Nombre del doctor' },
   { tag: '{{especialidad}}',    desc: 'Especialidad médica' },
   { tag: '{{sede}}',            desc: 'Sede / Sucursal donde se atenderá la cita' },
+  { tag: '{{direccion_sede}}', desc: 'Dirección exacta de la sede seleccionada' },
   { tag: '{{institucion}}',     desc: 'Nombre de la institución' },
 ]
 

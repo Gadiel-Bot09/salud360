@@ -34,7 +34,8 @@ export function StatusManagementForm({ action, templates, currentStatus, request
   const [apptTime, setApptTime]       = useState('')
   const [apptDoctor, setApptDoctor]   = useState('')
   const [apptSpecialty, setApptSpec]  = useState('')
-  const [apptBranch, setApptBranch]   = useState('')
+  const [apptBranch, setApptBranch]         = useState('')
+  const [apptBranchAddress, setApptBranchAddress] = useState('')
   const [done, setDone]               = useState(false)
   const [isPending, startTransition]  = useTransition()
   const textareaRef = useRef<HTMLTextAreaElement>(null)
@@ -48,11 +49,18 @@ export function StatusManagementForm({ action, templates, currentStatus, request
     setComment(prev => prev.replace(new RegExp(placeholder.replace(/[{}]/g, '\\$&'), 'g'), value))
   }
 
-  const handleDateChange = (val: string) => { setApptDate(val);   liveReplace('{{fecha_cita}}',   val) }
-  const handleTimeChange = (val: string) => { setApptTime(val);   liveReplace('{{hora_cita}}',    val) }
-  const handleDoctorChange = (val: string) => { setApptDoctor(val); liveReplace('{{doctor}}',       val) }
-  const handleSpecChange   = (val: string) => { setApptSpec(val);   liveReplace('{{especialidad}}', val) }
-  const handleBranchChange = (val: string) => { setApptBranch(val); liveReplace('{{sede}}',         val) }
+  const handleDateChange   = (val: string) => { setApptDate(val);    liveReplace('{{fecha_cita}}',     val) }
+  const handleTimeChange   = (val: string) => { setApptTime(val);    liveReplace('{{hora_cita}}',      val) }
+  const handleDoctorChange = (val: string) => { setApptDoctor(val);  liveReplace('{{doctor}}',         val) }
+  const handleSpecChange   = (val: string) => { setApptSpec(val);    liveReplace('{{especialidad}}',   val) }
+  const handleBranchChange = (val: string) => {
+    setApptBranch(val)
+    const branch = branches.find(b => b.name === val)
+    const addr   = branch?.address || ''
+    setApptBranchAddress(addr)
+    liveReplace('{{sede}}',          val)
+    if (addr) liveReplace('{{direccion_sede}}', addr)
+  }
 
   const applyTemplate = (tmpl: ResponseTemplate) => {
     let body = tmpl.body
@@ -63,7 +71,8 @@ export function StatusManagementForm({ action, templates, currentStatus, request
     body = body.replace(/{{hora_cita}}/g,    apptTime      || '{{hora_cita}}')
     body = body.replace(/{{doctor}}/g,       apptDoctor    || '{{doctor}}')
     body = body.replace(/{{especialidad}}/g, apptSpecialty || '{{especialidad}}')
-    body = body.replace(/{{sede}}/g,         (apptBranch && apptBranch !== 'none') ? apptBranch : '{{sede}}')
+    body = body.replace(/{{sede}}/g,            (apptBranch && apptBranch !== 'none') ? apptBranch        : '{{sede}}')
+    body = body.replace(/{{direccion_sede}}/g,   apptBranchAddress                     ? apptBranchAddress : '{{direccion_sede}}')
     setComment(body)
     textareaRef.current?.focus()
   }
@@ -72,11 +81,12 @@ export function StatusManagementForm({ action, templates, currentStatus, request
     e.preventDefault()
     const fd = new FormData(e.currentTarget)
     // Inject appointment fields (managed via state, not direct inputs)
-    fd.set('appt_date',        apptDate)
-    fd.set('appt_time',        apptTime)
-    fd.set('appt_doctor',      apptDoctor === 'none' ? '' : apptDoctor)
-    fd.set('appt_specialty',   apptSpecialty === 'none' ? '' : apptSpecialty)
-    fd.set('appt_branch_name', apptBranch === 'none' ? '' : apptBranch)
+    fd.set('appt_date',           apptDate)
+    fd.set('appt_time',           apptTime)
+    fd.set('appt_doctor',         apptDoctor === 'none' ? '' : apptDoctor)
+    fd.set('appt_specialty',      apptSpecialty === 'none' ? '' : apptSpecialty)
+    fd.set('appt_branch_name',    apptBranch === 'none' ? '' : apptBranch)
+    fd.set('appt_branch_address', apptBranchAddress)
 
     startTransition(async () => {
       await (action as (fd: FormData) => Promise<void>)(fd)
