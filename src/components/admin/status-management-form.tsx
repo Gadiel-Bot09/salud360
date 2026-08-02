@@ -38,7 +38,8 @@ export function StatusManagementForm({ action, templates, currentStatus, request
   const [apptBranchAddress, setApptBranchAddress] = useState('')  // dirección de la sede
   const [apptBranchId, setApptBranchId]           = useState('')  // id para el select
   const [done, setDone]               = useState(false)
-  const [isPending, startTransition]  = useTransition()
+  const [isLoading, setIsLoading]     = useState(false)
+  const [isTakingLong, setIsTakingLong] = useState(false)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const formRef     = useRef<HTMLFormElement>(null)
 
@@ -87,8 +88,10 @@ export function StatusManagementForm({ action, templates, currentStatus, request
     textareaRef.current?.focus()
   }
 
-  const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
+    if (isLoading) return // prevent double submission
+    
     const fd = new FormData(e.currentTarget)
     // Inject appointment fields (managed via state, not direct inputs)
     fd.set('appt_date',           apptDate)
@@ -98,15 +101,26 @@ export function StatusManagementForm({ action, templates, currentStatus, request
     fd.set('appt_branch_name',    apptBranch)
     fd.set('appt_branch_address', apptBranchAddress)
 
-    startTransition(async () => {
+    setIsLoading(true)
+    setIsTakingLong(false)
+    
+    // Si tarda más de 2 segundos, mostrar mensaje de que está tardando
+    const longTimer = setTimeout(() => setIsTakingLong(true), 2000)
+
+    try {
       await (action as (fd: FormData) => Promise<void>)(fd)
       setDone(true)
       setTimeout(() => setDone(false), 3000)
-    })
+    } finally {
+      clearTimeout(longTimer)
+      setIsLoading(false)
+      setIsTakingLong(false)
+    }
   }
 
   const submitLabel = () => {
-    if (isPending) {
+    if (isLoading) {
+      if (isTakingLong) return 'Enviando... por favor espere'
       return hasAppointment
         ? 'Guardando cita y notificando...'
         : 'Guardando y notificando...'
@@ -294,7 +308,7 @@ export function StatusManagementForm({ action, templates, currentStatus, request
       {/* Submit button with contextual loading state */}
       <Button
         type="submit"
-        disabled={isPending}
+        disabled={isLoading}
         className={`w-full font-semibold mt-2 transition-all duration-300 ${
           done
             ? 'bg-emerald-600 hover:bg-emerald-700'
@@ -303,7 +317,7 @@ export function StatusManagementForm({ action, templates, currentStatus, request
               : 'bg-teal-700 hover:bg-teal-800'
         }`}
       >
-        {isPending ? (
+        {isLoading ? (
           <Loader2 className="w-4 h-4 mr-2 animate-spin" />
         ) : done ? (
           <CheckCircle2 className="w-4 h-4 mr-2" />
