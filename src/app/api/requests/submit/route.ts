@@ -19,7 +19,7 @@ export async function POST(request: Request) {
         const documentNumber = formData.get('documentNumber') as string
         const fullName = formData.get('fullName') as string
         const email = formData.get('email') as string
-        const phone = formData.get('phone') as string
+        const phone = ((formData.get('phone') as string) || '').replace(/\D/g, '').slice(0, 10)
         const requestType = formData.get('requestType') as string
         const institutionId = formData.get('institutionId') as string
 

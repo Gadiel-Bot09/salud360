@@ -209,8 +209,56 @@ function FieldRenderer({
           />
         )}
 
-        {/* Regular text (not document number) */}
-        {field.type === 'text' && field.systemRole !== 'documentNumber' && (
+        {/* Phone number — only digits, exactly 10 characters */}
+        {field.type === 'text' && field.systemRole === 'phone' && (() => {
+          const [phoneVal, setPhoneVal] = useState(prefillValue || '')
+          const [phoneTouched, setPhoneTouched] = useState(false)
+          const phoneError = phoneTouched && phoneVal.length > 0 && phoneVal.length !== 10
+          const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+            // Strip non-digits and enforce max 10
+            const digits = e.target.value.replace(/\D/g, '').slice(0, 10)
+            setPhoneVal(digits)
+          }
+          return (
+            <div className="space-y-1">
+              <div className="relative">
+                <Input
+                  key={prefillValue}
+                  name={inputName}
+                  required={field.required}
+                  type="tel"
+                  inputMode="numeric"
+                  placeholder="Ej: 3001234567"
+                  value={phoneVal}
+                  maxLength={10}
+                  pattern="\d{10}"
+                  onChange={handlePhoneChange}
+                  onBlur={() => setPhoneTouched(true)}
+                  className={`h-10 pr-14 ${phoneError ? 'border-red-400 focus-visible:ring-red-400' : ''}`}
+                  style={{ '--tw-ring-color': brandColors.primary } as React.CSSProperties}
+                />
+                <span className={`absolute right-3 top-1/2 -translate-y-1/2 text-xs font-mono font-semibold tabular-nums ${
+                  phoneVal.length === 10 ? 'text-emerald-600' : phoneVal.length > 0 ? 'text-amber-500' : 'text-slate-300'
+                }`}>
+                  {phoneVal.length}/10
+                </span>
+              </div>
+              {phoneError && (
+                <p className="text-xs text-red-500 flex items-center gap-1">
+                  ⚠ El teléfono debe tener exactamente 10 dígitos (ej: 3001234567)
+                </p>
+              )}
+              {phoneVal.length === 10 && (
+                <p className="text-xs text-emerald-600 flex items-center gap-1">
+                  ✓ Número válido
+                </p>
+              )}
+            </div>
+          )
+        })()}
+
+        {/* Regular text (not document number, not phone) */}
+        {field.type === 'text' && field.systemRole !== 'documentNumber' && field.systemRole !== 'phone' && (
           <Input
             key={prefillValue}
             name={inputName}
