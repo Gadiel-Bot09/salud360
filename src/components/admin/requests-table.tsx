@@ -16,7 +16,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Eye, FileText, Search, X, Paperclip, AlertTriangle, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from 'lucide-react'
 import { formatCO } from '@/lib/utils'
-import { differenceInDays } from 'date-fns'
+import { differenceInDays, startOfDay } from 'date-fns'
 import Link from 'next/link'
 import { ExportButtons } from './export-buttons'
 
@@ -54,8 +54,8 @@ export function RequestsTable({ initialData }: { initialData: any[] }) {
                 req.type?.toLowerCase().includes(query)
 
             const isPending = req.status === 'received' || req.status === 'processing' || req.status === 'escalated'
-            const daysElapsed = differenceInDays(new Date(), new Date(req.created_at))
-            const isDelayed = isPending && daysElapsed > 5
+            const daysElapsed = differenceInDays(startOfDay(new Date()), startOfDay(new Date(req.created_at)))
+            const isDelayed = isPending && daysElapsed >= 5
 
             const matchesStatus =
                 statusFilter === 'all' ? true :
@@ -70,7 +70,7 @@ export function RequestsTable({ initialData }: { initialData: any[] }) {
     const overdueCount = useMemo(() =>
         initialData.filter(req => {
             const isPending = req.status === 'received' || req.status === 'processing' || req.status === 'escalated'
-            return isPending && differenceInDays(new Date(), new Date(req.created_at)) > 5
+            return isPending && differenceInDays(startOfDay(new Date()), startOfDay(new Date(req.created_at))) >= 5
         }).length
     , [initialData])
 
@@ -190,8 +190,8 @@ export function RequestsTable({ initialData }: { initialData: any[] }) {
                             paginated.map((req) => {
                                 // Indicator logic for requests older than 5 days without response
                                 const isPending = req.status === 'received' || req.status === 'processing' || req.status === 'escalated'
-                                const daysElapsed = differenceInDays(new Date(), new Date(req.created_at))
-                                const isDelayed = isPending && daysElapsed > 5
+                                const daysElapsed = differenceInDays(startOfDay(new Date()), startOfDay(new Date(req.created_at)))
+                                const isDelayed = isPending && daysElapsed >= 5
 
                                 // Find the last user who interacted with it
                                 const historyArray = req.request_history || []
@@ -199,13 +199,13 @@ export function RequestsTable({ initialData }: { initialData: any[] }) {
                                 const responderName = lastUserEntry ? lastUserEntry.users.full_name : 'No asignado'
 
                                 let rowClass = "hover:bg-slate-50 transition-colors"
-                                if (isDelayed) rowClass = "bg-red-50/60 hover:bg-red-50 border-l-4 border-l-red-500 transition-colors"
+                                if (isDelayed) rowClass = "bg-red-50 hover:bg-red-100 transition-colors"
                                 else if (req.status === 'processing') rowClass += " bg-amber-50/30"
                                 else if (req.status === 'escalated') rowClass += " bg-red-50/30"
 
                                 return (
                                     <TableRow key={req.id} className={rowClass}>
-                                        <TableCell className="font-medium">
+                                        <TableCell className={`font-medium ${isDelayed ? 'border-l-4 border-l-red-500' : ''}`}>
                                             <div className="flex items-center gap-2">
                                                 {isDelayed && (
                                                     <span className="relative flex h-2.5 w-2.5 shrink-0">
