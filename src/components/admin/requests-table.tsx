@@ -53,11 +53,26 @@ export function RequestsTable({ initialData }: { initialData: any[] }) {
                 req.patient_document_number?.toLowerCase().includes(query) ||
                 req.type?.toLowerCase().includes(query)
 
-            const matchesStatus = statusFilter === 'all' || req.status === statusFilter
+            const isPending = req.status === 'received' || req.status === 'processing' || req.status === 'escalated'
+            const daysElapsed = differenceInDays(new Date(), new Date(req.created_at))
+            const isDelayed = isPending && daysElapsed > 5
+
+            const matchesStatus =
+                statusFilter === 'all' ? true :
+                statusFilter === 'delayed' ? isDelayed :
+                req.status === statusFilter
 
             return matchesSearch && matchesStatus
         })
     }, [initialData, search, statusFilter])
+
+    // Count of overdue pending requests (for toolbar alert)
+    const overdueCount = useMemo(() =>
+        initialData.filter(req => {
+            const isPending = req.status === 'received' || req.status === 'processing' || req.status === 'escalated'
+            return isPending && differenceInDays(new Date(), new Date(req.created_at)) > 5
+        }).length
+    , [initialData])
 
     // Pagination
     const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE))
@@ -89,6 +104,7 @@ export function RequestsTable({ initialData }: { initialData: any[] }) {
 
     const STATUS_OPTIONS = [
         { label: 'Todos los estados', value: 'all' },
+        { label: '🔴 Con Atraso (+5 días)', value: 'delayed' },
         { label: 'Recibidas', value: 'received' },
         { label: 'En Trámite', value: 'processing' },
         { label: 'Respondidas', value: 'responded' },
@@ -133,6 +149,20 @@ export function RequestsTable({ initialData }: { initialData: any[] }) {
                 <ExportButtons data={filtered} />
             </div>
 
+            {/* Overdue alert banner */}
+            {overdueCount > 0 && statusFilter !== 'delayed' && (
+                <button
+                    onClick={() => setStatusFilter('delayed')}
+                    className="w-full flex items-center gap-3 px-4 py-2.5 rounded-lg border border-red-300 bg-red-50 text-red-700 text-sm font-semibold hover:bg-red-100 transition-colors animate-pulse"
+                >
+                    <AlertTriangle className="h-4 w-4 shrink-0 text-red-500" />
+                    <span>
+                        {overdueCount} solicitud{overdueCount !== 1 ? 'es' : ''} con más de 5 días sin respuesta — requieren atención inmediata
+                    </span>
+                    <span className="ml-auto text-xs underline">Ver atrasadas →</span>
+                </button>
+            )}
+
             {/* Table */}
             <div className="rounded-md border border-slate-200 overflow-hidden">
                 <Table>
@@ -168,23 +198,31 @@ export function RequestsTable({ initialData }: { initialData: any[] }) {
                                 const lastUserEntry = [...historyArray].reverse().find((h: any) => h.users?.full_name)
                                 const responderName = lastUserEntry ? lastUserEntry.users.full_name : 'No asignado'
 
-                                // Row highlighting for priority
                                 let rowClass = "hover:bg-slate-50 transition-colors"
-                                if (req.status === 'processing') rowClass += " bg-amber-50/30"
-                                if (req.status === 'escalated') rowClass += " bg-red-50/30"
+                                if (isDelayed) rowClass = "bg-red-50/60 hover:bg-red-50 border-l-4 border-l-red-500 transition-colors"
+                                else if (req.status === 'processing') rowClass += " bg-amber-50/30"
+                                else if (req.status === 'escalated') rowClass += " bg-red-50/30"
 
                                 return (
                                     <TableRow key={req.id} className={rowClass}>
                                         <TableCell className="font-medium">
-                                            {req.radicado}
+                                            <div className="flex items-center gap-2">
+                                                {isDelayed && (
+                                                    <span className="relative flex h-2.5 w-2.5 shrink-0">
+                                                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+                                                        <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-red-500"></span>
+                                                    </span>
+                                                )}
+                                                <span>{req.radicado}</span>
+                                            </div>
                                             <div className="mt-1">{getPriorityBadge(req.priority)}</div>
                                         </TableCell>
-                                        <TableCell className="text-slate-600 relative">
+                                        <TableCell className="text-slate-600">
                                             {formatCO(new Date(req.created_at), "d MMM, yyyy")}
                                             {isDelayed && (
-                                                <div className="mt-1 flex items-center gap-1 text-red-600 bg-red-50 text-[10px] font-bold px-1.5 py-0.5 rounded-sm w-max border border-red-100">
+                                                <div className="mt-1 flex items-center gap-1 text-red-700 bg-red-100 text-[11px] font-bold px-2 py-0.5 rounded-full w-max border border-red-300">
                                                     <AlertTriangle className="h-3 w-3" />
-                                                    +{daysElapsed} días en espera
+                                                    {daysElapsed} días sin respuesta
                                                 </div>
                                             )}
                                         </TableCell>
