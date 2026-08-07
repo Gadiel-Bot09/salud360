@@ -1,12 +1,31 @@
 'use server'
 
 import { createClient as createAdminClient } from '@supabase/supabase-js'
+import { createClient as createAuthClient } from '@/lib/supabase/server'
 import { differenceInDays, parseISO, format } from 'date-fns'
 
-const supabaseAdmin = createAdminClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-)
+function getAdminClient() {
+  return createAdminClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!
+  )
+}
+
+// Reutiliza el mismo patrón de auth-filter que el resto de reportes
+async function getAuthFilter() {
+  const authClient = await createAuthClient()
+  const { data: { user } } = await authClient.auth.getUser()
+  if (!user) return null
+  const sb = getAdminClient()
+  const { data: myProfile } = await sb
+    .from('users')
+    .select('institution_id, roles(name)')
+    .eq('id', user.id)
+    .single()
+  const profile = myProfile as any
+  const isSuperAdmin = profile?.roles?.name === 'Super Admin'
+  return { isSuperAdmin, institutionId: myProfile?.institution_id as string | null }
+}
 
 // Mapeo EPS+Regimen combinado → separados
 function parseEpsRegimen(combined: string | null): { entidad: string; regimen: string } {
@@ -51,8 +70,12 @@ export interface Circular1552Row {
 }
 
 export async function fetchCircular1552Report(from?: string, to?: string): Promise<Circular1552Row[]> {
-  // Traer citas con su request y la institución
-  let query = supabaseAdmin
+  const filter = await getAuthFilter()
+  if (!filter) return []
+
+  const sb = getAdminClient()
+
+  let query = sb
     .from('appointments')
     .select(`
       id,
@@ -80,8 +103,15 @@ export async function fetchCircular1552Report(from?: string, to?: string): Promi
     `)
     .order('appointment_date', { ascending: true })
 
+  // Filtrar por fecha de cita si se especifica rango
   if (from) query = query.gte('appointment_date', from)
   if (to)   query = query.lte('appointment_date', to)
+
+  // ── FILTRO POR INSTITUCIÓN (clave de seguridad) ────────────────────────────
+  // Super Admin ve todas. Admin/Gestor solo ve su institución.
+  if (!filter.isSuperAdmin && filter.institutionId) {
+    query = query.eq('requests.institution_id', filter.institutionId)
+  }
 
   const { data, error } = await query
   if (error || !data) {
