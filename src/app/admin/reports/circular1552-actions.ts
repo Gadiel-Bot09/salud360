@@ -43,10 +43,27 @@ function parseEpsRegimen(combined: string | null): { entidad: string; regimen: s
 }
 
 // Mapeo estado de asistencia → texto para el reporte
-function attendanceLabel(status: string | null, cancelled: boolean): string {
-  if (cancelled || status === 'cancelled') return 'Cancelada'
-  if (status === 'attended')  return 'Asistió'
-  if (status === 'no_show')   return 'No Asistió'
+// Lee el campo `attended` (boolean, columna histórica del módulo de citas)
+// y también `attendance_status` (nuevo campo para la Circular 1552).
+// Para citas ya pasadas sin marcar, infiere "Sin Confirmar".
+function attendanceLabel(
+  attended: boolean | null,
+  attendanceStatus: string | null,
+  cancelled: boolean,
+  appointmentDate: string
+): string {
+  if (cancelled || attendanceStatus === 'cancelled') return 'Cancelada'
+  // Columna `attended` (la que ya usa el módulo de citas)
+  if (attended === true)  return 'Asistió'
+  if (attended === false) return 'No Asistió'
+  // Columna nueva `attendance_status`
+  if (attendanceStatus === 'attended')  return 'Asistió'
+  if (attendanceStatus === 'no_show')   return 'No Asistió'
+  // Inferencia inteligente: si la cita ya pasó y no fue marcada → Sin Confirmar
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+  const citaDate = appointmentDate ? new Date(appointmentDate) : null
+  if (citaDate && citaDate < today) return 'Sin Confirmar'
   return 'Pendiente'
 }
 
@@ -85,6 +102,7 @@ export async function fetchCircular1552Report(from?: string, to?: string): Promi
       specialty,
       codigo_cups,
       attendance_status,
+      attended,
       cancelled,
       created_at,
       requests!inner (
@@ -158,7 +176,12 @@ export async function fetchCircular1552Report(from?: string, to?: string): Promi
       oportunidad,
       medico:          appt.doctor_name || '—',
       especialidad:    appt.specialty || '—',
-      estadoCita:      attendanceLabel(appt.attendance_status, appt.cancelled),
+      estadoCita:      attendanceLabel(
+        appt.attended ?? null,
+        appt.attendance_status ?? null,
+        appt.cancelled ?? false,
+        appt.appointment_date ?? ''
+      ),
     }
   })
 }

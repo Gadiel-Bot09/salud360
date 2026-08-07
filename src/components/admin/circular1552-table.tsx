@@ -39,6 +39,8 @@ function EstadoBadge({ estado }: { estado: string }) {
     return <span className="inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full bg-red-100 text-red-700"><AlertTriangle className="h-3 w-3" />No Asistió</span>
   if (estado === 'Cancelada')
     return <span className="inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full bg-slate-100 text-slate-600"><X className="h-3 w-3" />Cancelada</span>
+  if (estado === 'Sin Confirmar')
+    return <span className="inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full bg-orange-100 text-orange-700"><AlertTriangle className="h-3 w-3" />Sin Confirmar</span>
   return <span className="inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full bg-amber-100 text-amber-700"><Clock className="h-3 w-3" />Pendiente</span>
 }
 
