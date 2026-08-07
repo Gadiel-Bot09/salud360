@@ -42,7 +42,23 @@ function parseEpsRegimen(combined: string | null): { entidad: string; regimen: s
   return { entidad: val, regimen: '—' }
 }
 
-// Mapeo estado de asistencia → texto para el reporte
+// Mapeo Servicio → Código CUPS (mismo que en el action de asignación de citas)
+const CUPS_MAP: Record<string, string> = {
+  'Cirugia':          '890222',
+  'Cirugía':          '890222',
+  'Endodoncia':       '890218',
+  'Odontopediatría':  '890220',
+  'Odontopediatria':  '890220',
+  'Rehabilitación':   '890224',
+  'Rehabilitacion':   '890224',
+  'Primera Vez':      '890203',
+  'Periodoncia':      '890221',
+  'Ortodoncia':       '890223',
+  'Prótesis':         '',   // por definir
+  'Protesis':         '',
+}
+
+
 // Lee el campo `attended` (boolean, columna histórica del módulo de citas)
 // y también `attendance_status` (nuevo campo para la Circular 1552).
 // Para citas ya pasadas sin marcar, infiere "Sin Confirmar".
@@ -160,6 +176,10 @@ export async function fetchCircular1552Report(from?: string, to?: string): Promi
       ? differenceInDays(asignacionDate, solicitudDate)
       : 0
 
+      // "Servicio" = campo "Tipo de Solicitud" del formulario dinámico (ej: Primera Vez, Prótesis)
+      // NO es req.type que contiene el "Trámite a Solicitar" (Solicitud de Cita / Procedimientos)
+      const servicioFinal = patientData['Tipo de Solicitud'] || patientData['Tipo de Cita'] || req?.type || '—'
+      
     return {
       tipoDocumento:   req?.patient_document_type || '—',
       numeroDocumento: req?.patient_document_number || '—',
@@ -167,10 +187,8 @@ export async function fetchCircular1552Report(from?: string, to?: string): Promi
       nombrePrestador: inst?.name || '—',
       entidad,
       regimen,
-      // "Servicio" = campo "Tipo de Solicitud" del formulario dinámico (ej: Primera Vez, Prótesis)
-      // NO es req.type que contiene el "Trámite a Solicitar" (Solicitud de Cita / Procedimientos)
-      servicio:        patientData['Tipo de Solicitud'] || patientData['Tipo de Cita'] || req?.type || '—',
-      codigoCups:      appt.codigo_cups || '—',
+      servicio:        servicioFinal,
+      codigoCups:      appt.codigo_cups || CUPS_MAP[servicioFinal] || '—',
       fechaSolicitud:  solicitudDate ? format(solicitudDate, 'dd/MM/yyyy') : '—',
       fechaAsignacion: appt.created_at ? format(parseISO(appt.created_at), 'dd/MM/yyyy') : '—',
       fechaCita:       citaDate ? format(citaDate, 'dd/MM/yyyy') : '—',
