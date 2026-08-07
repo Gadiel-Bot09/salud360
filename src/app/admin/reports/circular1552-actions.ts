@@ -132,11 +132,14 @@ export async function fetchCircular1552Report(from?: string, to?: string): Promi
       || null
     const { entidad, regimen } = parseEpsRegimen(epsRaw)
 
-    // Calcular oportunidad (días entre solicitud y fecha de cita)
-    const solicitudDate = req?.created_at ? parseISO(req.created_at) : null
-    const citaDate      = appt.appointment_date ? parseISO(appt.appointment_date) : null
-    const oportunidad   = solicitudDate && citaDate
-      ? differenceInDays(citaDate, solicitudDate)
+    // Calcular oportunidad:
+    // Días entre la solicitud del paciente y la fecha en que el gestor asignó la cita.
+    // Esto mide el tiempo de respuesta institucional, que es lo que regula la Resolución 1552.
+    const solicitudDate   = req?.created_at    ? parseISO(req.created_at)    : null
+    const asignacionDate  = appt.created_at    ? parseISO(appt.created_at)   : null
+    const citaDate        = appt.appointment_date ? parseISO(appt.appointment_date) : null
+    const oportunidad     = solicitudDate && asignacionDate
+      ? differenceInDays(asignacionDate, solicitudDate)
       : 0
 
     return {
