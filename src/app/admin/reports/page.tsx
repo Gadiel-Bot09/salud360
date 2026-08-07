@@ -9,8 +9,10 @@ import {
   fetchAttendanceDetail,
   fetchRequestsDetail
 } from './actions'
+import { fetchCircular1552Report } from './circular1552-actions'
 import { ReportsDashboard } from '@/components/admin/reports-dashboard'
-import { BarChart2 } from 'lucide-react'
+import { Circular1552Table } from '@/components/admin/circular1552-table'
+import { BarChart2, FileText } from 'lucide-react'
 
 export const dynamic = 'force-dynamic'
 
@@ -28,7 +30,10 @@ async function loadAllReports(from?: string, to?: string) {
 }
 
 export default async function ReportsPage() {
-  const initialData = await loadAllReports()
+  const [initialData, circular1552Data] = await Promise.all([
+    loadAllReports(),
+    fetchCircular1552Report()
+  ])
 
   async function refresh(from: string, to: string) {
     'use server'
@@ -45,8 +50,13 @@ export default async function ReportsPage() {
     return fetchAttendanceDetail(institutionName, from || undefined, to || undefined)
   }
 
+  async function fetchCircular(from: string, to: string) {
+    'use server'
+    return fetchCircular1552Report(from || undefined, to || undefined)
+  }
+
   return (
-    <div className="p-6 md:p-8 space-y-6 max-w-[1600px] mx-auto">
+    <div className="p-6 md:p-8 space-y-8 max-w-[1600px] mx-auto">
       {/* Page Header */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div className="flex items-center gap-3">
@@ -66,7 +76,34 @@ export default async function ReportsPage() {
         </div>
       </div>
 
-      <ReportsDashboard initialData={initialData} onRefresh={refresh} onFetchDetail={fetchDetail} onFetchAttDetail={fetchAttDetail} />
+      {/* Analytics Dashboard (existing) */}
+      <ReportsDashboard
+        initialData={initialData}
+        onRefresh={refresh}
+        onFetchDetail={fetchDetail}
+        onFetchAttDetail={fetchAttDetail}
+      />
+
+      {/* ── Reporte Circular 1552 ─────────────────────────────────────────── */}
+      <section className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+        <div className="flex items-center gap-3 px-6 py-4 border-b border-slate-100 bg-gradient-to-r from-teal-50 to-white">
+          <div className="w-10 h-10 bg-teal-600 rounded-xl flex items-center justify-center shadow-sm">
+            <FileText className="w-5 h-5 text-white" />
+          </div>
+          <div>
+            <h2 className="font-bold text-slate-800 text-lg">Reporte Circular 1552</h2>
+            <p className="text-xs text-slate-500">
+              Resolución 1552/2013 · Oportunidad en asignación de citas · Exportación CSV para Supersalud
+            </p>
+          </div>
+          <span className="ml-auto text-[10px] font-bold text-teal-700 bg-teal-100 border border-teal-200 px-2 py-1 rounded-full">
+            {circular1552Data.length} registros
+          </span>
+        </div>
+        <div className="p-6">
+          <Circular1552Table initialData={circular1552Data} onFetch={fetchCircular} />
+        </div>
+      </section>
     </div>
   )
 }

@@ -31,7 +31,7 @@ export default async function SettingsPage() {
   if (userProfile?.institution_id) {
     const { data } = await supabaseAdmin
       .from('institutions')
-      .select('id, name, slug, logo_url, colors, tagline, description, address, phone, contact_email, website, privacy_policy, evolution_connected, evolution_instance_name')
+      .select('id, name, slug, logo_url, colors, tagline, description, address, phone, contact_email, website, privacy_policy, evolution_connected, evolution_instance_name, codigo_prestador')
       .eq('id', userProfile.institution_id)
       .single()
     institution = data

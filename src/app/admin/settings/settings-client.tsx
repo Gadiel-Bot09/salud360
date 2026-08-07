@@ -28,6 +28,7 @@ interface Institution {
   privacy_policy: string | null
   evolution_instance_name: string | null
   evolution_connected: boolean
+  codigo_prestador: string | null
 }
 
 interface Props {
@@ -716,6 +717,22 @@ function BrandingSection({ institution, siteUrl }: { institution: Institution; s
                 <Globe className="h-3.5 w-3.5 text-slate-400" /> Sitio Web
               </Label>
               <Input id="website" name="website" type="url" defaultValue={institution.website || ''} placeholder="https://www.clinica.com" />
+            </div>
+
+            {/* Código Prestador REPS — reporte Circular 1552 */}
+            <div className="space-y-2 md:col-span-2 pt-2">
+              <Label htmlFor="codigo_prestador" className="flex items-center gap-1.5">
+                <FileText className="h-3.5 w-3.5 text-teal-600" />
+                Código Prestador REPS
+                <span className="ml-1 text-[10px] font-normal text-teal-600 bg-teal-50 px-1.5 py-0.5 rounded-full">Circular 1552</span>
+              </Label>
+              <p className="text-xs text-slate-500">Código del prestador en el Registro Especial de Prestadores de Servicios de Salud. Requerido para generar el reporte de oportunidad de citas.</p>
+              <Input
+                id="codigo_prestador" name="codigo_prestador"
+                defaultValue={institution.codigo_prestador || ''}
+                placeholder="Ej: 230010089002"
+                className="font-mono"
+              />
             </div>
             
             <div className="space-y-2 md:col-span-2 pt-4 border-t border-slate-100">

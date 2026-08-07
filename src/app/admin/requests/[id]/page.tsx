@@ -150,6 +150,23 @@ export default async function RequestDetailPage({ params }: { params: { id: stri
     const apptSpecialty  = formData.get('appt_specialty') as string
     const apptBranchName = formData.get('appt_branch_name') as string
 
+    // ── Mapeo automático Especialidad → Código CUPS (Circular 1552) ──────────
+    const CUPS_MAP: Record<string, string> = {
+      'Cirugia':         '890222',
+      'Cirugía':         '890222',
+      'Endodoncia':      '890218',
+      'Odontopediatría': '890220',
+      'Odontopediatria': '890220',
+      'Rehabilitación':  '890224',
+      'Rehabilitacion':  '890224',
+      'Primera Vez':     '890203',
+      'Periodoncia':     '890221',
+      'Ortodoncia':      '890223',
+      'Prótesis':        '',  // por definir
+      'Protesis':        '',
+    }
+    const codigoCups = apptSpecialty ? (CUPS_MAP[apptSpecialty] ?? '') : ''
+
     const sbAdm = createAdminClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!)
     const sbRLS = await createClient()
     const { data: { user } } = await sbRLS.auth.getUser()
@@ -183,6 +200,8 @@ export default async function RequestDetailPage({ params }: { params: { id: stri
         request_id: request.id, appointment_date: apptDate, appointment_time: apptTime,
         doctor_name: apptDoctor || null, specialty: apptSpecialty || null,
         branch_name: apptBranchName || null,
+        codigo_cups: codigoCups || null,
+        attendance_status: 'pending',
         reminder_24h_sent: false, reminder_2h_sent: false
       })
       const { data: inst } = await sbAdm.from('institutions').select('name').eq('id', request.institution_id).single()

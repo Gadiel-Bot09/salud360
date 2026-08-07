@@ -44,6 +44,7 @@ export async function updateInstitutionBranding(formData: FormData) {
   const contactEmail = formData.get('contact_email') as string | null
   const website = formData.get('website') as string | null
   const privacyPolicy = formData.get('privacy_policy') as string | null
+  const codigoPrestador = formData.get('codigo_prestador') as string | null
 
   if (!institutionId) return { success: false, error: 'ID de institución requerido.' }
 
@@ -95,6 +96,7 @@ export async function updateInstitutionBranding(formData: FormData) {
       contact_email: contactEmail || null,
       website: website || null,
       privacy_policy: privacyPolicy || null,
+      codigo_prestador: codigoPrestador || null,
     })
     .eq('id', institutionId)
 
