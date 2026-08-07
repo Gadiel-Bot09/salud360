@@ -167,7 +167,9 @@ export async function fetchCircular1552Report(from?: string, to?: string): Promi
       nombrePrestador: inst?.name || '—',
       entidad,
       regimen,
-      servicio:        req?.type || '—',
+      // "Servicio" = campo "Tipo de Solicitud" del formulario dinámico (ej: Primera Vez, Prótesis)
+      // NO es req.type que contiene el "Trámite a Solicitar" (Solicitud de Cita / Procedimientos)
+      servicio:        patientData['Tipo de Solicitud'] || patientData['Tipo de Cita'] || req?.type || '—',
       codigoCups:      appt.codigo_cups || '—',
       fechaSolicitud:  solicitudDate ? format(solicitudDate, 'dd/MM/yyyy') : '—',
       fechaAsignacion: appt.created_at ? format(parseISO(appt.created_at), 'dd/MM/yyyy') : '—',
