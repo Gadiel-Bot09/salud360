@@ -108,100 +108,118 @@ export async function fetchCircular1552Report(from?: string, to?: string): Promi
 
   const sb = getAdminClient()
 
-  let query = sb
-    .from('appointments')
-    .select(`
-      id,
-      appointment_date,
-      appointment_time,
-      doctor_name,
-      specialty,
-      codigo_cups,
-      attendance_status,
-      attended,
-      cancelled,
-      created_at,
-      requests!inner (
+  let data: any[]
+  try {
+    let query = sb
+      .from('appointments')
+      .select(`
         id,
-        patient_document_type,
-        patient_document_number,
-        patient_data_json,
-        type,
+        appointment_date,
+        appointment_time,
+        doctor_name,
+        specialty,
+        codigo_cups,
+        attendance_status,
+        attended,
+        cancelled,
         created_at,
-        institution_id,
-        institutions (
-          name,
-          codigo_prestador
+        requests!inner (
+          id,
+          patient_document_type,
+          patient_document_number,
+          patient_data_json,
+          type,
+          created_at,
+          institution_id,
+          institutions (
+            name,
+            codigo_prestador
+          )
         )
-      )
-    `)
-    .order('appointment_date', { ascending: true })
+      `)
+      .order('appointment_date', { ascending: true })
 
-  // Filtrar por fecha de cita si se especifica rango
-  if (from) query = query.gte('appointment_date', from)
-  if (to)   query = query.lte('appointment_date', to)
+    // Filtrar por fecha de cita si se especifica rango
+    if (from) query = query.gte('appointment_date', from)
+    if (to)   query = query.lte('appointment_date', to)
 
-  // ── FILTRO POR INSTITUCIÓN (clave de seguridad) ────────────────────────────
-  // Super Admin ve todas. Admin/Gestor solo ve su institución.
-  if (!filter.isSuperAdmin && filter.institutionId) {
-    query = query.eq('requests.institution_id', filter.institutionId)
-  }
+    // ── FILTRO POR INSTITUCIÓN (clave de seguridad) ────────────────────────────
+    // Super Admin ve todas. Admin/Gestor solo ve su institución.
+    if (!filter.isSuperAdmin && filter.institutionId) {
+      query = query.eq('requests.institution_id', filter.institutionId)
+    }
 
-  const { data, error } = await query
-  if (error || !data) {
-    console.error('Circular 1552 fetch error:', error)
+    const { data: result, error } = await query
+    if (error) {
+      console.error('Circular 1552 fetch error:', error?.message)
+      return []
+    }
+    data = result || []
+  } catch (err) {
+    console.error('Circular 1552 query exception:', err)
     return []
   }
 
   return data.map((appt: any) => {
-    const req  = appt.requests
-    const inst = req?.institutions
+    try {
+      const req  = appt.requests
+      const inst = req?.institutions
 
-    const patientData = req?.patient_data_json || {}
+      const patientData = req?.patient_data_json || {}
 
-    // Buscar EPS en los datos del paciente (campo dinámico del formulario)
-    const epsRaw = patientData['Entidad / EPS']
-      || patientData['entidad_eps']
-      || patientData['eps']
-      || null
-    const { entidad, regimen } = parseEpsRegimen(epsRaw)
+      // Buscar EPS en los datos del paciente (campo dinámico del formulario)
+      const epsRaw = patientData['Entidad / EPS']
+        || patientData['entidad_eps']
+        || patientData['eps']
+        || null
+      const { entidad, regimen } = parseEpsRegimen(epsRaw)
 
-    // Calcular oportunidad:
-    // Días entre la solicitud del paciente y la fecha en que el gestor asignó la cita.
-    // Esto mide el tiempo de respuesta institucional, que es lo que regula la Resolución 1552.
-    const solicitudDate   = req?.created_at    ? parseISO(req.created_at)    : null
-    const asignacionDate  = appt.created_at    ? parseISO(appt.created_at)   : null
-    const citaDate        = appt.appointment_date ? parseISO(appt.appointment_date) : null
-    const oportunidad     = solicitudDate && asignacionDate
-      ? differenceInDays(asignacionDate, solicitudDate)
-      : 0
+      // Calcular oportunidad:
+      // Días entre la solicitud del paciente y la fecha en que el gestor asignó la cita.
+      // Esto mide el tiempo de respuesta institucional, que es lo que regula la Resolución 1552.
+      const solicitudDate  = req?.created_at        ? parseISO(req.created_at)           : null
+      const asignacionDate = appt.created_at        ? parseISO(appt.created_at)          : null
+      const citaDate       = appt.appointment_date  ? parseISO(appt.appointment_date)    : null
+      const oportunidad    = solicitudDate && asignacionDate
+        ? differenceInDays(asignacionDate, solicitudDate)
+        : 0
 
       // "Servicio" = campo "Tipo de Solicitud" del formulario dinámico (ej: Primera Vez, Prótesis)
       // NO es req.type que contiene el "Trámite a Solicitar" (Solicitud de Cita / Procedimientos)
-      const servicioFinal = patientData['Tipo de Solicitud'] || patientData['Tipo de Cita'] || req?.type || '—'
-      
-    return {
-      tipoDocumento:   req?.patient_document_type || '—',
-      numeroDocumento: req?.patient_document_number || '—',
-      codigoPrestador: inst?.codigo_prestador || '—',
-      nombrePrestador: inst?.name || '—',
-      entidad,
-      regimen,
-      servicio:        servicioFinal,
-      codigoCups:      appt.codigo_cups || CUPS_MAP[servicioFinal] || '—',
-      fechaSolicitud:  solicitudDate ? format(solicitudDate, 'dd/MM/yyyy') : '—',
-      fechaAsignacion: appt.created_at ? format(parseISO(appt.created_at), 'dd/MM/yyyy') : '—',
-      fechaCita:       citaDate ? format(citaDate, 'dd/MM/yyyy') : '—',
-      horaCita:        appt.appointment_time || '—',
-      oportunidad,
-      medico:          appt.doctor_name || '—',
-      especialidad:    appt.specialty || '—',
-      estadoCita:      attendanceLabel(
-        appt.attended ?? null,
-        appt.attendance_status ?? null,
-        appt.cancelled ?? false,
-        appt.appointment_date ?? ''
-      ),
+      const servicioFinal = patientData['Tipo de Solicitud']
+        || patientData['Tipo de Cita']
+        || req?.type
+        || '—'
+
+      // CUPS: primero BD, luego fallback por nombre del servicio
+      const codigoCups = appt.codigo_cups || CUPS_MAP[servicioFinal] || '—'
+
+      return {
+        tipoDocumento:   req?.patient_document_type  || '—',
+        numeroDocumento: req?.patient_document_number || '—',
+        codigoPrestador: inst?.codigo_prestador       || '—',
+        nombrePrestador: inst?.name                   || '—',
+        entidad,
+        regimen,
+        servicio:        servicioFinal,
+        codigoCups,
+        fechaSolicitud:  solicitudDate  ? format(solicitudDate,  'dd/MM/yyyy') : '—',
+        fechaAsignacion: asignacionDate ? format(asignacionDate, 'dd/MM/yyyy') : '—',
+        fechaCita:       citaDate       ? format(citaDate,       'dd/MM/yyyy') : '—',
+        horaCita:        appt.appointment_time || '—',
+        oportunidad,
+        medico:          appt.doctor_name || '—',
+        especialidad:    appt.specialty   || '—',
+        estadoCita:      attendanceLabel(
+          appt.attended          ?? null,
+          appt.attendance_status ?? null,
+          appt.cancelled         ?? false,
+          appt.appointment_date  ?? ''
+        ),
+      }
+    } catch (err) {
+      console.error('Error procesando fila Circular 1552:', err, appt?.id)
+      return null
     }
-  })
+  }).filter(Boolean) as Circular1552Row[]
 }
