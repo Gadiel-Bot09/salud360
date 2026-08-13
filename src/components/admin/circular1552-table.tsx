@@ -2,11 +2,11 @@
 
 import { useState, useMemo } from 'react'
 import type { Circular1552Row } from '@/app/admin/reports/circular1552-actions'
-import { FileDown, Search, X, AlertTriangle, CheckCircle2, Clock } from 'lucide-react'
+import { FileDown, Search, X, AlertTriangle, CheckCircle2, Clock, FileText, CalendarDays } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 
 // ── CSV Export ────────────────────────────────────────────────────────────────
-function exportCSV(rows: Circular1552Row[], filename: string) {
+function exportCSV(rows: Circular1552Row[], from: string, to: string) {
   const headers = [
     'Tipo Documento', 'Número Documento', 'Código Prestador', 'Nombre Prestador',
     'Entidad', 'Régimen', 'Servicio', 'Código CUPS',
@@ -22,16 +22,17 @@ function exportCSV(rows: Circular1552Row[], filename: string) {
       r.oportunidad, r.medico, r.especialidad, r.estadoCita
     ].map(v => `"${String(v ?? '').replace(/"/g, '""')}"`).join(';'))
   ]
+  const rangeLabel = from && to ? `${from}_al_${to}` : from || to || 'todo'
   const blob = new Blob(['\uFEFF' + csvRows.join('\n')], { type: 'text/csv;charset=utf-8;' })
   const url  = URL.createObjectURL(blob)
   const a    = document.createElement('a')
   a.href = url
-  a.download = filename
+  a.download = `Circular_1552_${rangeLabel}.csv`
   a.click()
   URL.revokeObjectURL(url)
 }
 
-// ── Estado badge ──────────────────────────────────────────────────────────────
+// ── Badges ────────────────────────────────────────────────────────────────────
 function EstadoBadge({ estado }: { estado: string }) {
   if (estado === 'Asistió')
     return <span className="inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700"><CheckCircle2 className="h-3 w-3" />Asistió</span>
@@ -44,7 +45,6 @@ function EstadoBadge({ estado }: { estado: string }) {
   return <span className="inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full bg-amber-100 text-amber-700"><Clock className="h-3 w-3" />Pendiente</span>
 }
 
-// ── Oportunidad badge ─────────────────────────────────────────────────────────
 function OportunidadBadge({ dias }: { dias: number }) {
   if (dias <= 3)  return <span className="text-xs font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full">{dias}d ✓</span>
   if (dias <= 5)  return <span className="text-xs font-bold text-amber-700 bg-amber-50 px-2 py-0.5 rounded-full">{dias}d ⚠</span>
@@ -58,11 +58,12 @@ interface Props {
 }
 
 export function Circular1552Table({ initialData, onFetch }: Props) {
-  const [data, setData]       = useState<Circular1552Row[]>(initialData)
-  const [from, setFrom]       = useState('')
-  const [to, setTo]           = useState('')
-  const [search, setSearch]   = useState('')
-  const [loading, setLoading] = useState(false)
+  const [data, setData]         = useState<Circular1552Row[]>(initialData)
+  const [generated, setGenerated] = useState(initialData.length > 0)
+  const [from, setFrom]         = useState('')
+  const [to, setTo]             = useState('')
+  const [search, setSearch]     = useState('')
+  const [loading, setLoading]   = useState(false)
 
   const filtered = useMemo(() => {
     if (!search) return data
@@ -71,15 +72,17 @@ export function Circular1552Table({ initialData, onFetch }: Props) {
       r.numeroDocumento.toLowerCase().includes(q) ||
       r.especialidad.toLowerCase().includes(q) ||
       r.medico.toLowerCase().includes(q) ||
-      r.estadoCita.toLowerCase().includes(q)
+      r.estadoCita.toLowerCase().includes(q) ||
+      r.servicio.toLowerCase().includes(q)
     )
   }, [data, search])
 
-  async function handleFilter() {
+  async function handleGenerate() {
     setLoading(true)
     try {
       const result = await onFetch(from, to)
       setData(result)
+      setGenerated(true)
       setSearch('')
     } finally {
       setLoading(false)
@@ -89,25 +92,87 @@ export function Circular1552Table({ initialData, onFetch }: Props) {
   const incumpleCount = filtered.filter(r => r.oportunidad > 3 && r.estadoCita !== 'Cancelada').length
   const cumpleCount   = filtered.filter(r => r.oportunidad <= 3).length
 
+  // ── Pantalla de inicio (antes de generar) ──────────────────────────────────
+  if (!generated) {
+    return (
+      <div className="flex flex-col items-center justify-center py-16 gap-8">
+        <div className="text-center space-y-2">
+          <div className="w-16 h-16 bg-teal-50 border-2 border-teal-200 rounded-2xl flex items-center justify-center mx-auto mb-4">
+            <FileText className="w-8 h-8 text-teal-600" />
+          </div>
+          <h3 className="text-lg font-bold text-slate-800">Generar Reporte Circular 1552</h3>
+          <p className="text-sm text-slate-500 max-w-md">
+            Selecciona el rango de <span className="font-semibold text-slate-700">Fecha de Cita</span> para el que deseas generar el reporte.
+            Si no seleccionas fechas, se incluirán <span className="font-semibold text-slate-700">todas las citas registradas</span>.
+          </p>
+        </div>
+
+        {/* Selector de fechas */}
+        <div className="bg-slate-50 border border-slate-200 rounded-2xl px-8 py-6 flex flex-col sm:flex-row items-center gap-4">
+          <div className="flex items-center gap-2">
+            <CalendarDays className="h-4 w-4 text-slate-400" />
+            <span className="text-sm font-medium text-slate-600">Desde</span>
+            <input
+              type="date" value={from} onChange={e => setFrom(e.target.value)}
+              className="text-sm border border-slate-200 bg-white rounded-lg px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-teal-500 text-slate-700"
+            />
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="text-sm font-medium text-slate-600">Hasta</span>
+            <input
+              type="date" value={to} onChange={e => setTo(e.target.value)}
+              className="text-sm border border-slate-200 bg-white rounded-lg px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-teal-500 text-slate-700"
+            />
+          </div>
+        </div>
+
+        <button
+          onClick={handleGenerate}
+          disabled={loading}
+          className="flex items-center gap-3 bg-teal-600 hover:bg-teal-700 disabled:opacity-60 text-white font-semibold px-8 py-3 rounded-xl transition-all shadow-lg shadow-teal-600/30 text-sm"
+        >
+          {loading ? (
+            <>
+              <span className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" />
+              Generando reporte...
+            </>
+          ) : (
+            <>
+              <FileText className="w-4 h-4" />
+              Generar Reporte
+            </>
+          )}
+        </button>
+
+        <p className="text-xs text-slate-400 text-center">
+          El reporte se genera bajo demanda para optimizar el rendimiento del sistema.<br />
+          Las fechas filtran por <strong>Fecha de la Cita</strong>.
+        </p>
+      </div>
+    )
+  }
+
+  // ── Tabla de resultados ────────────────────────────────────────────────────
   return (
     <div className="space-y-4">
-      {/* Header */}
+      {/* Controles superiores */}
       <div className="flex flex-col sm:flex-row gap-3 justify-between items-start sm:items-center">
-        <div className="flex items-center gap-3 flex-wrap">
+        <div className="flex items-center gap-2 flex-wrap">
           {/* Filtro de fechas */}
           <div className="flex items-center gap-2 bg-slate-50 border border-slate-200 rounded-lg px-3 py-1.5">
+            <CalendarDays className="h-3.5 w-3.5 text-slate-400" />
             <span className="text-xs text-slate-500 font-medium">Desde</span>
             <input
               type="date" value={from} onChange={e => setFrom(e.target.value)}
-              className="text-sm border-0 bg-transparent focus:outline-none text-slate-700"
+              className="text-xs border-0 bg-transparent focus:outline-none text-slate-700"
             />
             <span className="text-xs text-slate-500 font-medium">Hasta</span>
             <input
               type="date" value={to} onChange={e => setTo(e.target.value)}
-              className="text-sm border-0 bg-transparent focus:outline-none text-slate-700"
+              className="text-xs border-0 bg-transparent focus:outline-none text-slate-700"
             />
             <button
-              onClick={handleFilter} disabled={loading}
+              onClick={handleGenerate} disabled={loading}
               className="text-xs font-semibold bg-teal-600 text-white px-3 py-1 rounded-md hover:bg-teal-700 disabled:opacity-50 transition-colors"
             >
               {loading ? 'Cargando...' : 'Filtrar'}
@@ -131,9 +196,9 @@ export function Circular1552Table({ initialData, onFetch }: Props) {
           </div>
         </div>
 
-        {/* Export */}
+        {/* Exportar */}
         <button
-          onClick={() => exportCSV(filtered, `Circular_1552_${from || 'todo'}${to ? `_${to}` : ''}.csv`)}
+          onClick={() => exportCSV(filtered, from, to)}
           className="flex items-center gap-2 text-sm font-semibold bg-teal-600 text-white px-4 py-2 rounded-lg hover:bg-teal-700 transition-colors"
         >
           <FileDown className="h-4 w-4" /> Exportar CSV
@@ -156,7 +221,7 @@ export function Circular1552Table({ initialData, onFetch }: Props) {
         </div>
       </div>
 
-      {/* Table */}
+      {/* Tabla */}
       <div className="rounded-xl border border-slate-200 overflow-x-auto">
         <table className="w-full text-xs">
           <thead className="bg-slate-50 border-b border-slate-200">
@@ -207,7 +272,7 @@ export function Circular1552Table({ initialData, onFetch }: Props) {
       </div>
 
       <p className="text-xs text-slate-400 text-right">
-        {filtered.length} registro{filtered.length !== 1 ? 's' : ''} · Oportunidad &gt; 3 días es incumplimiento según Resolución 1552/2013
+        {filtered.length} registro{filtered.length !== 1 ? 's' : ''} · Las fechas filtran por <strong>Fecha de la Cita</strong> · Oportunidad &gt; 3 días es incumplimiento según Resolución 1552/2013
       </p>
     </div>
   )

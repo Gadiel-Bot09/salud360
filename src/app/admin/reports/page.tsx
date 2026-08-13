@@ -30,10 +30,9 @@ async function loadAllReports(from?: string, to?: string) {
 }
 
 export default async function ReportsPage() {
-  const [initialData, circular1552Data] = await Promise.all([
-    loadAllReports(),
-    fetchCircular1552Report()
-  ])
+  // Circular 1552 NO se precarga — el gestor debe presionar "Generar Reporte"
+  // para evitar consumo innecesario de BD al entrar al módulo.
+  const initialData = await loadAllReports()
 
   async function refresh(from: string, to: string) {
     'use server'
@@ -96,12 +95,9 @@ export default async function ReportsPage() {
               Resolución 1552/2013 · Oportunidad en asignación de citas · Exportación CSV para Supersalud
             </p>
           </div>
-          <span className="ml-auto text-[10px] font-bold text-teal-700 bg-teal-100 border border-teal-200 px-2 py-1 rounded-full">
-            {circular1552Data.length} registros
-          </span>
         </div>
         <div className="p-6">
-          <Circular1552Table initialData={circular1552Data} onFetch={fetchCircular} />
+          <Circular1552Table initialData={[]} onFetch={fetchCircular} />
         </div>
       </section>
     </div>
