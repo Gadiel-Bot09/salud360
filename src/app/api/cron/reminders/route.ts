@@ -21,10 +21,6 @@ export async function GET(request: Request) {
     process.env.SUPABASE_SERVICE_ROLE_KEY!
   )
 
-  // ── Use Absolute Time for Window Calculations ─────────────────────────────
-  // We use standard new Date() because the appointment time is parsed with 
-  // '-05:00', giving us its correct absolute UTC time. Comparing absolute to 
-  // absolute is completely timezone agnostic.
   const now = new Date()
   let sent24h = 0
   let sent2h  = 0
@@ -39,8 +35,11 @@ export async function GET(request: Request) {
     const win2hFrom  = new Date(now.getTime() + 1 * 60 * 60 * 1000)
     const win2hTo    = new Date(now.getTime() + 3 * 60 * 60 * 1000)
 
+    // Fetch only appointments within the relevant time windows
+    // (appointment_date filter reduces the result set dramatically)
+    const dateFrom = win2hFrom.toISOString().split('T')[0]  // earliest: ~1h from now
+    const dateTo   = win24hTo.toISOString().split('T')[0]   // latest: ~25h from now
 
-    // Fetch all pending appointments with related request data
     const { data: appointments, error: fetchError } = await supabase
       .from('appointments')
       .select(`
@@ -48,14 +47,30 @@ export async function GET(request: Request) {
         reminder_24h_sent, reminder_2h_sent,
         requests ( id, radicado, patient_email, patient_data_json, institutions(id, name, logo_url, colors, evolution_instance_name, evolution_connected) )
       `)
+      .gte('appointment_date', dateFrom)
+      .lte('appointment_date', dateTo)
       .is('attended', null)
       .not('cancelled', 'is', true)
       .or('reminder_24h_sent.eq.false,reminder_2h_sent.eq.false')
 
     if (fetchError) throw fetchError
 
+    // ── OPTIMIZACIÓN CRÍTICA: Verificar conexión Evolution UNA VEZ por instancia
+    // En vez de llamar checkEvolutionConnection() por cada cita (O(n) llamadas HTTP),
+    // lo llamamos una sola vez por instancia única (O(instituciones) llamadas).
+    const connectionCache = new Map<string, boolean>()
+    const uniqueInstances = new Set(
+      (appointments || [])
+        .map((a: any) => a.requests?.institutions?.evolution_instance_name)
+        .filter(Boolean)
+    )
+    for (const instanceName of uniqueInstances) {
+      const connected = await checkEvolutionConnection(instanceName as string)
+      connectionCache.set(instanceName as string, connected)
+    }
+
     for (const appt of (appointments || []) as any[]) {
-      const req         = appt.requests
+      const req = appt.requests
       if (!req) continue
 
       const patientName  = req.patient_data_json?.fullName || 'Paciente'
@@ -63,9 +78,8 @@ export async function GET(request: Request) {
       const toEmail      = req.patient_email
       const institution  = req.institutions?.name || 'Salud360'
       const instanceName = req.institutions?.evolution_instance_name
-      // Check real connection state directly from Evolution (not Supabase flag)
-      const isConnected  = instanceName ? await checkEvolutionConnection(instanceName) : false
-      // Branding object for email templates
+      // Usar caché — no hace nueva llamada HTTP por cada cita
+      const isConnected  = instanceName ? (connectionCache.get(instanceName) ?? false) : false
       const institutionBranding = req.institutions ? {
         name:     req.institutions.name,
         logo_url: req.institutions.logo_url,
@@ -79,10 +93,7 @@ export async function GET(request: Request) {
         institution
       }
 
-      // Combine appointment date+time as Colombia time (UTC-5, always fixed — no DST)
-      // Without the offset, new Date('2026-04-15T10:00') is treated as UTC,
-      // meaning a 10:00 Colombia cita would fire at 5:00 AM Colombia — wrong.
-      const cleanTime = (appt.appointment_time || '').slice(0, 5)
+      const cleanTime    = (appt.appointment_time || '').slice(0, 5)
       const apptDateTime = new Date(`${appt.appointment_date}T${cleanTime}:00-05:00`)
 
       // ── Check 24h window ─────────────────────────────────────────────────
@@ -91,21 +102,18 @@ export async function GET(request: Request) {
           await sendAppointmentReminderEmail(toEmail, patientName, req.radicado, appointmentData, 24, institutionBranding)
           
           if (patientPhone && patientPhone !== '—' && isConnected && instanceName) {
-            const timeStr = appt.appointment_time?.slice(0, 5) || '—'
+            const timeStr   = appt.appointment_time?.slice(0, 5) || '—'
             const doctorStr = appt.doctor_name ? `con el especialista ${appt.doctor_name}` : ''
             const text = `Hola ${patientName},\n\nTe recordamos que mañana tienes una cita médica en *${institution}* a las *${timeStr}* ${doctorStr}.\n\nPor favor, llega con 15 minutos de antelación.\n\nAtentamente,\nEquipo de ${institution}`
-            const wpRes = await sendWhatsAppMessage(instanceName, {
-              number: patientPhone,
-              text
-            })
+            const wpRes = await sendWhatsAppMessage(instanceName, { number: patientPhone, text })
             await supabase.from('whatsapp_logs').insert({
               institution_id: req.institutions.id,
-              request_id: req.id,
+              request_id:     req.id,
               appointment_id: appt.id,
-              patient_phone: patientPhone,
+              patient_phone:  patientPhone,
               message_content: text,
-              status: wpRes ? 'sent' : 'failed',
-              error_message: wpRes ? null : 'Error con Evolution API'
+              status:         wpRes ? 'sent' : 'failed',
+              error_message:  wpRes ? null : 'Error con Evolution API'
             })
           }
 
@@ -123,21 +131,18 @@ export async function GET(request: Request) {
           await sendAppointmentReminderEmail(toEmail, patientName, req.radicado, appointmentData, 2, institutionBranding)
           
           if (patientPhone && patientPhone !== '—' && isConnected && instanceName) {
-            const timeStr = appt.appointment_time?.slice(0, 5) || '—'
+            const timeStr   = appt.appointment_time?.slice(0, 5) || '—'
             const doctorStr = appt.doctor_name ? `con el especialista ${appt.doctor_name}` : ''
             const text = `Hola ${patientName},\n\nEste es un recordatorio final para tu cita médica de hoy en *${institution}* a las *${timeStr}* ${doctorStr}.\n\nTe esperamos pronto.\n\nAtentamente,\nEquipo de ${institution}`
-            const wpRes = await sendWhatsAppMessage(instanceName, {
-              number: patientPhone,
-              text
-            })
+            const wpRes = await sendWhatsAppMessage(instanceName, { number: patientPhone, text })
             await supabase.from('whatsapp_logs').insert({
               institution_id: req.institutions.id,
-              request_id: req.id,
+              request_id:     req.id,
               appointment_id: appt.id,
-              patient_phone: patientPhone,
+              patient_phone:  patientPhone,
               message_content: text,
-              status: wpRes ? 'sent' : 'failed',
-              error_message: wpRes ? null : 'Error con Evolution API'
+              status:         wpRes ? 'sent' : 'failed',
+              error_message:  wpRes ? null : 'Error con Evolution API'
             })
           }
 
@@ -163,3 +168,4 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: error?.message || 'Failed' }, { status: 500 })
   }
 }
+
