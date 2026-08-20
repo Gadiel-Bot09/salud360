@@ -15,7 +15,8 @@ import {
     BarChart2,
     CalendarDays,
     MessageSquare,
-    FileText
+    FileText,
+    Smartphone
 } from 'lucide-react'
 import { logout } from '@/app/login/actions'
 import { Button } from '@/components/ui/button'
@@ -106,6 +107,12 @@ export default async function AdminLayout({ children }: { children: ReactNode })
                         <Link href="/admin/whatsapp-logs" className="flex items-center space-x-3 px-4 py-3 rounded-lg hover:bg-slate-800 hover:text-white transition">
                             <MessageSquare className="h-5 w-5 text-green-400" />
                             <span>Logs WhatsApp</span>
+                        </Link>
+                    )}
+                    {hasPerm('whatsapp.manage') && (
+                        <Link href="/admin/whatsapp-manager" className="flex items-center space-x-3 px-4 py-3 rounded-lg hover:bg-slate-800 hover:text-white transition">
+                            <Smartphone className="h-5 w-5 text-green-400" />
+                            <span>Conexión WhatsApp</span>
                         </Link>
                     )}
                     {isSuperAdmin && (
