@@ -194,9 +194,8 @@ export function RequestsTable({ initialData }: { initialData: any[] }) {
                                 const isDelayed = isPending && daysElapsed >= 5
 
                                 // Find the last user who interacted with it
-                                const historyArray = req.request_history || []
-                                const lastUserEntry = [...historyArray].reverse().find((h: any) => h.users?.full_name)
-                                const responderName = lastUserEntry ? lastUserEntry.users.full_name : 'No asignado'
+                                // (historial detallado disponible en la página de la solicitud)
+                                const responderName = req.assigned_to_name || '—'
 
                                 let rowClass = "hover:bg-slate-50 transition-colors"
                                 if (isDelayed) rowClass = "bg-red-50 hover:bg-red-100 transition-colors"
