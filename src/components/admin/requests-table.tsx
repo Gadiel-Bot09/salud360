@@ -193,8 +193,21 @@ export function RequestsTable({ initialData }: { initialData: any[] }) {
                                 const daysElapsed = differenceInDays(startOfDay(new Date()), startOfDay(new Date(req.created_at)))
                                 const isDelayed = isPending && daysElapsed >= 5
 
-                                // Find the last user who interacted with it
-                                // (historial detallado disponible en la página de la solicitud)
+                                // ── TODO: Restaurar al pasar a Supabase Pro ───────────────────────
+                                // La columna "Gestor" mostraba el nombre del último usuario que respondió
+                                // la solicitud. Se eliminó temporalmente porque el JOIN con request_history
+                                // en el listado causaba 2.27 BILLION lecturas secuenciales de disco.
+                                //
+                                // Para restaurar: en requests/page.tsx cambiar el .select() a:
+                                //   .select('*, request_attachments(id), request_history(created_at, action, user_id)')
+                                // Y restaurar la query de usuarios:
+                                //   const { data: usersList } = await supabase.from('users').select('id, full_name')
+                                //   const userMap = (usersList || []).reduce((acc, u) => ({ ...acc, [u.id]: u.full_name }), {})
+                                // Y restaurar aquí:
+                                //   const historyArray = req.request_history || []
+                                //   const lastUserEntry = [...historyArray].reverse().find((h: any) => h.users?.full_name)
+                                //   const responderName = lastUserEntry ? lastUserEntry.users.full_name : 'No asignado'
+                                // ─────────────────────────────────────────────────────────────────
                                 const responderName = req.assigned_to_name || '—'
 
                                 let rowClass = "hover:bg-slate-50 transition-colors"
