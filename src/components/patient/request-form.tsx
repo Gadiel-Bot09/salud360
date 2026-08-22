@@ -497,6 +497,7 @@ export function RequestForm({
   institutionSlug,
   template,
   brandColors: externalColors,
+  canal = 'online',
 }: {
   institutionId: string
   institutionName: string
@@ -504,6 +505,7 @@ export function RequestForm({
   institutionSlug: string
   template: FormTemplate
   brandColors?: BrandColors
+  canal?: 'online' | 'presencial'
 }) {
   const [submitting, setSubmitting] = useState(false)
   const [successRadicado, setSuccessRadicado] = useState<string | null>(null)
@@ -612,6 +614,7 @@ export function RequestForm({
     setSubmitting(true)
     const formData = new FormData(e.currentTarget)
     formData.append('institutionId', institutionId)
+    formData.append('canal', canal)
     try {
       const res = await fetch('/api/requests/submit', { method: 'POST', body: formData })
       const result = await res.json()

@@ -29,6 +29,9 @@ export async function POST(request: Request) {
         const filesToUpload: { file: File; docLabel?: string }[] = []
         const entries = Array.from(formData.entries())
 
+        // Canal de atención: 'presencial' si lo marcó el gestor, 'online' por defecto
+        const canal = formData.get('canal') === 'presencial' ? 'presencial' : 'online'
+
         // Collect human-readable labels for form fields: label__<inputName> = "Nombre Campo"
         const labels: Record<string, string> = {}
         // Collect document labels for labeled file zones: filelabel__<inputName> = "Historia Clínica"
@@ -98,7 +101,8 @@ export async function POST(request: Request) {
                 patient_email: email,
                 patient_data_json: patientData,
                 type: requestType,
-                status: 'received'
+                status: 'received',
+                canal
             })
             .select('id')
             .single()
@@ -116,7 +120,9 @@ export async function POST(request: Request) {
             action: 'Solicitud Creada',
             from_status: 'none',
             to_status: 'received',
-            comment: 'El paciente radicó la solicitud mediante el portal principal dinámico.'
+            comment: canal === 'presencial'
+              ? 'Solicitud registrada por el gestor en atención presencial (paciente en la institución).'
+              : 'El paciente radicó la solicitud mediante el portal principal dinámico.'
         })
 
         // File Processing

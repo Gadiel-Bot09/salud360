@@ -1,8 +1,8 @@
 'use client'
 
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, PieChart, Pie, Cell, Legend } from 'recharts'
-import { Activity, CircleCheckBig, Clock, PlusCircle } from "lucide-react"
+import { Activity, CircleCheckBig, Clock, PlusCircle, Globe, Stethoscope } from "lucide-react"
 
 interface DashboardChartsProps {
   metrics: {
@@ -10,6 +10,8 @@ interface DashboardChartsProps {
     open: number;
     closed: number;
     inProgress: number;
+    onlineCount: number;
+    presencialCount: number;
     requestsByType: { name: string; value: number }[];
     requestsByDate: { date: string; value: number }[];
   }
@@ -22,7 +24,7 @@ export function DashboardCharts({ metrics }: DashboardChartsProps) {
     <div className="space-y-8">
       
       {/* Metrics Kardex */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-6">
           <Card className="border-l-4 border-l-slate-400 max-h-32">
              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                 <CardTitle className="text-sm font-medium text-slate-500">Radicados Históricos</CardTitle>
@@ -64,6 +66,30 @@ export function DashboardCharts({ metrics }: DashboardChartsProps) {
              <CardContent>
                 <div className="text-3xl font-bold text-teal-700">{metrics.closed}</div>
                 <p className="text-xs text-teal-600/60">Tickets finalizados</p>
+             </CardContent>
+          </Card>
+
+          {/* Canal Online */}
+          <Card className="border-l-4 border-l-blue-400 max-h-32">
+             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium text-blue-600">🌐 Online</CardTitle>
+                <Globe className="h-4 w-4 text-blue-400" />
+             </CardHeader>
+             <CardContent>
+                <div className="text-3xl font-bold text-blue-600">{metrics.onlineCount}</div>
+                <p className="text-xs text-blue-500/60">Portal web / App</p>
+             </CardContent>
+          </Card>
+
+          {/* Canal Presencial */}
+          <Card className="border-l-4 border-l-orange-500 max-h-32">
+             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium text-orange-700">🏥 Presencial</CardTitle>
+                <Stethoscope className="h-4 w-4 text-orange-500" />
+             </CardHeader>
+             <CardContent>
+                <div className="text-3xl font-bold text-orange-600">{metrics.presencialCount}</div>
+                <p className="text-xs text-orange-600/60">Atendido en sede</p>
              </CardContent>
           </Card>
       </div>

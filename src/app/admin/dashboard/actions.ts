@@ -8,6 +8,8 @@ export interface DashboardMetrics {
   open: number;
   closed: number;
   inProgress: number;
+  onlineCount: number;
+  presencialCount: number;
   requestsByType: { name: string; value: number }[];
   requestsByDate: { date: string; value: number }[];
 }
@@ -18,7 +20,7 @@ export async function fetchDashboardMetrics(): Promise<DashboardMetrics | null> 
   // 1. RLS will naturally restrict this to the User's Institution unless they are Super Admin
   const { data: requests, error } = await supabase
     .from('requests')
-    .select('id, status, type, created_at')
+    .select('id, status, type, created_at, canal')
 
   if (error || !requests) {
     console.error('Failed to fetch analytical metrics:', error)
@@ -30,6 +32,8 @@ export async function fetchDashboardMetrics(): Promise<DashboardMetrics | null> 
   const open = requests.filter(r => r.status === 'received').length
   const closed = requests.filter(r => r.status === 'closed' || r.status === 'responded').length
   const inProgress = requests.filter(r => r.status === 'processing' || r.status === 'escalated').length
+  const presencialCount = requests.filter(r => r.canal === 'presencial').length
+  const onlineCount = total - presencialCount
 
   // 3. Compute Pie Chart (By Type)
   const typeCounter: Record<string, number> = {}
@@ -68,5 +72,5 @@ export async function fetchDashboardMetrics(): Promise<DashboardMetrics | null> 
         }
      })
 
-  return { total, open, closed, inProgress, requestsByType, requestsByDate }
+  return { total, open, closed, inProgress, onlineCount, presencialCount, requestsByType, requestsByDate }
 }

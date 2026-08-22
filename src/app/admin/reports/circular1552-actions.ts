@@ -96,10 +96,11 @@ export interface Circular1552Row {
   fechaAsignacion:   string  // DD/MM/AAAA
   fechaCita:         string  // DD/MM/AAAA
   horaCita:          string
-  oportunidad:       number  // días entre solicitud y fecha de cita
+  oportunidad:       number  // días entre solicitud y asignación
   medico:            string
   especialidad:      string
   estadoCita:        string
+  canal:             string  // 'online' | 'presencial'
 }
 
 export async function fetchCircular1552Report(from?: string, to?: string): Promise<Circular1552Row[]> {
@@ -130,6 +131,7 @@ export async function fetchCircular1552Report(from?: string, to?: string): Promi
           patient_data_json,
           type,
           created_at,
+          canal,
           institution_id,
           institutions (
             name,
@@ -216,6 +218,7 @@ export async function fetchCircular1552Report(from?: string, to?: string): Promi
           appt.cancelled         ?? false,
           appt.appointment_date  ?? ''
         ),
+        canal: req?.canal === 'presencial' ? 'Presencial' : 'Online',
       }
     } catch (err) {
       console.error('Error procesando fila Circular 1552:', err, appt?.id)

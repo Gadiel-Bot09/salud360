@@ -7,12 +7,12 @@ import { Button } from '@/components/ui/button'
 import {
   Loader2, Search, ArrowLeft, FileText, CheckCircle2, Clock,
   AlertTriangle, Send, X, ChevronRight, CalendarDays, ClipboardList,
-  MessageSquare, Sparkles, ArrowRight, RotateCcw, Building2
+  MessageSquare, Sparkles, ArrowRight, RotateCcw, Building2, Stethoscope
 } from 'lucide-react'
 import { trackRequest, TrackResult, cancelPatientAppointmentFromPortal } from './actions'
 import { formatCO } from '@/lib/utils'
 import Link from 'next/link'
-import { useParams } from 'next/navigation'
+import { useParams, useSearchParams } from 'next/navigation'
 
 // ─── Status config ────────────────────────────────────────────────────────────
 
@@ -484,6 +484,10 @@ function ResultModal({
 
 export default function ConsultaPage() {
   const params = useParams() as { slug: string }
+  const searchParams = useSearchParams()
+  const canal = searchParams.get('canal') === 'presencial' ? 'presencial' : 'online'
+  const esPresencial = canal === 'presencial'
+
   const [loading, setLoading]     = useState(false)
   const [result, setResult]       = useState<TrackResult | null>(null)
   const [showModal, setShowModal] = useState(false)
@@ -550,10 +554,25 @@ export default function ConsultaPage() {
             </p>
           </div>
 
+          {/* ── Banner modo presencial ─────────────────────────────────── */}
+          {esPresencial && (
+            <div className="flex items-start gap-3 bg-orange-50 border-2 border-orange-300 rounded-2xl px-4 py-3 shadow-sm">
+              <div className="w-10 h-10 bg-orange-100 rounded-xl flex items-center justify-center shrink-0 mt-0.5">
+                <Stethoscope className="w-5 h-5 text-orange-600" />
+              </div>
+              <div>
+                <p className="font-black text-orange-800 text-sm uppercase tracking-wide">🏥 Modo Atención Presencial</p>
+                <p className="text-orange-700 text-xs mt-0.5 leading-snug">
+                  Estás registrando una solicitud en nombre de un paciente que se encuentra físicamente en la institución. Esta solicitud quedará marcada como <strong>Presencial</strong> en el sistema.
+                </p>
+              </div>
+            </div>
+          )}
+
           {/* Search card */}
           <div className="bg-white rounded-3xl shadow-xl border border-slate-100 overflow-hidden">
             {/* Card top accent */}
-            <div className="h-1.5 bg-gradient-to-r from-teal-400 via-teal-500 to-teal-600" />
+            <div className={`h-1.5 bg-gradient-to-r ${esPresencial ? 'from-orange-400 via-orange-500 to-orange-600' : 'from-teal-400 via-teal-500 to-teal-600'}`} />
 
             <form ref={formRef} onSubmit={handleSubmit} className="p-6 space-y-5">
               <div className="space-y-4">

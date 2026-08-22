@@ -173,6 +173,7 @@ export function RequestsTable({ initialData }: { initialData: any[] }) {
                             <TableHead className="font-semibold text-slate-700">Paciente</TableHead>
                             <TableHead className="font-semibold text-slate-700">Tipo</TableHead>
                             <TableHead className="font-semibold text-slate-700">Estado</TableHead>
+                            <TableHead className="font-semibold text-slate-700">Canal</TableHead>
                             <TableHead className="font-semibold text-slate-700">Gestor</TableHead>
                             <TableHead className="text-right font-semibold text-slate-700">Acciones</TableHead>
                         </TableRow>
@@ -252,6 +253,17 @@ export function RequestsTable({ initialData }: { initialData: any[] }) {
                                         </TableCell>
                                         <TableCell>
                                             {getStatusBadge(req.status)}
+                                        </TableCell>
+                                        <TableCell>
+                                            {req.canal === 'presencial' ? (
+                                                <span className="inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-full bg-orange-100 text-orange-700 border border-orange-200">
+                                                    🏥 Presencial
+                                                </span>
+                                            ) : (
+                                                <span className="inline-flex items-center gap-1 text-[11px] font-medium px-2 py-0.5 rounded-full bg-slate-100 text-slate-500 border border-slate-200">
+                                                    🌐 Online
+                                                </span>
+                                            )}
                                         </TableCell>
                                         <TableCell>
                                             <div className="flex items-center space-x-2">

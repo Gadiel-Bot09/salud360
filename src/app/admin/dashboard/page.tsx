@@ -1,6 +1,6 @@
 import { fetchDashboardMetrics } from './actions'
 import { DashboardCharts } from '@/components/admin/dashboard-charts'
-import { AlertTriangle, Globe2, Building } from 'lucide-react'
+import { AlertTriangle, Globe2, Building, Stethoscope } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
 
 export const dynamic = 'force-dynamic'
@@ -11,12 +11,13 @@ export default async function DashboardPage() {
     // Fetch user profile to detect Context (Global vs Single-Institution)
     const supabase = await createClient()
     const { data: { user } } = await supabase.auth.getUser()
-    const { data: userProfile } = await supabase.from('users').select('role_id, roles(name), institutions(name)').eq('id', user?.id).single()
+    const { data: userProfile } = await supabase.from('users').select('role_id, roles(name), institutions(name, slug)').eq('id', user?.id).single()
 
     const profile = userProfile as any;
     const isGlobal = profile?.roles?.name === 'Super Admin'
-    // Safe typing since we did a join `institutions(name)`
     const institutionName = (userProfile?.institutions as any)?.name || 'Red Desconocida'
+    const institutionSlug = (userProfile?.institutions as any)?.slug || ''
+    const presencialUrl = institutionSlug ? `/portal/${institutionSlug}?canal=presencial` : null
 
     if (!metrics) {
         return (
@@ -40,12 +41,27 @@ export default async function DashboardPage() {
                     </p>
                 </div>
 
-                <div className={`inline-flex items-center gap-2 px-4 py-2 rounded-full border text-sm font-medium ${isGlobal ? 'bg-indigo-50 border-indigo-200 text-indigo-700' : 'bg-teal-50 border-teal-200 text-teal-700'}`}>
-                    {isGlobal ? (
-                        <><Globe2 className="w-4 h-4" /> Viendo Red Global (Todas las IPS)</>
-                    ) : (
-                        <><Building className="w-4 h-4" /> Entidad: {institutionName}</>
+                <div className="flex items-center gap-3 flex-wrap justify-end">
+                    {/* Botón atención presencial */}
+                    {presencialUrl && !isGlobal && (
+                        <a
+                            href={presencialUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-orange-500 hover:bg-orange-600 text-white text-sm font-semibold shadow-sm transition-colors"
+                        >
+                            <Stethoscope className="w-4 h-4" />
+                            Registrar Atención Presencial
+                        </a>
                     )}
+
+                    <div className={`inline-flex items-center gap-2 px-4 py-2 rounded-full border text-sm font-medium ${isGlobal ? 'bg-indigo-50 border-indigo-200 text-indigo-700' : 'bg-teal-50 border-teal-200 text-teal-700'}`}>
+                        {isGlobal ? (
+                            <><Globe2 className="w-4 h-4" /> Viendo Red Global (Todas las IPS)</>
+                        ) : (
+                            <><Building className="w-4 h-4" /> Entidad: {institutionName}</>
+                        )}
+                    </div>
                 </div>
             </div>
 

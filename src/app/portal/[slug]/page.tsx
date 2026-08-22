@@ -2,12 +2,19 @@ import { getInstitutionBySlug, getInstitutionTemplate } from '@/app/actions'
 import { RequestForm } from '@/components/patient/request-form'
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
-import { Search, MapPin, Phone, Globe, Mail, Shield } from 'lucide-react'
+import { Search, MapPin, Phone, Globe, Mail, Shield, Stethoscope } from 'lucide-react'
 
 export const dynamic = 'force-dynamic'
 
-export default async function PortalPage({ params }: { params: { slug: string } }) {
+export default async function PortalPage({
+  params,
+  searchParams,
+}: {
+  params: { slug: string }
+  searchParams: { canal?: string }
+}) {
   const institution = await getInstitutionBySlug(params.slug)
+  const esPresencial = searchParams?.canal === 'presencial'
 
   if (!institution) {
     return notFound()
@@ -167,10 +174,26 @@ export default async function PortalPage({ params }: { params: { slug: string } 
             <div className="h-px flex-1 bg-slate-200" />
           </div>
 
+          {/* ── Banner modo presencial ─────────────────────────────────── */}
+          {esPresencial && (
+            <div className="flex items-start gap-3 bg-orange-50 border-2 border-orange-300 rounded-2xl px-5 py-4 mb-6 shadow-sm">
+              <div className="w-10 h-10 bg-orange-100 rounded-xl flex items-center justify-center shrink-0 mt-0.5">
+                <Stethoscope className="w-5 h-5 text-orange-600" />
+              </div>
+              <div>
+                <p className="font-black text-orange-800 text-sm uppercase tracking-wide">🏥 Modo Atención Presencial</p>
+                <p className="text-orange-700 text-xs mt-1 leading-snug">
+                  Estás registrando una solicitud en nombre de un paciente que se encuentra <strong>físicamente en la institución</strong>.
+                  Esta solicitud quedará marcada como <strong>Presencial</strong> en el sistema para estadísticas.
+                </p>
+              </div>
+            </div>
+          )}
+
           {/* Form card */}
           <div
             className="bg-white rounded-2xl shadow-xl overflow-hidden"
-            style={{ borderTop: `4px solid ${primary}` }}
+            style={{ borderTop: `4px solid ${esPresencial ? '#ea580c' : primary}` }}
           >
             <div className="px-6 sm:px-10 py-8">
               <RequestForm
@@ -180,6 +203,7 @@ export default async function PortalPage({ params }: { params: { slug: string } 
                 institutionSlug={params.slug}
                 template={template}
                 brandColors={{ primary, secondary }}
+                canal={esPresencial ? 'presencial' : 'online'}
               />
             </div>
           </div>

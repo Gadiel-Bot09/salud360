@@ -11,7 +11,7 @@ function exportCSV(rows: Circular1552Row[], from: string, to: string) {
     'Tipo Documento', 'Número Documento', 'Código Prestador', 'Nombre Prestador',
     'Entidad', 'Régimen', 'Servicio', 'Código CUPS',
     'Fecha Solicitud', 'Fecha Asignación', 'Fecha Cita', 'Hora Cita',
-    'Oportunidad (días)', 'Médico', 'Especialidad', 'Estado Cita'
+    'Oportunidad (días)', 'Médico', 'Especialidad', 'Estado Cita', 'Canal'
   ]
   const csvRows = [
     headers.join(';'),
@@ -19,7 +19,7 @@ function exportCSV(rows: Circular1552Row[], from: string, to: string) {
       r.tipoDocumento, r.numeroDocumento, r.codigoPrestador, r.nombrePrestador,
       r.entidad, r.regimen, r.servicio, r.codigoCups,
       r.fechaSolicitud, r.fechaAsignacion, r.fechaCita, r.horaCita,
-      r.oportunidad, r.medico, r.especialidad, r.estadoCita
+      r.oportunidad, r.medico, r.especialidad, r.estadoCita, r.canal
     ].map(v => `"${String(v ?? '').replace(/"/g, '""')}"`).join(';'))
   ]
   const rangeLabel = from && to ? `${from}_al_${to}` : from || to || 'todo'
@@ -230,7 +230,7 @@ export function Circular1552Table({ initialData, onFetch }: Props) {
                 'Tipo Doc.', 'Nº Documento', 'Cód. Prestador', 'Prestador',
                 'Entidad', 'Régimen', 'Servicio', 'CUPS',
                 'F. Solicitud', 'F. Asignación', 'F. Cita', 'Hora',
-                'Oportunidad', 'Médico', 'Especialidad', 'Estado'
+                'Oportunidad', 'Médico', 'Especialidad', 'Estado', 'Canal'
               ].map(h => (
                 <th key={h} className="px-3 py-2.5 text-left font-semibold text-slate-600 whitespace-nowrap">
                   {h}
@@ -241,7 +241,7 @@ export function Circular1552Table({ initialData, onFetch }: Props) {
           <tbody>
             {filtered.length === 0 ? (
               <tr>
-                <td colSpan={16} className="text-center py-12 text-slate-400">
+                <td colSpan={17} className="text-center py-12 text-slate-400">
                   No hay datos para el período seleccionado.
                 </td>
               </tr>
@@ -264,6 +264,13 @@ export function Circular1552Table({ initialData, onFetch }: Props) {
                   <td className="px-3 py-2 text-slate-700 whitespace-nowrap">{row.medico}</td>
                   <td className="px-3 py-2 text-slate-600">{row.especialidad}</td>
                   <td className="px-3 py-2"><EstadoBadge estado={row.estadoCita} /></td>
+                  <td className="px-3 py-2">
+                    {row.canal === 'Presencial' ? (
+                      <span className="inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-full bg-orange-100 text-orange-700">🏥 Presencial</span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1 text-[11px] font-medium px-2 py-0.5 rounded-full bg-slate-100 text-slate-500">🌐 Online</span>
+                    )}
+                  </td>
                 </tr>
               ))
             )}
