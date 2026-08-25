@@ -27,7 +27,7 @@ export default async function RequestsPage() {
             *,
             canal,
             request_attachments(id),
-            request_history(created_at, action, users(full_name))
+            request_history(created_at, action, user_id)
         `)
         .order('created_at', { ascending: true })
 
@@ -35,7 +35,21 @@ export default async function RequestsPage() {
         console.error('Error fetching requests:', error)
     }
 
-    const mappedRequests = requests || []
+    // Fetch users separately to avoid complex nested foreign key issues
+    const { data: usersList } = await supabase.from('users').select('id, full_name')
+    const userMap = (usersList || []).reduce((acc: any, u: any) => ({ ...acc, [u.id]: u.full_name }), {})
+
+    const mappedRequests = (requests || []).map(req => {
+        // Inyectar el nombre del usuario en el historial para que RequestsTable lo lea
+        const historyWithUsers = (req.request_history || []).map((h: any) => ({
+            ...h,
+            users: { full_name: userMap[h.user_id] || 'Usuario Desconocido' }
+        }))
+        return {
+            ...req,
+            request_history: historyWithUsers
+        }
+    })
 
     const presencialUrl = institutionSlug
         ? `/portal/${institutionSlug}?canal=presencial`
