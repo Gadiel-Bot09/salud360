@@ -20,22 +20,22 @@ export default async function RequestsPage() {
     const institutionName = (userProfile?.institutions as any)?.name || ''
     const institutionSlug = (userProfile?.institutions as any)?.slug || ''
 
-    // Fetch requests with attachments — RLS will automatically scope to institution if not Super Admin
-    // IMPORTANTE: NO se carga request_history aquí — solo se necesita en el detalle individual.
-    // Cargarla en la lista causaba escaneos completos de 1,401+ historiales por cada visita.
+    // Fetch requests with attachments and history for Gestor column
     const { data: requests, error } = await supabase
         .from('requests')
-        .select('*, canal, request_attachments(id)')
+        .select(`
+            *,
+            canal,
+            request_attachments(id),
+            request_history(created_at, action, users(full_name))
+        `)
         .order('created_at', { ascending: true })
 
     if (error) {
         console.error('Error fetching requests:', error)
     }
 
-    const mappedRequests = (requests || []).map(req => ({
-        ...req,
-        request_history: [] // historial se carga en la página de detalle, no aquí
-    }))
+    const mappedRequests = requests || []
 
     const presencialUrl = institutionSlug
         ? `/portal/${institutionSlug}?canal=presencial`
