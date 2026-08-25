@@ -59,7 +59,7 @@ export interface FormTemplate {
 export const DEFAULT_TEMPLATE: FormTemplate = {
   version: 2,
   fields: [
-    { id: 'sys-docType', label: 'Tipo de Identificación', type: 'select', required: true, systemRole: 'documentType', options: ['Cédula de Ciudadanía (CC)', 'Tarjeta de Identidad (TI)', 'Cédula de Extranjería (CE)', 'Registro Civil (RC)', 'Pasaporte (PA)'] },
+    { id: 'sys-docType', label: 'Tipo de Identificación', type: 'select', required: true, systemRole: 'documentType', options: ['Cédula de Ciudadanía (CC)', 'Tarjeta de Identidad (TI)', 'Cédula de Extranjería (CE)', 'Registro Civil (RC)', 'Pasaporte (PA)', 'Permiso Especial de Permanencia (PEP)'] },
     { id: 'sys-docNum', label: 'Número de Identificación', type: 'text', required: true, systemRole: 'documentNumber', placeholder: 'Ej: 1102345678' },
     { id: 'sys-name', label: 'Nombre Completo', type: 'text', required: true, systemRole: 'fullName', placeholder: 'Ej: Juan Carlos Pérez García' },
     { id: 'sys-email', label: 'Correo de Notificaciones', type: 'email', required: true, systemRole: 'email', placeholder: 'Para recibir su radicado por correo...' },
