@@ -66,8 +66,10 @@ function attendanceLabel(
   attended: boolean | null,
   attendanceStatus: string | null,
   cancelled: boolean,
-  appointmentDate: string
+  appointmentDate: string,
+  rescheduled?: boolean
 ): string {
+  if (rescheduled) return 'Reprogramada'
   if (cancelled || attendanceStatus === 'cancelled') return 'Cancelada'
   // Columna `attended` (la que ya usa el módulo de citas)
   if (attended === true)  return 'Asistió'
@@ -123,6 +125,7 @@ export async function fetchCircular1552Report(from?: string, to?: string): Promi
         attendance_status,
         attended,
         cancelled,
+        rescheduled,
         created_at,
         requests!inner (
           id,
@@ -216,7 +219,8 @@ export async function fetchCircular1552Report(from?: string, to?: string): Promi
           appt.attended          ?? null,
           appt.attendance_status ?? null,
           appt.cancelled         ?? false,
-          appt.appointment_date  ?? ''
+          appt.appointment_date  ?? '',
+          appt.rescheduled       ?? false
         ),
         canal: req?.canal === 'presencial' ? 'Presencial' : 'Online',
       }

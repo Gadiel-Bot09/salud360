@@ -239,6 +239,7 @@ function RequestDetail({ data, onBack }: { data: any; onBack: () => void }) {
               return (
                 <div key={appt.id} className={`rounded-2xl border-2 p-4 transition-all ${
                   appt.cancelled ? 'border-red-200 bg-red-50/50' :
+                  appt.rescheduled ? 'border-amber-200 bg-amber-50/50' :
                   appt.attended ? 'border-emerald-200 bg-emerald-50/50' :
                   'border-teal-200 bg-gradient-to-br from-white to-teal-50/30 shadow-sm'
                 }`}>
@@ -251,10 +252,20 @@ function RequestDetail({ data, onBack }: { data: any; onBack: () => void }) {
                         <span className="bg-teal-700 text-white font-mono font-bold text-xs px-2.5 py-0.5 rounded-lg shadow-sm">
                           🕐 {appt.appointment_time}
                         </span>
+                        {appt.rescheduled_from_id && !appt.rescheduled && (
+                          <span className="bg-teal-100 text-teal-800 font-bold text-[10px] uppercase tracking-wide px-2 py-0.5 rounded-lg border border-teal-200">
+                            ↩️ Reprogramación
+                          </span>
+                        )}
                       </div>
                       <p className="text-sm font-semibold text-slate-600">
                         👨‍⚕️ Médico: <span className="text-slate-800 font-bold">{appt.doctor_name || 'Por asignar'}</span> <span className="text-xs text-slate-500">({appt.specialty || 'Especialidad General'})</span>
                       </p>
+                      {appt.branch_name && (
+                        <p className="text-sm font-semibold text-slate-600">
+                          📍 Sede: <span className="text-slate-800 font-bold">{appt.branch_name}</span>
+                        </p>
+                      )}
                     </div>
 
                     <div className="flex flex-col sm:items-end gap-2 shrink-0">
@@ -266,6 +277,17 @@ function RequestDetail({ data, onBack }: { data: any; onBack: () => void }) {
                           {appt.cancellation_reason && (
                             <p className="text-[11px] text-red-600 max-w-[240px] mt-1 font-medium bg-red-50 p-1.5 rounded-lg border border-red-100">
                               {appt.cancellation_reason}
+                            </p>
+                          )}
+                        </div>
+                      ) : appt.rescheduled ? (
+                        <div className="text-left sm:text-right">
+                          <span className="inline-flex items-center gap-1 bg-amber-100 text-amber-700 border border-amber-200 px-3 py-1 rounded-full text-xs font-bold">
+                            🔄 Reprogramada
+                          </span>
+                          {appt.rescheduled_reason && (
+                            <p className="text-[11px] text-amber-800 max-w-[240px] mt-1 font-medium bg-amber-50 p-1.5 rounded-lg border border-amber-200">
+                              {appt.rescheduled_reason}
                             </p>
                           )}
                         </div>

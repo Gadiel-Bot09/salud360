@@ -3,7 +3,7 @@
 import { useState, useTransition } from 'react'
 import {
   CheckCircle2, XCircle, Clock, RotateCcw, Search,
-  ChevronDown, Stethoscope, Building2, CalendarClock, MessageCircle, AlertTriangle, Trash2, MapPin
+  ChevronDown, Stethoscope, Building2, CalendarClock, MessageCircle, AlertTriangle, Trash2, MapPin, RefreshCw
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -25,6 +25,7 @@ import {
   silentDeleteAppointment,
   type AppointmentWithPatient
 } from '@/app/admin/appointments/actions'
+import { RescheduleDialog } from '@/components/admin/reschedule-dialog'
 import { useToast } from '@/hooks/use-toast'
 
 type FilterState = 'all' | 'pending' | 'attended' | 'absent' | 'cancelled'
@@ -70,11 +71,29 @@ export function AppointmentsTable({ appointments: initial, isAdmin = false }: Pr
   const [silentDeleteAppt, setSilentDeleteAppt] = useState<AppointmentWithPatient | null>(null)
   const [silentObs, setSilentObs]               = useState('')
 
+  // Reschedule dialog state
+  const [rescheduleAppt, setRescheduleAppt]     = useState<AppointmentWithPatient | null>(null)
+  const [rescheduleData, setRescheduleData]     = useState<{ doctors: string[]; specialties: string[]; branches: string[] }>({ doctors: [], specialties: [], branches: [] })
+
   const openBulkModal = async () => {
     setIsBulkOpen(true)
     const data = await getDoctorsAndSpecialties()
     setDoctorsList(data.doctors)
     setSpecialtiesList(data.specialties)
+  }
+
+  const openRescheduleModal = async (appt: AppointmentWithPatient) => {
+    const data = await getDoctorsAndSpecialties()
+    // Fetch branches list
+    const { createClient } = await import('@supabase/supabase-js')
+    const supabase = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+    )
+    const { data: branchesData } = await supabase.from('branches').select('name').eq('active', true)
+    const branches = (branchesData || []).map((b: any) => b.name).filter(Boolean)
+    setRescheduleData({ doctors: data.doctors, specialties: data.specialties, branches })
+    setRescheduleAppt(appt)
   }
 
   const handleBulkCancel = () => {
@@ -376,6 +395,20 @@ export function AppointmentsTable({ appointments: initial, isAdmin = false }: Pr
                           )}
                         </div>
                       )}
+                      {(appt as any).rescheduled && (
+                        <div className="mt-1 flex items-center gap-2 flex-wrap">
+                          <span className="text-xs font-semibold text-amber-700 bg-amber-50 px-2 py-0.5 rounded border border-amber-200">
+                            🔄 Reprogramada — Motivo: "{(appt as any).rescheduled_reason || 'Sin motivo'}"
+                          </span>
+                        </div>
+                      )}
+                      {(appt as any).rescheduled_from_id && !(appt as any).rescheduled && (
+                        <div className="mt-1 flex items-center gap-2 flex-wrap">
+                          <span className="text-xs font-semibold text-teal-700 bg-teal-50 px-2 py-0.5 rounded border border-teal-200">
+                            ↩️ Reprogramación de cita anterior
+                          </span>
+                        </div>
+                      )}
                       {!appt.cancelled && appt.attended !== null && (
                         <div className="mt-1 flex items-center gap-2 flex-wrap">
                           <span className={`text-xs font-semibold ${appt.attended ? 'text-emerald-600' : 'text-red-600'}`}>
@@ -435,6 +468,16 @@ export function AppointmentsTable({ appointments: initial, isAdmin = false }: Pr
                               >
                                 🚫 Cancelar
                               </button>
+                              {!(appt as any).rescheduled && (
+                                <button
+                                  onClick={() => openRescheduleModal(appt)}
+                                  disabled={isPending}
+                                  className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-semibold bg-amber-50 hover:bg-amber-100 text-amber-700 border border-amber-200 transition-colors"
+                                  title="Reprogramar esta cita y notificar al paciente"
+                                >
+                                  <RefreshCw className="w-3 h-3" /> Reprogramar
+                                </button>
+                              )}
                               {isAdmin && (
                                 <button
                                   onClick={() => { setSilentDeleteAppt(appt); setSilentObs('') }}
@@ -645,6 +688,31 @@ export function AppointmentsTable({ appointments: initial, isAdmin = false }: Pr
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Reschedule Dialog */}
+      {rescheduleAppt && (
+        <RescheduleDialog
+          open={!!rescheduleAppt}
+          onOpenChange={open => { if (!open) setRescheduleAppt(null) }}
+          appointment={{
+            id:               rescheduleAppt.id,
+            appointment_date: rescheduleAppt.appointment_date,
+            appointment_time: rescheduleAppt.appointment_time,
+            doctor_name:      rescheduleAppt.doctor_name,
+            specialty:        rescheduleAppt.specialty,
+            branch_name:      rescheduleAppt.branch_name,
+            patient_name:     rescheduleAppt.patient_name,
+            radicado:         rescheduleAppt.radicado,
+          }}
+          doctors={rescheduleData.doctors}
+          specialties={rescheduleData.specialties}
+          branches={rescheduleData.branches}
+          onSuccess={() => {
+            setRescheduleAppt(null)
+            router.refresh()
+          }}
+        />
+      )}
     </div>
   )
 }

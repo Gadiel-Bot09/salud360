@@ -4,6 +4,7 @@ import { createClient as createAdminClient } from '@supabase/supabase-js'
 import { createClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
 import { sendWhatsAppMessage } from '@/lib/evolution'
+import { sendAppointmentRescheduledEmail } from '@/lib/resend'
 import { todayCO } from '@/lib/utils'
 
 function sb() {
@@ -30,6 +31,10 @@ export interface AppointmentWithPatient {
   cancelled_at: string | null
   cancellation_reason: string | null
   cancelled_by: string | null
+  rescheduled: boolean
+  rescheduled_at: string | null
+  rescheduled_reason: string | null
+  rescheduled_from_id: string | null
   patient_name: string
   patient_phone: string
   patient_email: string
@@ -128,6 +133,10 @@ export async function getAppointmentsByDate(date: string): Promise<AppointmentWi
         cancelled_at:        appt.cancelled_at        ?? null,
         cancellation_reason: appt.cancellation_reason ?? null,
         cancelled_by:        appt.cancelled_by        ?? null,
+        rescheduled:         appt.rescheduled         ?? false,
+        rescheduled_at:      appt.rescheduled_at      ?? null,
+        rescheduled_reason:  appt.rescheduled_reason  ?? null,
+        rescheduled_from_id: appt.rescheduled_from_id ?? null,
         patient_name:     patientJson.fullName || 'Paciente',
         patient_phone:    patientJson.phone || '—',
         patient_email:    req.patient_email || patientJson.email || '—',
@@ -497,6 +506,197 @@ export async function silentDeleteAppointment(appointmentId: string, observation
     return { success: true }
   } catch (err: any) {
     console.error('silentDeleteAppointment error:', err)
+    return { success: false, error: err?.message || 'Error desconocido' }
+  }
+}
+
+// ── Reschedule: marks old appointment as rescheduled, creates new one ─────────
+export async function rescheduleAppointment(params: {
+  appointmentId: string
+  newDate: string
+  newTime: string
+  newDoctor?: string
+  newSpecialty?: string
+  newBranch?: string
+  reason: string
+}): Promise<{ success: boolean; newAppointmentId?: string; error?: string }> {
+  try {
+    const authClient = await createClient()
+    const { data: { user } } = await authClient.auth.getUser()
+    if (!user) return { success: false, error: 'No autenticado.' }
+
+    if (!params.reason?.trim()) {
+      return { success: false, error: 'El motivo de reprogramación es obligatorio.' }
+    }
+    if (!params.newDate || !params.newTime) {
+      return { success: false, error: 'La nueva fecha y hora son obligatorias.' }
+    }
+
+    const supabase = sb()
+
+    // 1. Fetch old appointment + request + institution data
+    const { data: oldAppt, error: fetchErr } = await supabase
+      .from('appointments')
+      .select(`
+        id, request_id, appointment_date, appointment_time, doctor_name, specialty, branch_name,
+        cancelled, rescheduled,
+        requests (
+          id, radicado, status, patient_email, patient_data_json,
+          institutions ( id, name, logo_url, colors, evolution_instance_name, evolution_connected, contact_email )
+        )
+      `)
+      .eq('id', params.appointmentId)
+      .single()
+
+    if (fetchErr || !oldAppt) {
+      return { success: false, error: 'Cita no encontrada.' }
+    }
+    if (oldAppt.cancelled) {
+      return { success: false, error: 'No se puede reprogramar una cita cancelada.' }
+    }
+    if (oldAppt.rescheduled) {
+      return { success: false, error: 'Esta cita ya fue reprogramada anteriormente.' }
+    }
+
+    const req = oldAppt.requests as any
+    const institution = req?.institutions as any
+    const nowIso = new Date().toISOString()
+
+    // Auto-map CUPS code for new specialty
+    const CUPS_MAP: Record<string, string> = {
+      'Cirugia': '890222', 'Cirugía': '890222', 'Endodoncia': '890218',
+      'Odontopediatría': '890220', 'Odontopediatria': '890220',
+      'Rehabilitación': '890224', 'Rehabilitacion': '890224',
+      'Primera Vez': '890203', 'Periodoncia': '890221',
+      'Ortodoncia': '890223', 'Prótesis': '', 'Protesis': '',
+    }
+    const newSpecialty = params.newSpecialty || oldAppt.specialty || ''
+    const codigoCups = CUPS_MAP[newSpecialty] || null
+
+    // 2. Mark old appointment as rescheduled
+    const { error: markErr } = await supabase
+      .from('appointments')
+      .update({
+        rescheduled: true,
+        rescheduled_at: nowIso,
+        rescheduled_by: user.id,
+        rescheduled_reason: params.reason.trim(),
+      })
+      .eq('id', params.appointmentId)
+
+    if (markErr) {
+      console.error('Error marking old appointment as rescheduled:', markErr)
+      return { success: false, error: 'Error al marcar la cita anterior como reprogramada.' }
+    }
+
+    // 3. Insert new appointment linked to old one
+    const { data: newAppt, error: insertErr } = await supabase
+      .from('appointments')
+      .insert({
+        request_id:          oldAppt.request_id,
+        appointment_date:    params.newDate,
+        appointment_time:    params.newTime,
+        doctor_name:         params.newDoctor || oldAppt.doctor_name || null,
+        specialty:           newSpecialty || null,
+        branch_name:         params.newBranch || oldAppt.branch_name || null,
+        codigo_cups:         codigoCups,
+        attendance_status:   'pending',
+        reminder_24h_sent:   false,
+        reminder_2h_sent:    false,
+        rescheduled_from_id: params.appointmentId,
+      })
+      .select('id')
+      .single()
+
+    if (insertErr || !newAppt) {
+      console.error('Error inserting new appointment:', insertErr)
+      return { success: false, error: 'Error al crear la nueva cita.' }
+    }
+
+    // 4. Insert audit entry in request_history
+    const oldDateStr = oldAppt.appointment_date
+    const oldTimeStr = (oldAppt.appointment_time as string)?.slice(0, 5) || '—'
+    const newTimeStr = params.newTime?.slice(0, 5) || params.newTime
+
+    await supabase.from('request_history').insert({
+      request_id:  oldAppt.request_id,
+      action:      `🔄 Cita Reprogramada: ${oldDateStr} ${oldTimeStr} → ${params.newDate} ${newTimeStr}`,
+      from_status: req?.status || 'responded',
+      to_status:   req?.status || 'responded',
+      user_id:     user.id,
+      comment:     `Motivo: ${params.reason.trim()}. Nueva cita asignada con ID ${newAppt.id}.`,
+    })
+
+    // 5. Send email notification
+    const patientJson = req?.patient_data_json || {}
+    const patientName = patientJson.fullName || 'Paciente'
+    const patientEmail = req?.patient_email || patientJson.email || null
+
+    if (patientEmail) {
+      await sendAppointmentRescheduledEmail(
+        patientEmail,
+        patientName,
+        req?.radicado || '',
+        {
+          date:      oldAppt.appointment_date,
+          time:      (oldAppt.appointment_time as string)?.slice(0, 5) || '',
+          doctor:    oldAppt.doctor_name || '',
+          specialty: oldAppt.specialty || '',
+        },
+        {
+          date:        params.newDate,
+          time:        newTimeStr,
+          doctor:      params.newDoctor || oldAppt.doctor_name || '',
+          specialty:   newSpecialty,
+          institution: institution?.name || 'Salud360',
+          branch:      params.newBranch || oldAppt.branch_name || undefined,
+        },
+        params.reason.trim(),
+        institution ? {
+          name:     institution.name,
+          logo_url: institution.logo_url,
+          colors:   institution.colors,
+        } : null
+      )
+    }
+
+    // 6. Send WhatsApp notification
+    const phone = patientJson.phone || patientJson.celular || patientJson.telefono
+    const instanceName  = institution?.evolution_instance_name
+    const isConnected   = institution?.evolution_connected
+    const institutionName = institution?.name || 'Salud360'
+
+    if (phone && phone !== '—' && instanceName && isConnected) {
+      const text =
+        `Hola ${patientName},\n\nTe informamos que tu cita médica en *${institutionName}* ha sido *REPROGRAMADA*.\n\n` +
+        `📅 *Cita anterior:* ${oldDateStr} a las ${oldTimeStr}\n` +
+        `✅ *Nueva cita:* ${params.newDate} a las ${newTimeStr}${params.newDoctor ? ` con ${params.newDoctor}` : ''}\n` +
+        `${params.newBranch ? `📍 *Sede:* ${params.newBranch}\n` : ''}` +
+        `\n*Motivo del cambio:* "${params.reason.trim()}"\n\n` +
+        `Recuerda llegar 15 minutos antes con tu documento de identidad.\n\n` +
+        `Atentamente,\nEquipo de ${institutionName}`
+
+      const wpRes = await sendWhatsAppMessage(instanceName, {
+        number: '57' + phone.replace(/\D/g, ''),
+        text,
+      })
+
+      await supabase.from('whatsapp_logs').insert({
+        institution_id:  institution?.id,
+        request_id:      oldAppt.request_id,
+        appointment_id:  newAppt.id,
+        patient_phone:   phone,
+        message_content: text,
+        status:          wpRes ? 'sent' : 'failed',
+        error_message:   wpRes ? null : 'Fallo en envío de WhatsApp por Evolution API',
+      })
+    }
+
+    revalidatePath('/admin/appointments')
+    revalidatePath('/admin/requests')
+    return { success: true, newAppointmentId: newAppt.id }
+  } catch (err: any) {
+    console.error('rescheduleAppointment error:', err)
     return { success: false, error: err?.message || 'Error desconocido' }
   }
 }

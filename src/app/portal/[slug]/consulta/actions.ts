@@ -39,7 +39,7 @@ export async function trackRequest(slug: string, prevState: any, formData: FormD
   const BASE_SELECT = `
     id, radicado, type, status, created_at, institution_id, patient_email, patient_data_json,
     request_history ( id, action, created_at, comment, from_status, to_status ),
-    appointments ( id, appointment_date, appointment_time, doctor_name, specialty, attended, cancelled, cancelled_at, cancellation_reason )
+    appointments ( id, appointment_date, appointment_time, doctor_name, specialty, branch_name, attended, cancelled, cancelled_at, cancellation_reason, rescheduled, rescheduled_at, rescheduled_reason, rescheduled_from_id )
   `
 
   // ── Mode 1: Both fields — exact single match ─────────────────────────────

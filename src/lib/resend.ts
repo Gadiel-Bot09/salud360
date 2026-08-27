@@ -473,3 +473,88 @@ export async function sendPortalCancellationNotification(
   }
 }
 
+// ═══════════════════════════════════════════════════════════════════════════════
+// 7. NOTIFICACIÓN DE REPROGRAMACIÓN DE CITA
+// ═══════════════════════════════════════════════════════════════════════════════
+export async function sendAppointmentRescheduledEmail(
+  toEmail: string,
+  patientName: string,
+  radicado: string,
+  oldAppointment: { date: string; time: string; doctor: string; specialty: string },
+  newAppointment: { date: string; time: string; doctor: string; specialty: string; institution: string; branch?: string },
+  reason: string,
+  institution?: EmailInstitution | null
+) {
+  if (!process.env.RESEND_API_KEY) return null
+
+  const primary = institution?.colors?.primary || '#0f766e'
+
+  const fmtDate = (d: string) => {
+    try {
+      return new Date(d + 'T12:00:00-05:00').toLocaleDateString('es-CO', {
+        weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', timeZone: 'America/Bogota'
+      })
+    } catch { return d }
+  }
+
+  const oldDateFormatted = fmtDate(oldAppointment.date)
+  const newDateFormatted = fmtDate(newAppointment.date)
+
+  const body = `
+    <p style="margin:0 0 20px 0;font-size:15px;">Hola <strong>${patientName}</strong>, su cita médica ha sido <strong style="color:#d97706;">reprogramada</strong>. A continuación encontrará los detalles del cambio:</p>
+
+    <table style="width:100%;border-collapse:separate;border-spacing:12px 0;margin-bottom:24px;">
+      <tr>
+        <td style="width:50%;vertical-align:top;">
+          <div style="background:#fef9ec;border:2px solid #fde68a;border-radius:14px;overflow:hidden;">
+            <div style="background:#d97706;padding:10px 16px;"><h3 style="margin:0;font-size:13px;color:white;font-weight:700;">📅 Cita Anterior</h3></div>
+            <div style="padding:14px 16px;font-size:13px;color:#78350f;">
+              <p style="margin:0 0 6px 0;"><strong>Fecha:</strong> <span style="text-transform:capitalize;">${oldDateFormatted}</span></p>
+              <p style="margin:0 0 6px 0;"><strong>Hora:</strong> ${oldAppointment.time}</p>
+              <p style="margin:0 0 6px 0;"><strong>Doctor:</strong> ${oldAppointment.doctor || 'Por asignar'}</p>
+              <p style="margin:0;"><strong>Especialidad:</strong> ${oldAppointment.specialty || '—'}</p>
+            </div>
+          </div>
+        </td>
+        <td style="width:50%;vertical-align:top;">
+          <div style="background:#f0fdf4;border:2px solid ${primary}60;border-radius:14px;overflow:hidden;">
+            <div style="background:${primary};padding:10px 16px;"><h3 style="margin:0;font-size:13px;color:white;font-weight:700;">✅ Nueva Cita</h3></div>
+            <div style="padding:14px 16px;font-size:13px;color:#14532d;">
+              <p style="margin:0 0 6px 0;"><strong>Fecha:</strong> <span style="text-transform:capitalize;">${newDateFormatted}</span></p>
+              <p style="margin:0 0 6px 0;font-size:15px;font-weight:800;color:${primary};"><strong>Hora:</strong> ${newAppointment.time}</p>
+              <p style="margin:0 0 6px 0;"><strong>Doctor:</strong> ${newAppointment.doctor || 'Por asignar'}</p>
+              <p style="margin:0 0 6px 0;"><strong>Especialidad:</strong> ${newAppointment.specialty || '—'}</p>
+              ${newAppointment.branch ? `<p style="margin:0;"><strong>Sede:</strong> ${newAppointment.branch}</p>` : ''}
+            </div>
+          </div>
+        </td>
+      </tr>
+    </table>
+
+    <div style="background:#fef3c7;border:1px solid #fcd34d;border-radius:10px;padding:14px 18px;margin-bottom:20px;">
+      <p style="margin:0;color:#92400e;font-size:13px;"><strong>Motivo de la reprogramación:</strong><br/>"${reason}"</p>
+    </div>
+
+    <div style="background:#f0fdf4;border:1px solid #86efac;border-radius:10px;padding:14px 18px;margin-bottom:20px;">
+      <p style="margin:0;color:#166534;font-size:13px;">✅ Recibirá recordatorios automáticos 24h y 2h antes de su nueva cita. Llegue <strong>15 minutos antes</strong> con su documento de identidad.</p>
+    </div>
+
+    <p style="margin:0;color:#94a3b8;font-size:12px;">Radicado: <strong>${radicado}</strong></p>
+  `
+
+  const html = emailLayout(institution, '🔄', 'Cita Médica Reprogramada', `Nueva fecha: ${newDateFormatted}`, body)
+
+  try {
+    const { data, error } = await resend.emails.send({
+      from: process.env.RESEND_FROM_EMAIL || 'Salud360 <noreply@mail.sinuhub.com>',
+      to: [toEmail],
+      subject: `🔄 Cita Reprogramada — Nueva Fecha: ${newDateFormatted} a las ${newAppointment.time}`,
+      html,
+    })
+    if (error) console.error('Error sending reschedule email:', error)
+    return data
+  } catch (err) {
+    console.error('Exception sending reschedule email:', err)
+    return null
+  }
+}
