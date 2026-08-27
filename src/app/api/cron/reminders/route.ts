@@ -51,6 +51,7 @@ export async function GET(request: Request) {
       .lte('appointment_date', dateTo)
       .is('attended', null)
       .not('cancelled', 'is', true)
+      .not('rescheduled', 'is', true)
       .or('reminder_24h_sent.eq.false,reminder_2h_sent.eq.false')
 
     if (fetchError) throw fetchError
