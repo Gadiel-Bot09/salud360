@@ -277,7 +277,7 @@ export async function sendAppointmentConfirmationEmail(
   toEmail: string,
   patientName: string,
   radicado: string,
-  appointment: { date: string; time: string; doctor: string; specialty: string; institution: string },
+  appointment: { date: string; time: string; doctor: string; specialty: string; institution: string; branch?: string; branchAddress?: string },
   institution?: EmailInstitution | null
 ) {
   if (!process.env.RESEND_API_KEY) return null
@@ -286,6 +286,12 @@ export async function sendAppointmentConfirmationEmail(
   const dateFormatted = new Date(appointment.date + 'T12:00:00-05:00').toLocaleDateString('es-CO', {
     weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', timeZone: 'America/Bogota'
   })
+
+  const branchRow = appointment.branch
+    ? infoRow('📍 Sede', appointment.branchAddress
+        ? `${appointment.branch} — <span style="color:#64748b;">${appointment.branchAddress}</span>`
+        : appointment.branch)
+    : ''
 
   const body = `
     <p style="margin:0 0 20px 0;font-size:15px;">Hola <strong>${patientName}</strong>, su cita ha sido <strong style="color:${primary};">confirmada exitosamente</strong>.</p>
@@ -300,7 +306,8 @@ export async function sendAppointmentConfirmationEmail(
           ${infoRow('🕐 Hora', `<span style="font-size:16px;color:${primary};font-weight:800;">${appointment.time}</span>`)}
           ${infoRow('👨‍⚕️ Doctor', appointment.doctor || 'Por asignar')}
           ${infoRow('🏥 Especialidad', appointment.specialty || '—')}
-          ${infoRow('🏢 Institución', appointment.institution, true)}
+          ${branchRow}
+          ${infoRow('🏢 Institución', appointment.institution, !appointment.branch)}
         </table>
       </div>
     </div>
@@ -481,7 +488,7 @@ export async function sendAppointmentRescheduledEmail(
   patientName: string,
   radicado: string,
   oldAppointment: { date: string; time: string; doctor: string; specialty: string },
-  newAppointment: { date: string; time: string; doctor: string; specialty: string; institution: string; branch?: string },
+  newAppointment: { date: string; time: string; doctor: string; specialty: string; institution: string; branch?: string; branchAddress?: string },
   reason: string,
   institution?: EmailInstitution | null
 ) {
@@ -524,7 +531,7 @@ export async function sendAppointmentRescheduledEmail(
               <p style="margin:0 0 6px 0;font-size:15px;font-weight:800;color:${primary};"><strong>Hora:</strong> ${newAppointment.time}</p>
               <p style="margin:0 0 6px 0;"><strong>Doctor:</strong> ${newAppointment.doctor || 'Por asignar'}</p>
               <p style="margin:0 0 6px 0;"><strong>Especialidad:</strong> ${newAppointment.specialty || '—'}</p>
-              ${newAppointment.branch ? `<p style="margin:0;"><strong>Sede:</strong> ${newAppointment.branch}</p>` : ''}
+              ${newAppointment.branch ? `<p style="margin:0 0 4px 0;"><strong>📍 Sede:</strong> ${newAppointment.branch}</p>${newAppointment.branchAddress ? `<p style="margin:0;color:#166534;font-size:12px;">${newAppointment.branchAddress}</p>` : ''}` : ''}
             </div>
           </div>
         </td>

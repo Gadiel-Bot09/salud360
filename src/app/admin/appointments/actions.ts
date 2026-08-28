@@ -630,7 +630,20 @@ export async function rescheduleAppointment(params: {
       comment:     `Motivo: ${params.reason.trim()}. Nueva cita asignada con ID ${newAppt.id}.`,
     })
 
-    // 5. Send email notification
+    // 5. Resolve branch address (if a sede was chosen)
+    const newBranchName = params.newBranch || oldAppt.branch_name || null
+    let newBranchAddress: string | null = null
+    if (newBranchName) {
+      const { data: branchRow } = await supabase
+        .from('branches')
+        .select('address')
+        .eq('name', newBranchName)
+        .limit(1)
+        .single()
+      newBranchAddress = branchRow?.address || null
+    }
+
+    // 6. Send email notification
     const patientJson = req?.patient_data_json || {}
     const patientName = patientJson.fullName || 'Paciente'
     const patientEmail = req?.patient_email || patientJson.email || null
@@ -647,12 +660,13 @@ export async function rescheduleAppointment(params: {
           specialty: oldAppt.specialty || '',
         },
         {
-          date:        params.newDate,
-          time:        newTimeStr,
-          doctor:      params.newDoctor || oldAppt.doctor_name || '',
-          specialty:   newSpecialty,
-          institution: institution?.name || 'Salud360',
-          branch:      params.newBranch || oldAppt.branch_name || undefined,
+          date:          params.newDate,
+          time:          newTimeStr,
+          doctor:        params.newDoctor || oldAppt.doctor_name || '',
+          specialty:     newSpecialty,
+          institution:   institution?.name || 'Salud360',
+          branch:        newBranchName || undefined,
+          branchAddress: newBranchAddress || undefined,
         },
         params.reason.trim(),
         institution ? {
@@ -663,18 +677,21 @@ export async function rescheduleAppointment(params: {
       )
     }
 
-    // 6. Send WhatsApp notification
+    // 7. Send WhatsApp notification
     const phone = patientJson.phone || patientJson.celular || patientJson.telefono
     const instanceName  = institution?.evolution_instance_name
     const isConnected   = institution?.evolution_connected
     const institutionName = institution?.name || 'Salud360'
 
     if (phone && phone !== '—' && instanceName && isConnected) {
+      const branchLine = newBranchName
+        ? `📍 *Sede:* ${newBranchName}${newBranchAddress ? ` — ${newBranchAddress}` : ''}\n`
+        : ''
       const text =
         `Hola ${patientName},\n\nTe informamos que tu cita médica en *${institutionName}* ha sido *REPROGRAMADA*.\n\n` +
         `📅 *Cita anterior:* ${oldDateStr} a las ${oldTimeStr}\n` +
         `✅ *Nueva cita:* ${params.newDate} a las ${newTimeStr}${params.newDoctor ? ` con ${params.newDoctor}` : ''}\n` +
-        `${params.newBranch ? `📍 *Sede:* ${params.newBranch}\n` : ''}` +
+        branchLine +
         `\n*Motivo del cambio:* "${params.reason.trim()}"\n\n` +
         `Recuerda llegar 15 minutos antes con tu documento de identidad.\n\n` +
         `Atentamente,\nEquipo de ${institutionName}`
