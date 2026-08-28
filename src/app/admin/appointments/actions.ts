@@ -293,28 +293,31 @@ export async function getPendingAppointmentsCountToday(): Promise<number> {
   }
 }
 
-export async function getDoctorsAndSpecialties(): Promise<{ doctors: string[]; specialties: string[] }> {
+export async function getDoctorsAndSpecialties(): Promise<{ doctors: string[]; specialties: string[]; branches: string[] }> {
   try {
     const supabase = sb()
     const filter = await getAuthFilter()
-    if (!filter) return { doctors: [], specialties: [] }
+    if (!filter) return { doctors: [], specialties: [], branches: [] }
 
     let docsQuery = supabase.from('doctors').select('name').eq('active', true)
     let specsQuery = supabase.from('specialties').select('name').eq('active', true)
+    let branchesQuery = supabase.from('branches').select('name').eq('active', true)
 
     if (!filter.isSuperAdmin && filter.institutionId) {
       docsQuery = docsQuery.eq('institution_id', filter.institutionId)
       specsQuery = specsQuery.eq('institution_id', filter.institutionId)
+      branchesQuery = branchesQuery.eq('institution_id', filter.institutionId)
     }
 
-    const [docsRes, specsRes] = await Promise.all([docsQuery, specsQuery])
-    const doctors = [...new Set((docsRes.data || []).map((d: any) => d.name).filter(Boolean))]
-    const specialties = [...new Set((specsRes.data || []).map((s: any) => s.name).filter(Boolean))]
+    const [docsRes, specsRes, branchesRes] = await Promise.all([docsQuery, specsQuery, branchesQuery])
+    const doctors   = [...new Set((docsRes.data     || []).map((d: any) => d.name).filter(Boolean))]
+    const specialties = [...new Set((specsRes.data  || []).map((s: any) => s.name).filter(Boolean))]
+    const branches  = [...new Set((branchesRes.data || []).map((b: any) => b.name).filter(Boolean))]
 
-    return { doctors, specialties }
+    return { doctors, specialties, branches }
   } catch (err) {
     console.error('getDoctorsAndSpecialties error:', err)
-    return { doctors: [], specialties: [] }
+    return { doctors: [], specialties: [], branches: [] }
   }
 }
 

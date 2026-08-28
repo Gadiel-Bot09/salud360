@@ -84,15 +84,7 @@ export function AppointmentsTable({ appointments: initial, isAdmin = false }: Pr
 
   const openRescheduleModal = async (appt: AppointmentWithPatient) => {
     const data = await getDoctorsAndSpecialties()
-    // Fetch branches list
-    const { createClient } = await import('@supabase/supabase-js')
-    const supabase = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-    )
-    const { data: branchesData } = await supabase.from('branches').select('name').eq('active', true)
-    const branches = (branchesData || []).map((b: any) => b.name).filter(Boolean)
-    setRescheduleData({ doctors: data.doctors, specialties: data.specialties, branches })
+    setRescheduleData({ doctors: data.doctors, specialties: data.specialties, branches: data.branches })
     setRescheduleAppt(appt)
   }
 

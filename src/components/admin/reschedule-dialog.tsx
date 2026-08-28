@@ -176,9 +176,9 @@ export function RescheduleDialog({
               </div>
             </div>
 
-            {branches.length > 0 && (
-              <div className="space-y-1.5">
-                <Label className="text-sm font-medium">Sede</Label>
+            <div className="space-y-1.5">
+              <Label className="text-sm font-medium">Sede</Label>
+              {branches.length > 0 ? (
                 <select
                   value={newBranch}
                   onChange={e => setNewBranch(e.target.value)}
@@ -187,8 +187,10 @@ export function RescheduleDialog({
                   <option value="">Sin cambio / Sin asignar</option>
                   {branches.map(b => <option key={b} value={b}>{b}</option>)}
                 </select>
-              </div>
-            )}
+              ) : (
+                <Input value={newBranch} onChange={e => setNewBranch(e.target.value)} placeholder="Ej: Sede Principal" className="h-9 text-sm" />
+              )}
+            </div>
 
             <div className="space-y-1.5">
               <Label className="text-sm font-medium">
