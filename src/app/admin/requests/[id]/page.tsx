@@ -206,9 +206,28 @@ export default async function RequestDetailPage({ params }: { params: { id: stri
       })
       const { data: inst } = await sbAdm.from('institutions').select('name').eq('id', request.institution_id).single()
       const patientName = request.patient_data_json?.fullName || 'Paciente'
+
+      // Resolve branch address if a sede was selected
+      let apptBranchAddress: string | null = null
+      if (apptBranchName) {
+        const { data: branchRow } = await sbAdm
+          .from('branches')
+          .select('address')
+          .eq('name', apptBranchName)
+          .limit(1)
+          .single()
+        apptBranchAddress = branchRow?.address || null
+      }
+
       await sendAppointmentConfirmationEmail(
         request.patient_email, patientName, request.radicado,
-        { date: apptDate, time: apptTime, doctor: apptDoctor || '', specialty: apptSpecialty || '', institution: inst?.name || 'Salud360' },
+        {
+          date: apptDate, time: apptTime,
+          doctor: apptDoctor || '', specialty: apptSpecialty || '',
+          institution: inst?.name || 'Salud360',
+          branch: apptBranchName || undefined,
+          branchAddress: apptBranchAddress || undefined,
+        },
         institutionResult.data
       )
     }
