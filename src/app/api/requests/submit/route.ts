@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import { createClient as createServerClient } from '@/lib/supabase/server'
 import { sendEmailConfirmation } from '@/lib/resend'
 import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3'
 import { generateLegalDocuments } from '@/lib/document-generator'
@@ -12,6 +13,10 @@ export async function POST(request: Request) {
           process.env.NEXT_PUBLIC_SUPABASE_URL!,
           process.env.SUPABASE_SERVICE_ROLE_KEY!
         )
+        
+        // Fetch user from session if they are logged in (e.g. presencial mode)
+        const supabaseAuth = await createServerClient()
+        const { data: { user } } = await supabaseAuth.auth.getUser()
 
         // 1. Core Fields Extraction
         const coreKeys = ['documentType', 'documentNumber', 'fullName', 'email', 'phone', 'requestType', 'institutionId']
@@ -115,13 +120,20 @@ export async function POST(request: Request) {
         const requestId = requestData.id
 
         // Request History Log
+        let userName = 'Gestor'
+        if (user) {
+           const { data: userData } = await supabase.from('users').select('full_name').eq('id', user.id).single()
+           if (userData?.full_name) userName = userData.full_name
+        }
+
         await supabase.from('request_history').insert({
             request_id: requestId,
             action: 'Solicitud Creada',
             from_status: 'none',
             to_status: 'received',
+            user_id: user?.id || null,
             comment: canal === 'presencial'
-              ? 'Solicitud registrada por el gestor en atención presencial (paciente en la institución).'
+              ? `Solicitud registrada por ${user ? userName : 'gestor'} en atención presencial (paciente en la institución).`
               : 'El paciente radicó la solicitud mediante el portal principal dinámico.'
         })
 

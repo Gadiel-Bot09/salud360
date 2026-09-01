@@ -159,13 +159,14 @@ function SimpleFileZone({
 // onDocNumberChange: callback when document number changes (to trigger lookup)
 
 function FieldRenderer({
-  field, namePrefix, brandColors, prefillValue, onDocNumberChange,
+  field, namePrefix, brandColors, prefillValue, onDocNumberChange, canal
 }: {
   field: FormField
   namePrefix?: string
   brandColors: BrandColors
   prefillValue?: string
   onDocNumberChange?: (val: string) => void
+  canal?: 'online' | 'presencial'
 }) {
   const [selectedOption, setSelectedOption] = useState(prefillValue || '')
   const inputName = namePrefix ? `${namePrefix}__${field.id}` : (field.systemRole || field.id)
@@ -323,22 +324,36 @@ function FieldRenderer({
         )}
 
         {/* Simple select — controlled so prefill works */}
-        {field.type === 'select' && !field.hasConditionalOptions && field.options && (
-          <div className="relative">
-            <select
-              name={inputName}
-              required={field.required}
-              value={selectedOption}
-              onChange={e => setSelectedOption(e.target.value)}
-              className={`${base} h-10 appearance-none pr-8`}
-              style={{ '--tw-ring-color': brandColors.primary } as React.CSSProperties}
-            >
-              <option value="" disabled>Seleccione una opción...</option>
-              {field.options.map((o, i) => <option key={i} value={o}>{o}</option>)}
-            </select>
-            <ChevronDown className="pointer-events-none absolute right-3 top-3 h-4 w-4 text-slate-400" />
-          </div>
-        )}
+        {field.type === 'select' && !field.hasConditionalOptions && field.options && (() => {
+          let renderedOptions = field.options
+          
+          if (field.label === 'Tipo de Solicitud') {
+            if (canal === 'presencial') {
+              if (!renderedOptions.includes('Demanda inducida')) {
+                renderedOptions = [...renderedOptions, 'Demanda inducida']
+              }
+            } else {
+              renderedOptions = renderedOptions.filter(o => o !== 'Demanda inducida')
+            }
+          }
+
+          return (
+            <div className="relative">
+              <select
+                name={inputName}
+                required={field.required}
+                value={selectedOption}
+                onChange={e => setSelectedOption(e.target.value)}
+                className={`${base} h-10 appearance-none pr-8`}
+                style={{ '--tw-ring-color': brandColors.primary } as React.CSSProperties}
+              >
+                <option value="" disabled>Seleccione una opción...</option>
+                {renderedOptions.map((o, i) => <option key={i} value={o}>{o}</option>)}
+              </select>
+              <ChevronDown className="pointer-events-none absolute right-3 top-3 h-4 w-4 text-slate-400" />
+            </div>
+          )
+        })()}
 
         {/* Conditional select */}
         {field.type === 'select' && field.hasConditionalOptions && field.conditionalOptions && (
@@ -744,6 +759,7 @@ export function RequestForm({
                 brandColors={brandColors}
                 prefillValue={getPrefillValue(field)}
                 onDocNumberChange={field.systemRole === 'documentNumber' ? handleDocNumberChange : undefined}
+                canal={canal}
               />
             )
           })}
