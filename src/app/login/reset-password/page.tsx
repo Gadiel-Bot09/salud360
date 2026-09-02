@@ -21,13 +21,19 @@ export default function ResetPasswordPage() {
     const [sessionReady, setSessionReady] = useState(false)
     const [isPending, startTransition]    = useTransition()
 
-    // Supabase sends the token as a hash fragment (#access_token=...)
-    // We need to detect the session from the URL hash on mount
+    // In PKCE flow, the callback route exchanges the code for a session cookie
+    // and redirects here. So we just need to check if a session exists.
     useEffect(() => {
         const supabase = createClient()
-        // onAuthStateChange fires when Supabase processes the hash fragment
-        const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
-            if (event === 'PASSWORD_RECOVERY') {
+        
+        const checkSession = async () => {
+            const { data: { session } } = await supabase.auth.getSession()
+            if (session) setSessionReady(true)
+        }
+        checkSession()
+
+        const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+            if (event === 'PASSWORD_RECOVERY' || session) {
                 setSessionReady(true)
             }
         })
