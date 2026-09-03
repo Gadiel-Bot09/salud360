@@ -49,7 +49,8 @@ export async function logout() {
 // ── Forgot Password: sends reset link to email ────────────────────────────────
 export async function resetPassword(formData: FormData) {
     const supabase = await createClient()
-    const email = formData.get('email') as string
+    const emailStr = formData.get('email') as string
+    const email = emailStr ? emailStr.trim() : ''
 
     if (!email) {
         return { error: 'Por favor ingrese su correo electrónico.' }
