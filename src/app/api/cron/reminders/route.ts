@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
-import { sendAppointmentReminderEmail } from '@/lib/resend'
+import { sendAppointmentReminderEmail } from '@/lib/brevo'
 import { sendWhatsAppMessage, checkEvolutionConnection } from '@/lib/evolution'
 
 export const dynamic = 'force-dynamic'

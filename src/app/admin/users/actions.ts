@@ -3,7 +3,7 @@
 import { createClient } from '@supabase/supabase-js'
 import { revalidatePath } from 'next/cache'
 import { createClient as createServerClient } from '@/lib/supabase/server'
-import { sendWelcomeAdminEmail } from '@/lib/resend'
+import { sendWelcomeAdminEmail } from '@/lib/brevo'
 import { headers } from 'next/headers'
 
 // Requires the service role key to invite new users to Auth seamlessly

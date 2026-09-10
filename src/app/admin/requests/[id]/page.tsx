@@ -15,7 +15,7 @@ import {
 } from 'lucide-react'
 import Link from 'next/link'
 import { revalidatePath } from 'next/cache'
-import { sendStatusUpdateEmail, sendAppointmentConfirmationEmail } from '@/lib/resend'
+import { sendStatusUpdateEmail, sendAppointmentConfirmationEmail } from '@/lib/brevo'
 import { sendWhatsAppMessage, checkEvolutionConnection } from '@/lib/evolution'
 import { getResponseTemplates } from '@/app/admin/settings/template-actions'
 import { S3Client, GetObjectCommand, PutObjectCommand } from '@aws-sdk/client-s3'

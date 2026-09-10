@@ -3,7 +3,7 @@
 import { createClient } from '@supabase/supabase-js'
 import { revalidatePath } from 'next/cache'
 import { sendWhatsAppMessage } from '@/lib/evolution'
-import { sendPortalCancellationNotification } from '@/lib/resend'
+import { sendPortalCancellationNotification } from '@/lib/brevo'
 
 export type TrackResult = {
   success: boolean

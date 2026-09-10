@@ -4,7 +4,7 @@ import { createClient as createAdminClient } from '@supabase/supabase-js'
 import { createClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
 import { sendWhatsAppMessage } from '@/lib/evolution'
-import { sendAppointmentRescheduledEmail } from '@/lib/resend'
+import { sendAppointmentRescheduledEmail } from '@/lib/brevo'
 import { todayCO } from '@/lib/utils'
 
 function sb() {

@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { createClient as createServerClient } from '@/lib/supabase/server'
-import { sendEmailConfirmation } from '@/lib/resend'
+import { sendEmailConfirmation } from '@/lib/brevo'
 import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3'
 import { generateLegalDocuments } from '@/lib/document-generator'
 import { nowCO } from '@/lib/utils'
