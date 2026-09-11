@@ -311,7 +311,7 @@ export async function sendAppointmentReminderEmail(
   toEmail: string,
   patientName: string,
   radicado: string,
-  appointment: { date: string; time: string; doctor: string; specialty: string; institution: string },
+  appointment: { date: string; time: string; doctor: string; specialty: string; institution: string; branch?: string; branchAddress?: string },
   hoursUntil: 24 | 2,
   institution?: EmailInstitution | null
 ) {
@@ -322,6 +322,13 @@ export async function sendAppointmentReminderEmail(
   const dateFormatted = new Date(appointment.date + 'T12:00:00-05:00').toLocaleDateString('es-CO', {
     weekday: 'long', month: 'long', day: 'numeric', timeZone: 'America/Bogota'
   })
+
+  const branchRow = appointment.branch
+    ? infoRow('📍 Sede', appointment.branchAddress
+        ? `${appointment.branch} — <span style="color:#64748b;">${appointment.branchAddress}</span>`
+        : appointment.branch)
+    : ''
+
   const body = `
     <p style="margin:0 0 20px 0;font-size:15px;">Hola <strong>${patientName}</strong>, tiene una cita médica <strong>${timeLabel}</strong>:</p>
     <div style="background:#f8fafc;border:2px solid ${accentColor}40;border-radius:14px;overflow:hidden;margin:0 0 24px 0;">
@@ -330,7 +337,9 @@ export async function sendAppointmentReminderEmail(
         ${infoRow('📅 Fecha', `<span style="text-transform:capitalize;">${dateFormatted}</span>`)}
         ${infoRow('🕐 Hora', `<span style="font-size:18px;color:${accentColor};font-weight:900;">${appointment.time}</span>`)}
         ${infoRow('👨‍⚕️ Doctor', appointment.doctor || 'Por asignar')}
-        ${infoRow('🏥 Especialidad', appointment.specialty || '—', true)}
+        ${infoRow('🏥 Especialidad', appointment.specialty || '—')}
+        ${branchRow}
+        ${infoRow('🏢 Institución', appointment.institution, !appointment.branch)}
       </table></div>
     </div>
     ${isUrgent

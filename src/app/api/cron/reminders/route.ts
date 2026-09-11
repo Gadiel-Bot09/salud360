@@ -45,6 +45,7 @@ export async function GET(request: Request) {
       .select(`
         id, appointment_date, appointment_time, doctor_name, specialty,
         reminder_24h_sent, reminder_2h_sent,
+        branches ( name, address ),
         requests ( id, radicado, patient_email, patient_data_json, institutions(id, name, logo_url, colors, evolution_instance_name, evolution_connected) )
       `)
       .gte('appointment_date', dateFrom)
@@ -86,16 +87,27 @@ export async function GET(request: Request) {
         logo_url: req.institutions.logo_url,
         colors:   req.institutions.colors,
       } : null
+
+      const branchName    = appt.branches?.name    || null
+      const branchAddress = appt.branches?.address || null
+
       const appointmentData = {
-        date:      appt.appointment_date,
-        time:      appt.appointment_time?.slice(0, 5) || '—',
-        doctor:    appt.doctor_name || '',
-        specialty: appt.specialty || '',
-        institution
+        date:          appt.appointment_date,
+        time:          appt.appointment_time?.slice(0, 5) || '—',
+        doctor:        appt.doctor_name || '',
+        specialty:     appt.specialty || '',
+        institution,
+        branch:        branchName    || undefined,
+        branchAddress: branchAddress || undefined,
       }
 
       const cleanTime    = (appt.appointment_time || '').slice(0, 5)
       const apptDateTime = new Date(`${appt.appointment_date}T${cleanTime}:00-05:00`)
+
+      // Build sede line for WhatsApp messages
+      const sedeStr = branchName
+        ? `\n📍 *Sede:* ${branchName}${branchAddress ? ` — ${branchAddress}` : ''}`
+        : ''
 
       // ── Check 24h window ─────────────────────────────────────────────────
       if (!appt.reminder_24h_sent && apptDateTime >= win24hFrom && apptDateTime <= win24hTo) {
@@ -105,7 +117,7 @@ export async function GET(request: Request) {
           if (patientPhone && patientPhone !== '—' && isConnected && instanceName) {
             const timeStr   = appt.appointment_time?.slice(0, 5) || '—'
             const doctorStr = appt.doctor_name ? `con el especialista ${appt.doctor_name}` : ''
-            const text = `Hola ${patientName},\n\nTe recordamos que mañana tienes una cita médica en *${institution}* a las *${timeStr}* ${doctorStr}.\n\nPor favor, llega con 15 minutos de antelación.\n\nAtentamente,\nEquipo de ${institution}`
+            const text = `Hola ${patientName},\n\nTe recordamos que mañana tienes una cita médica en *${institution}* a las *${timeStr}* ${doctorStr}.${sedeStr}\n\nPor favor, llega con 15 minutos de antelación y trae tu documento de identidad.\n\nAtentamente,\nEquipo de ${institution}`
             const wpRes = await sendWhatsAppMessage(instanceName, { number: patientPhone, text })
             await supabase.from('whatsapp_logs').insert({
               institution_id: req.institutions.id,
@@ -134,7 +146,7 @@ export async function GET(request: Request) {
           if (patientPhone && patientPhone !== '—' && isConnected && instanceName) {
             const timeStr   = appt.appointment_time?.slice(0, 5) || '—'
             const doctorStr = appt.doctor_name ? `con el especialista ${appt.doctor_name}` : ''
-            const text = `Hola ${patientName},\n\nEste es un recordatorio final para tu cita médica de hoy en *${institution}* a las *${timeStr}* ${doctorStr}.\n\nTe esperamos pronto.\n\nAtentamente,\nEquipo de ${institution}`
+            const text = `Hola ${patientName},\n\n🚨 Este es un recordatorio final para tu cita médica de *hoy* en *${institution}* a las *${timeStr}* ${doctorStr}.${sedeStr}\n\nTe esperamos pronto con tu documento de identidad.\n\nAtentamente,\nEquipo de ${institution}`
             const wpRes = await sendWhatsAppMessage(instanceName, { number: patientPhone, text })
             await supabase.from('whatsapp_logs').insert({
               institution_id: req.institutions.id,
