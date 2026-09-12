@@ -45,7 +45,7 @@ export async function GET(request: Request) {
       .select(`
         id, appointment_date, appointment_time, doctor_name, specialty,
         reminder_24h_sent, reminder_2h_sent,
-        branches ( name, address ),
+        branch_name,
         requests ( id, radicado, patient_email, patient_data_json, institutions(id, name, logo_url, colors, evolution_instance_name, evolution_connected) )
       `)
       .gte('appointment_date', dateFrom)
@@ -56,6 +56,25 @@ export async function GET(request: Request) {
       .or('reminder_24h_sent.eq.false,reminder_2h_sent.eq.false')
 
     if (fetchError) throw fetchError
+
+    // ── Pre-fetch all branch addresses for institutions in this batch ─────────
+    // branch_name is stored denormalized in appointments; we look up the address
+    // from the branches table by matching institution_id + name.
+    const uniqueInstitutionIds = [...new Set(
+      (appointments || [])
+        .map((a: any) => a.requests?.institutions?.id)
+        .filter(Boolean)
+    )]
+    const branchAddressCache = new Map<string, string>() // key: `${institutionId}::${branchName}`
+    if (uniqueInstitutionIds.length > 0) {
+      const { data: branchRows } = await supabase
+        .from('branches')
+        .select('institution_id, name, address')
+        .in('institution_id', uniqueInstitutionIds)
+      ;(branchRows || []).forEach((b: any) => {
+        branchAddressCache.set(`${b.institution_id}::${b.name}`, b.address || '')
+      })
+    }
 
     // ── OPTIMIZACIÓN CRÍTICA: Verificar conexión Evolution UNA VEZ por instancia
     // En vez de llamar checkEvolutionConnection() por cada cita (O(n) llamadas HTTP),
@@ -88,8 +107,11 @@ export async function GET(request: Request) {
         colors:   req.institutions.colors,
       } : null
 
-      const branchName    = appt.branches?.name    || null
-      const branchAddress = appt.branches?.address || null
+      // branch_name is the denormalized text column — this is what actually gets saved
+      const branchName    = appt.branch_name || null
+      const branchAddress = branchName && req.institutions?.id
+        ? (branchAddressCache.get(`${req.institutions.id}::${branchName}`) || null)
+        : null
 
       const appointmentData = {
         date:          appt.appointment_date,
