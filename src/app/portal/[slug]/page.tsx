@@ -2,7 +2,7 @@ import { getInstitutionBySlug, getInstitutionTemplate } from '@/app/actions'
 import { RequestForm } from '@/components/patient/request-form'
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
-import { Search, MapPin, Phone, Globe, Mail, Shield, Stethoscope } from 'lucide-react'
+import { Search, MapPin, Phone, Globe, Mail, Shield, Stethoscope, Wrench } from 'lucide-react'
 
 export const dynamic = 'force-dynamic'
 
@@ -20,11 +20,79 @@ export default async function PortalPage({
     return notFound()
   }
 
-  const template = await getInstitutionTemplate(institution.id)
-
-  const primary = institution.colors?.primary || '#0f766e'
+  const primary   = institution.colors?.primary   || '#0f766e'
   const secondary = institution.colors?.secondary || '#134e4a'
-  const initial = institution.name?.charAt(0)?.toUpperCase() || 'I'
+  const initial   = institution.name?.charAt(0)?.toUpperCase() || 'I'
+
+  // ── MAINTENANCE MODE ────────────────────────────────────────────────────────
+  if ((institution as any).portal_maintenance) {
+    const msg = (institution as any).maintenance_message ||
+      'Estamos realizando mejoras para brindarte una mejor experiencia. Por favor intenta más tarde.'
+    return (
+      <div
+        className="min-h-screen flex flex-col items-center justify-center px-4"
+        style={{ background: `linear-gradient(135deg, ${primary} 0%, ${secondary} 100%)` }}
+      >
+        {/* Decorative circles */}
+        <div className="absolute inset-0 overflow-hidden pointer-events-none">
+          <div className="absolute -top-24 -right-24 w-96 h-96 rounded-full opacity-10" style={{ background: 'rgba(255,255,255,0.4)' }} />
+          <div className="absolute -bottom-16 -left-16 w-64 h-64 rounded-full opacity-10" style={{ background: 'rgba(255,255,255,0.3)' }} />
+        </div>
+
+        <div className="relative z-10 bg-white/10 backdrop-blur-sm border border-white/20 rounded-3xl p-10 max-w-lg w-full text-center shadow-2xl">
+          {/* Logo / Initial */}
+          <div className="mb-6 flex justify-center">
+            {institution.logo_url ? (
+              <img src={institution.logo_url} alt={institution.name} className="h-16 w-auto object-contain drop-shadow-lg" />
+            ) : (
+              <div
+                className="w-16 h-16 rounded-2xl flex items-center justify-center text-3xl font-black text-white shadow-lg"
+                style={{ background: 'rgba(255,255,255,0.25)' }}
+              >
+                {initial}
+              </div>
+            )}
+          </div>
+
+          {/* Wrench icon */}
+          <div className="flex justify-center mb-5">
+            <div className="bg-white/20 rounded-full p-4">
+              <Wrench className="w-10 h-10 text-white" />
+            </div>
+          </div>
+
+          {/* Title */}
+          <h1 className="text-2xl font-bold text-white mb-2">Portal en Mantenimiento</h1>
+          <p className="text-white/60 text-sm font-medium mb-4 uppercase tracking-widest">{institution.name}</p>
+
+          {/* Message */}
+          <div className="bg-white/10 border border-white/20 rounded-2xl px-6 py-4 mb-6">
+            <p className="text-white/90 text-sm leading-relaxed">{msg}</p>
+          </div>
+
+          {/* Contact */}
+          {institution.contact_email && (
+            <p className="text-white/70 text-xs">
+              ¿Necesitas ayuda?{' '}
+              <a href={`mailto:${institution.contact_email}`} className="text-white font-semibold underline underline-offset-2">
+                {institution.contact_email}
+              </a>
+            </p>
+          )}
+          {institution.phone && (
+            <p className="text-white/70 text-xs mt-1">
+              📞 {institution.phone}
+            </p>
+          )}
+        </div>
+
+        <p className="relative z-10 mt-6 text-white/40 text-xs">Salud360 · Sistema de Gestión Médica Digital</p>
+      </div>
+    )
+  }
+  // ── END MAINTENANCE MODE ────────────────────────────────────────────────────
+
+  const template = await getInstitutionTemplate(institution.id)
 
   return (
     <div

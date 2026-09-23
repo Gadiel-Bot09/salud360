@@ -105,3 +105,47 @@ export async function updateInstitutionBranding(formData: FormData) {
   revalidatePath('/admin/settings')
   return { success: true, message: 'Configuración institucional actualizada.' }
 }
+
+// ── Toggle portal maintenance mode ───────────────────────────────────────────
+export async function togglePortalMaintenance(formData: FormData) {
+  const institutionId = formData.get('institutionId') as string
+  const active        = formData.get('active') === 'true'
+  const message       = (formData.get('message') as string | null) || null
+
+  if (!institutionId) return { success: false, error: 'ID de institución requerido.' }
+
+  const { error } = await supabaseAdmin
+    .from('institutions')
+    .update({ portal_maintenance: active, maintenance_message: message })
+    .eq('id', institutionId)
+
+  if (error) return { success: false, error: error.message }
+
+  revalidatePath('/admin/settings')
+  return { success: true }
+}
+
+// ── Set maintenance for ALL institutions (Super Admin only) ───────────────────
+export async function setAllInstitutionsMaintenance(formData: FormData) {
+  const active  = formData.get('active') === 'true'
+  const message = (formData.get('message') as string | null) || null
+
+  const { error } = await supabaseAdmin
+    .from('institutions')
+    .update({ portal_maintenance: active, maintenance_message: message })
+    .neq('id', '00000000-0000-0000-0000-000000000000') // updates all rows
+
+  if (error) return { success: false, error: error.message }
+
+  revalidatePath('/admin/settings')
+  return { success: true }
+}
+
+// ── Get all institutions maintenance status (Super Admin only) ────────────────
+export async function getAllInstitutionsMaintenance() {
+  const { data } = await supabaseAdmin
+    .from('institutions')
+    .select('id, name, slug, portal_maintenance, maintenance_message')
+    .order('name')
+  return data || []
+}

@@ -3,10 +3,11 @@ import { createClient as createAdminClient } from '@supabase/supabase-js'
 import { SettingsClient } from './settings-client'
 import { headers } from 'next/headers'
 import { getResponseTemplates, createResponseTemplate, updateResponseTemplate, deleteResponseTemplate } from './template-actions'
+import { getAllInstitutionsMaintenance, togglePortalMaintenance, setAllInstitutionsMaintenance } from './actions'
 import { TemplatesManager } from '@/components/admin/templates-manager'
 import { BranchesManager } from '@/components/admin/branches-manager'
 import { getBranches } from '@/app/admin/requests/branches-actions'
-import { Settings, FileText, Building2, Mail, CheckCircle2, XCircle, BarChart3 } from 'lucide-react'
+import { Settings, FileText, Building2, Mail, CheckCircle2, XCircle, BarChart3, Wrench } from 'lucide-react'
 
 export const dynamic = 'force-dynamic'
 
@@ -72,6 +73,12 @@ export default async function SettingsPage() {
 
   const templates = await getResponseTemplates()
   const branches  = await getBranches()
+
+  // ── Maintenance data ────────────────────────────────────────────────────────
+  const roleName  = (userProfile as any)?.roles?.name ?? ''
+  const isSuper   = roleName === 'Super Admin'
+  // Super Admin: get all institutions. Regular admin: just their own institution
+  const allInstitutionsMaintenance = isSuper ? await getAllInstitutionsMaintenance() : []
 
   // ── Email stats from email_logs table — Brevo Starter: 5,000/month ──────────
   const now = new Date()
@@ -262,6 +269,100 @@ export default async function SettingsPage() {
             <div className="text-center py-4 text-slate-400">
               <Mail className="w-8 h-8 mx-auto mb-2 opacity-40" />
               <p className="text-sm">No se han enviado correos este mes todavía.</p>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Divider */}
+      <div className="border-t border-slate-200" />
+
+      {/* Section: Maintenance Mode */}
+      <div>
+        <h2 className="text-sm font-bold text-slate-500 uppercase tracking-wider mb-1 flex items-center gap-2">
+          <Wrench className="w-4 h-4" /> Modo Mantenimiento del Portal
+        </h2>
+        <p className="text-xs text-slate-400 mb-4">
+          Cuando el portal está en mantenimiento, los pacientes ven una pantalla de aviso en lugar del formulario de solicitudes.
+        </p>
+
+        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 space-y-6">
+
+          {/* Regular admin: toggle for own institution */}
+          {!isSuper && institution && (
+            <form action={togglePortalMaintenance} className="space-y-4">
+              <input type="hidden" name="institutionId" value={institution.id} />
+              <div className="flex items-center justify-between gap-4">
+                <div>
+                  <p className="font-semibold text-slate-800 text-sm">{institution.name}</p>
+                  <p className="text-xs text-slate-500 mt-0.5">
+                    Estado actual:{' '}
+                    {(institution as any).portal_maintenance
+                      ? <span className="text-red-600 font-semibold">🔴 En mantenimiento</span>
+                      : <span className="text-teal-600 font-semibold">🟢 Portal activo</span>
+                    }
+                  </p>
+                </div>
+                {(institution as any).portal_maintenance
+                  ? <button type="submit" name="active" value="false" className="px-4 py-2 rounded-xl bg-teal-600 hover:bg-teal-700 text-white text-sm font-semibold transition-colors">✅ Activar Portal</button>
+                  : <button type="submit" name="active" value="true" className="px-4 py-2 rounded-xl bg-orange-500 hover:bg-orange-600 text-white text-sm font-semibold transition-colors">🔧 Poner en Mantenimiento</button>
+                }
+              </div>
+              <div>
+                <label className="text-xs font-medium text-slate-600 block mb-1">Mensaje personalizado para los pacientes (opcional)</label>
+                <textarea
+                  name="message"
+                  rows={2}
+                  defaultValue={(institution as any).maintenance_message || ''}
+                  placeholder="Estamos realizando mejoras para brindarte una mejor experiencia. Por favor intenta más tarde."
+                  className="w-full text-sm border border-slate-200 rounded-xl px-3 py-2 resize-none focus:outline-none focus:ring-2 focus:ring-teal-500"
+                />
+                <button type="submit" name="active" value={(institution as any).portal_maintenance ? 'true' : 'false'} className="mt-2 text-xs text-teal-700 underline underline-offset-2">
+                  Guardar mensaje sin cambiar el estado
+                </button>
+              </div>
+            </form>
+          )}
+
+          {/* Super Admin: all institutions */}
+          {isSuper && (
+            <div className="space-y-5">
+              {/* Global button */}
+              <div className="flex gap-3 flex-wrap">
+                <form action={setAllInstitutionsMaintenance}>
+                  <input type="hidden" name="active" value="true" />
+                  <button type="submit" className="px-4 py-2 rounded-xl bg-red-500 hover:bg-red-600 text-white text-sm font-semibold transition-colors">
+                    🔧 Poner TODAS en mantenimiento
+                  </button>
+                </form>
+                <form action={setAllInstitutionsMaintenance}>
+                  <input type="hidden" name="active" value="false" />
+                  <button type="submit" className="px-4 py-2 rounded-xl bg-teal-600 hover:bg-teal-700 text-white text-sm font-semibold transition-colors">
+                    ✅ Activar TODOS los portales
+                  </button>
+                </form>
+              </div>
+
+              <div className="border-t border-slate-100 pt-4 space-y-3">
+                {allInstitutionsMaintenance.map((inst: any) => (
+                  <form key={inst.id} action={togglePortalMaintenance} className="flex items-center justify-between gap-4 p-3 rounded-xl border border-slate-100 hover:bg-slate-50 transition-colors">
+                    <input type="hidden" name="institutionId" value={inst.id} />
+                    <div>
+                      <p className="font-semibold text-slate-800 text-sm">{inst.name}</p>
+                      <p className="text-xs text-slate-400">{inst.slug ? `/${inst.slug}` : 'sin slug'}</p>
+                    </div>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <span className={`text-xs font-semibold px-2 py-1 rounded-full ${inst.portal_maintenance ? 'bg-red-100 text-red-700' : 'bg-teal-100 text-teal-700'}`}>
+                        {inst.portal_maintenance ? '🔴 Mantenimiento' : '🟢 Activo'}
+                      </span>
+                      {inst.portal_maintenance
+                        ? <button type="submit" name="active" value="false" className="px-3 py-1.5 rounded-lg bg-teal-600 hover:bg-teal-700 text-white text-xs font-semibold transition-colors">Activar</button>
+                        : <button type="submit" name="active" value="true" className="px-3 py-1.5 rounded-lg bg-orange-500 hover:bg-orange-600 text-white text-xs font-semibold transition-colors">Mantenimiento</button>
+                      }
+                    </div>
+                  </form>
+                ))}
+              </div>
             </div>
           )}
         </div>
