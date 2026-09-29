@@ -497,11 +497,15 @@ export async function fetchRequestsDetail(
 
     if (!userRow) return []
 
-    // 2. Obtener los request IDs únicos donde ese usuario actuó
+    // 2. Obtener SOLO los request IDs donde el usuario cambió el estado A "Respondida"
+    // (misma lógica que la métrica: from_status != 'responded' → to_status = 'responded')
+    // Así el detalle muestra exactamente las mismas solicitudes que el contador
     let historyQuery = sb
       .from('request_history')
       .select('request_id, created_at')
       .eq('user_id', userRow.id)
+      .eq('to_status', 'responded')
+      .neq('from_status', 'responded')
       .not('request_id', 'is', null)
 
     if (from) historyQuery = historyQuery.gte('created_at', from)
