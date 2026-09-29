@@ -149,10 +149,10 @@ function DetailDrawer({
             <p className="text-xs uppercase tracking-widest opacity-70">Detalle</p>
             <h2 className="font-bold text-lg">{title}</h2>
             <p className="text-xs opacity-90 mt-1 flex items-center gap-2">
-              <span>{rows.length} solicitudes en el historial</span>
+              <span>{rows.length} solicitudes en total</span>
               <span className="opacity-50">•</span>
-              <span className="bg-emerald-500/20 text-emerald-100 px-2 py-0.5 rounded-full font-semibold">
-                {rows.filter(r => r.status === 'responded' || r.status === 'closed').length} finalizadas exitosamente
+              <span className="bg-emerald-500/20 text-emerald-100 px-2 py-0.5 rounded-full font-semibold" title="Estado actual global, sin importar qué usuario la cerró finalmente">
+                {rows.filter(r => r.status === 'responded' || r.status === 'closed').length} actualmente finalizadas (global)
               </span>
             </p>
           </div>
@@ -644,15 +644,16 @@ export function ReportsDashboard({ initialData, onRefresh, onFetchDetail, onFetc
                     <YAxis tick={{ fontSize: 11 }} />
                     <Tooltip />
                     <Legend />
-                    <Bar dataKey="actions"   name="Acciones"    fill="#6366f1" radius={[4,4,0,0]} />
-                    <Bar dataKey="responded" name="Respondidas" fill="#10b981" radius={[4,4,0,0]} />
+                    <Bar dataKey="actions"    name="Acciones (Clics/Notas)" fill="#cbd5e1" radius={[4,4,0,0]} />
+                    <Bar dataKey="interacted" name="Solicitudes Intervenidas" fill="#6366f1" radius={[4,4,0,0]} />
+                    <Bar dataKey="responded"  name="Resueltas por Gestor" fill="#10b981" radius={[4,4,0,0]} />
                   </BarChart>
                 </ResponsiveContainer>
               </div>
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead className="bg-slate-50 border-y border-slate-200">
-                    <tr>{['Usuario','Rol','Acciones Totales','Solicitudes Respondidas','Comentarios',''].map(h => <th key={h} className="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase">{h}</th>)}</tr>
+                    <tr>{['Usuario','Rol','Acciones (Clics)','Sol. Intervenidas','Resueltas por Gestor','Comentarios',''].map(h => <th key={h} className="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase">{h}</th>)}</tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
                     {rows.map((r, i) => (
@@ -662,7 +663,8 @@ export function ReportsDashboard({ initialData, onRefresh, onFetchDetail, onFetc
                           <p className="text-xs text-slate-400 truncate">{r.user_email}</p>
                         </td>
                         <td className="px-4 py-3"><span className="bg-indigo-100 text-indigo-700 rounded-full px-2 py-0.5 text-xs font-semibold">{r.role}</span></td>
-                        <td className="px-4 py-3 font-bold text-teal-700">{r.actions}</td>
+                        <td className="px-4 py-3 font-medium text-slate-500">{r.actions}</td>
+                        <td className="px-4 py-3 font-bold text-indigo-700">{r.interacted}</td>
                         <td className="px-4 py-3">
                           <div className="flex items-center gap-3">
                             <span className="font-bold text-emerald-600 w-8">{r.responded}</span>
@@ -690,7 +692,7 @@ export function ReportsDashboard({ initialData, onRefresh, onFetchDetail, onFetc
               <Button size="sm" variant="outline" onClick={() => exportCSV('reporte_usuarios.csv', rows as any)}>
                 <Download className="w-4 h-4 mr-2" /> Exportar CSV
               </Button>
-              <Button size="sm" className="bg-teal-700 hover:bg-teal-800" onClick={() => exportPDF('Actividad por Usuario', ['Gestor','Correo','Rol','Acciones','Respondidas','Comentarios'], rows.map(r => [r.user_name, r.user_email, r.role, r.actions, r.responded, r.comments]))}>
+              <Button size="sm" className="bg-teal-700 hover:bg-teal-800" onClick={() => exportPDF('Actividad por Usuario', ['Gestor','Correo','Rol','Clics','Intervenidas','Resueltas','Comentarios'], rows.map(r => [r.user_name, r.user_email, r.role, r.actions, r.interacted, r.responded, r.comments]))}>
                 <FileText className="w-4 h-4 mr-2" /> Exportar PDF
               </Button>
             </div>

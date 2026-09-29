@@ -112,6 +112,7 @@ export interface UserActivityReport {
   user_name: string
   role: string
   actions: number
+  interacted: number
   responded: number
   comments: number
 }
@@ -123,7 +124,7 @@ export async function fetchActivityByUser(from?: string, to?: string): Promise<U
   const sb = getAdminClient()
   let query = sb
     .from('request_history')
-    .select('user_id, action, comment, to_status, created_at, requests!inner(institution_id)')
+    .select('request_id, user_id, action, comment, to_status, created_at, requests!inner(institution_id)')
     .not('user_id', 'is', null)
 
   if (from) query = query.gte('created_at', from)
@@ -141,19 +142,36 @@ export async function fetchActivityByUser(from?: string, to?: string): Promise<U
   for (const u of (users || []) as any[]) userMap[u.id] = { email: u.email, full_name: u.full_name || u.email, role: u.roles?.name || 'Desconocido' }
 
   const map: Record<string, UserActivityReport> = {}
+  const userInteractedReqs: Record<string, Set<string>> = {}
+  const userRespondedReqs: Record<string, Set<string>> = {}
+
   for (const h of history as any[]) {
     const uid = h.user_id
-    if (!map[uid]) map[uid] = {
-      user_email: userMap[uid]?.email || uid,
-      user_name: userMap[uid]?.full_name || userMap[uid]?.email || uid,
-      role: userMap[uid]?.role || '—',
-      actions: 0,
-      responded: 0,
-      comments: 0
+    if (!map[uid]) {
+      map[uid] = {
+        user_email: userMap[uid]?.email || uid,
+        user_name: userMap[uid]?.full_name || userMap[uid]?.email || uid,
+        role: userMap[uid]?.role || '—',
+        actions: 0,
+        interacted: 0,
+        responded: 0,
+        comments: 0
+      }
+      userInteractedReqs[uid] = new Set()
+      userRespondedReqs[uid] = new Set()
     }
     map[uid].actions++
-    if (h.to_status === 'responded' || h.to_status === 'closed') map[uid].responded++
+    if (h.request_id) userInteractedReqs[uid].add(h.request_id)
+    
+    if (h.to_status === 'responded' || h.to_status === 'closed') {
+      if (h.request_id) userRespondedReqs[uid].add(h.request_id)
+    }
     if (h.comment) map[uid].comments++
+  }
+
+  for (const uid in map) {
+    map[uid].interacted = userInteractedReqs[uid].size
+    map[uid].responded  = userRespondedReqs[uid].size
   }
 
   return Object.values(map).sort((a, b) => b.actions - a.actions)
