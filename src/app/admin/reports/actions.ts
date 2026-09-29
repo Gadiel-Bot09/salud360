@@ -1,4 +1,4 @@
-'use server'
+﻿'use server'
 
 import { createClient as createAdminClient } from '@supabase/supabase-js'
 import { createClient as createAuthClient } from '@/lib/supabase/server'
@@ -562,3 +562,89 @@ export async function fetchRequestsDetail(
   })
 }
 
+
+
+// ── 9. Informe Diario de Solicitudes por Canal y Tipo ────────────────────────
+export interface DailyRow {
+  date: string
+  total: number
+  online: number
+  presencial: number
+  by_type: Record<string, number>
+}
+
+export async function fetchDailyRequestsReport(from?: string, to?: string): Promise<DailyRow[]> {
+  const filter = await getAuthFilter()
+  if (!filter) return []
+  const sb = getAdminClient()
+  const d30 = nowCO(); d30.setDate(d30.getDate() - 29)
+  const defaultFrom = from || formatCO(d30, 'yyyy-MM-dd')
+  const defaultTo   = to   || todayCO()
+  let query = sb.from('requests').select('created_at, canal, type, institution_id')
+    .gte('created_at', defaultFrom)
+    .lte('created_at', defaultTo + 'T23:59:59Z')
+  if (!filter.isSuperAdmin && filter.institutionId) query = query.eq('institution_id', filter.institutionId)
+  const { data, error } = await query
+  if (error || !data) { console.error('fetchDailyRequestsReport:', error); return [] }
+  const map: Record<string, DailyRow> = {}
+  const cur = new Date(defaultFrom)
+  while (cur.toISOString().split('T')[0] <= defaultTo) {
+    const key = cur.toISOString().split('T')[0]
+    map[key] = { date: key, total: 0, online: 0, presencial: 0, by_type: {} }
+    cur.setDate(cur.getDate() + 1)
+  }
+  for (const r of data as any[]) {
+    const key = new Date(r.created_at).toISOString().split('T')[0]
+    if (!map[key]) continue
+    map[key].total++
+    if (r.canal === 'presencial') map[key].presencial++; else map[key].online++
+    const t = r.type || 'Sin tipo'
+    map[key].by_type[t] = (map[key].by_type[t] || 0) + 1
+  }
+  return Object.values(map).sort((a, b) => a.date.localeCompare(b.date))
+}
+
+// ── 10. Resumen por Canal ─────────────────────────────────────────────────────
+export interface ChannelSummary { canal: string; total: number; percentage: number }
+
+export async function fetchChannelSummary(from?: string, to?: string): Promise<ChannelSummary[]> {
+  const filter = await getAuthFilter()
+  if (!filter) return []
+  const sb = getAdminClient()
+  let query = sb.from('requests').select('canal, institution_id')
+  if (from) query = query.gte('created_at', from)
+  if (to)   query = query.lte('created_at', to + 'T23:59:59Z')
+  if (!filter.isSuperAdmin && filter.institutionId) query = query.eq('institution_id', filter.institutionId)
+  const { data, error } = await query
+  if (error || !data) return []
+  let online = 0; let presencial = 0
+  for (const r of data as any[]) { if (r.canal === 'presencial') presencial++; else online++ }
+  const total = online + presencial
+  return [
+    { canal: 'Online (Portal)', total: online, percentage: total > 0 ? Math.round((online / total) * 100) : 0 },
+    { canal: 'Presencial', total: presencial, percentage: total > 0 ? Math.round((presencial / total) * 100) : 0 },
+  ]
+}
+
+// ── 11. Solicitudes por Tipo desglosado por Canal ─────────────────────────────
+export interface TypeChannelRow { type: string; total: number; online: number; presencial: number }
+
+export async function fetchTypeChannelReport(from?: string, to?: string): Promise<TypeChannelRow[]> {
+  const filter = await getAuthFilter()
+  if (!filter) return []
+  const sb = getAdminClient()
+  let query = sb.from('requests').select('type, canal, institution_id')
+  if (from) query = query.gte('created_at', from)
+  if (to)   query = query.lte('created_at', to + 'T23:59:59Z')
+  if (!filter.isSuperAdmin && filter.institutionId) query = query.eq('institution_id', filter.institutionId)
+  const { data, error } = await query
+  if (error || !data) return []
+  const map: Record<string, TypeChannelRow> = {}
+  for (const r of data as any[]) {
+    const t = r.type || 'Sin tipo'
+    if (!map[t]) map[t] = { type: t, total: 0, online: 0, presencial: 0 }
+    map[t].total++
+    if (r.canal === 'presencial') map[t].presencial++; else map[t].online++
+  }
+  return Object.values(map).sort((a, b) => b.total - a.total)
+}

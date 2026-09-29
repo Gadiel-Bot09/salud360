@@ -7,12 +7,16 @@ import {
   fetchPendingCriticals,
   fetchAttendanceReport,
   fetchAttendanceDetail,
-  fetchRequestsDetail
+  fetchRequestsDetail,
+  fetchDailyRequestsReport,
+  fetchChannelSummary,
+  fetchTypeChannelReport,
 } from './actions'
 import { fetchCircular1552Report } from './circular1552-actions'
 import { ReportsDashboard } from '@/components/admin/reports-dashboard'
 import { Circular1552Table } from '@/components/admin/circular1552-table'
-import { BarChart2, FileText } from 'lucide-react'
+import { DailyRequestsReport } from '@/components/admin/daily-requests-report'
+import { BarChart2, FileText, CalendarDays } from 'lucide-react'
 
 export const dynamic = 'force-dynamic'
 
@@ -34,6 +38,13 @@ export default async function ReportsPage() {
   // para evitar consumo innecesario de BD al entrar al módulo.
   const initialData = await loadAllReports()
 
+  // Daily report — últimos 30 días por defecto
+  const [initialDaily, initialChannels, initialTypes] = await Promise.all([
+    fetchDailyRequestsReport(),
+    fetchChannelSummary(),
+    fetchTypeChannelReport(),
+  ])
+
   async function refresh(from: string, to: string) {
     'use server'
     return loadAllReports(from || undefined, to || undefined)
@@ -52,6 +63,16 @@ export default async function ReportsPage() {
   async function fetchCircular(from: string, to: string) {
     'use server'
     return fetchCircular1552Report(from || undefined, to || undefined)
+  }
+
+  async function refreshDaily(from: string, to: string) {
+    'use server'
+    const [daily, channels, types] = await Promise.all([
+      fetchDailyRequestsReport(from || undefined, to || undefined),
+      fetchChannelSummary(from || undefined, to || undefined),
+      fetchTypeChannelReport(from || undefined, to || undefined),
+    ])
+    return { daily, channels, types }
   }
 
   return (
@@ -82,6 +103,29 @@ export default async function ReportsPage() {
         onFetchDetail={fetchDetail}
         onFetchAttDetail={fetchAttDetail}
       />
+
+      {/* ── Informe Diario por Canal y Tipo ──────────────────────────────────── */}
+      <section className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+        <div className="flex items-center gap-3 px-6 py-4 border-b border-slate-100 bg-gradient-to-r from-teal-50 to-white">
+          <div className="w-10 h-10 bg-teal-600 rounded-xl flex items-center justify-center shadow-sm">
+            <CalendarDays className="w-5 h-5 text-white" />
+          </div>
+          <div>
+            <h2 className="font-bold text-slate-800 text-lg">Informe Diario de Solicitudes</h2>
+            <p className="text-xs text-slate-500">
+              Desglose por canal (Online · Presencial) y tipo de solicitud · Exportación CSV
+            </p>
+          </div>
+        </div>
+        <div className="p-6">
+          <DailyRequestsReport
+            initialDaily={initialDaily}
+            initialChannels={initialChannels}
+            initialTypes={initialTypes}
+            onRefresh={refreshDaily}
+          />
+        </div>
+      </section>
 
       {/* ── Reporte Circular 1552 ─────────────────────────────────────────── */}
       <section className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
