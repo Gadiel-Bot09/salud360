@@ -124,7 +124,7 @@ export async function fetchActivityByUser(from?: string, to?: string): Promise<U
   const sb = getAdminClient()
   let query = sb
     .from('request_history')
-    .select('request_id, user_id, action, comment, to_status, created_at, requests!inner(institution_id)')
+    .select('request_id, user_id, action, comment, from_status, to_status, created_at, requests!inner(institution_id)')
     .not('user_id', 'is', null)
 
   if (from) query = query.gte('created_at', from)
@@ -163,9 +163,10 @@ export async function fetchActivityByUser(from?: string, to?: string): Promise<U
     map[uid].actions++
     if (h.request_id) userInteractedReqs[uid].add(h.request_id)
     
-    // "Resueltas por Gestor" = únicamente cuando el gestor puso el estado en "Respondida"
-    // No se cuenta "Cerrada" ya que es una acción administrativa distinta
-    if (h.to_status === 'responded') {
+    // "Resueltas por Gestor" = el gestor cambió el estado A "Respondida"
+    // Se requiere from_status !== to_status para excluir acciones administrativas
+    // (como eliminar/cancelar citas) que no cambian el estado pero sí dejan auditoría
+    if (h.to_status === 'responded' && h.from_status !== 'responded') {
       if (h.request_id) userRespondedReqs[uid].add(h.request_id)
     }
     if (h.comment) map[uid].comments++
