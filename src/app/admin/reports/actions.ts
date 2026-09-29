@@ -1,4 +1,4 @@
-﻿'use server'
+'use server'
 
 import { createClient as createAdminClient } from '@supabase/supabase-js'
 import { createClient as createAuthClient } from '@/lib/supabase/server'
@@ -489,23 +489,31 @@ export async function fetchRequestsDetail(
     const { data: history } = await historyQuery
     if (!history || history.length === 0) return []
 
-    const requestIds = [...new Set((history as any[]).map(h => h.request_id))].slice(0, 200)
+    // Quitar el límite de 200. Obtenemos todos los IDs únicos.
+    const requestIds = [...new Set((history as any[]).map(h => h.request_id))]
 
-    // 3. Obtener el detalle de esas solicitudes
-    let reqQuery = sb
-      .from('requests')
-      .select('radicado, patient_email, patient_data_json, type, status, created_at, updated_at, institution_id, institutions(name)')
-      .in('id', requestIds)
-      .order('created_at', { ascending: false })
+    // 3. Obtener el detalle de esas solicitudes (en lotes para no exceder límites de URL de Supabase)
+    let allData: any[] = []
+    const chunkSize = 300
+    for (let i = 0; i < requestIds.length; i += chunkSize) {
+      const chunk = requestIds.slice(i, i + chunkSize)
+      let reqQuery = sb
+        .from('requests')
+        .select('radicado, patient_email, patient_data_json, type, status, created_at, updated_at, institution_id, institutions(name)')
+        .in('id', chunk)
 
-    if (!filter.isSuperAdmin && filter.institutionId) {
-      reqQuery = reqQuery.eq('institution_id', filter.institutionId)
+      if (!filter.isSuperAdmin && filter.institutionId) {
+        reqQuery = reqQuery.eq('institution_id', filter.institutionId)
+      }
+
+      const { data } = await reqQuery
+      if (data) allData = allData.concat(data)
     }
 
-    const { data, error } = await reqQuery
-    if (error || !data) { console.error('fetchRequestsDetail user error:', error); return [] }
+    // Ordenar descendente por fecha de creación
+    allData.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
 
-    return (data as any[]).map(r => {
+    return allData.map(r => {
       const json = r.patient_data_json || {}
       const name = json['Nombre Completo'] || json['nombre'] || json['nombre_completo'] || json['fullName'] || '—'
       const isResolved = r.status === 'responded' || r.status === 'closed'
@@ -539,7 +547,8 @@ export async function fetchRequestsDetail(
     query = query.eq('type', filterValue)
   }
 
-  query = query.order('created_at', { ascending: false }).limit(200)
+  // Aumentar el límite a 5000 para análisis a profundidad
+  query = query.order('created_at', { ascending: false }).limit(5000)
 
   const { data, error } = await query
   if (error || !data) { console.error('fetchRequestsDetail error:', error); return [] }

@@ -148,7 +148,13 @@ function DetailDrawer({
           <div>
             <p className="text-xs uppercase tracking-widest opacity-70">Detalle</p>
             <h2 className="font-bold text-lg">{title}</h2>
-            <p className="text-xs opacity-70 mt-0.5">{rows.length} solicitudes</p>
+            <p className="text-xs opacity-90 mt-1 flex items-center gap-2">
+              <span>{rows.length} solicitudes en el historial</span>
+              <span className="opacity-50">•</span>
+              <span className="bg-emerald-500/20 text-emerald-100 px-2 py-0.5 rounded-full font-semibold">
+                {rows.filter(r => r.status === 'responded' || r.status === 'closed').length} finalizadas exitosamente
+              </span>
+            </p>
           </div>
           <button onClick={onClose} className="p-2 hover:bg-white/20 rounded-xl transition-colors">
             <X className="w-5 h-5" />
@@ -626,6 +632,7 @@ export function ReportsDashboard({ initialData, onRefresh, onFetchDetail, onFetc
       // ── By User ─────────────────────────────────────────────────────────────
       case 'user': {
         const rows = data.byUser
+        const maxResponded = Math.max(...rows.map(r => r.responded), 1)
         return (
           <div className="space-y-6">
             <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm">
@@ -656,7 +663,14 @@ export function ReportsDashboard({ initialData, onRefresh, onFetchDetail, onFetc
                         </td>
                         <td className="px-4 py-3"><span className="bg-indigo-100 text-indigo-700 rounded-full px-2 py-0.5 text-xs font-semibold">{r.role}</span></td>
                         <td className="px-4 py-3 font-bold text-teal-700">{r.actions}</td>
-                        <td className="px-4 py-3 text-emerald-600">{r.responded}</td>
+                        <td className="px-4 py-3">
+                          <div className="flex items-center gap-3">
+                            <span className="font-bold text-emerald-600 w-8">{r.responded}</span>
+                            <div className="flex-1 bg-emerald-50 rounded-full h-2 w-24">
+                              <div className="bg-emerald-500 h-2 rounded-full" style={{ width: `${(r.responded / maxResponded) * 100}%` }}></div>
+                            </div>
+                          </div>
+                        </td>
                         <td className="px-4 py-3 text-slate-500">{r.comments}</td>
                         <td className="px-4 py-3">
                           <button
