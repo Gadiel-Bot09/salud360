@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 
 import { useState, useTransition } from 'react'
 import { Calendar, Globe, Users, TrendingUp, Download, RefreshCw, Loader2 } from 'lucide-react'
@@ -81,6 +81,54 @@ export function DailyRequestsReport({ initialDaily, initialChannels, initialType
     a.download = `solicitudes_diarias_${from}_${to}.csv`; a.click()
   }
 
+  // Export Excel (.xlsx) — 3 hojas
+  async function exportExcel() {
+    const XLSX = await import('xlsx')
+
+    // Hoja 1 — Detalle diario
+    const sheet1Data = [
+      ['Fecha', 'Total', 'Online (Portal)', 'Presencial', ...allTypes],
+      ...daily.filter(r => r.total > 0).reverse().map(r => [
+        r.date, r.total, r.online, r.presencial,
+        ...allTypes.map(t => r.by_type[t] || 0)
+      ])
+    ]
+    const ws1 = XLSX.utils.aoa_to_sheet(sheet1Data)
+    // Bold header row style
+    const range = XLSX.utils.decode_range(ws1['!ref'] || 'A1')
+    for (let c = range.s.c; c <= range.e.c; c++) {
+      const cell = ws1[XLSX.utils.encode_cell({ r: 0, c })]
+      if (cell) cell.s = { font: { bold: true }, fill: { fgColor: { rgb: '0F766E' } }, font2: { color: { rgb: 'FFFFFF' } } }
+    }
+    // Column widths
+    ws1['!cols'] = [{ wch: 12 }, { wch: 8 }, { wch: 14 }, { wch: 12 }, ...allTypes.map(() => ({ wch: 16 }))]
+
+    // Hoja 2 — Resumen por canal
+    const sheet2Data = [
+      ['Canal', 'Total solicitudes', 'Porcentaje'],
+      ...channels.map(ch => [ch.canal, ch.total, `${ch.percentage}%`]),
+      [],
+      ['TOTALES', totalPeriod, '100%'],
+    ]
+    const ws2 = XLSX.utils.aoa_to_sheet(sheet2Data)
+    ws2['!cols'] = [{ wch: 20 }, { wch: 18 }, { wch: 14 }]
+
+    // Hoja 3 — Por tipo de solicitud
+    const sheet3Data = [
+      ['Tipo de Solicitud', 'Total', 'Online (Portal)', 'Presencial'],
+      ...types.map(t => [t.type, t.total, t.online, t.presencial])
+    ]
+    const ws3 = XLSX.utils.aoa_to_sheet(sheet3Data)
+    ws3['!cols'] = [{ wch: 55 }, { wch: 8 }, { wch: 14 }, { wch: 12 }]
+
+    const wb = XLSX.utils.book_new()
+    XLSX.utils.book_append_sheet(wb, ws1, 'Detalle Diario')
+    XLSX.utils.book_append_sheet(wb, ws2, 'Por Canal')
+    XLSX.utils.book_append_sheet(wb, ws3, 'Por Tipo')
+
+    XLSX.writeFile(wb, `solicitudes_${from}_${to}.xlsx`)
+  }
+
   const barMax = Math.max(...daily.map(r => r.total), 1)
 
   return (
@@ -101,6 +149,10 @@ export function DailyRequestsReport({ initialDaily, initialChannels, initialType
           className="flex items-center gap-2 px-4 py-2 rounded-xl bg-teal-600 hover:bg-teal-700 disabled:opacity-50 text-white text-sm font-semibold transition-colors">
           {pending ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
           Actualizar
+        </button>
+        <button onClick={exportExcel}
+          className="flex items-center gap-2 px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-semibold transition-colors">
+          <Download className="w-4 h-4" /> Exportar Excel
         </button>
         <button onClick={exportCSV}
           className="flex items-center gap-2 px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-sm font-semibold transition-colors">
