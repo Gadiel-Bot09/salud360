@@ -163,7 +163,9 @@ export async function fetchActivityByUser(from?: string, to?: string): Promise<U
     map[uid].actions++
     if (h.request_id) userInteractedReqs[uid].add(h.request_id)
     
-    if (h.to_status === 'responded' || h.to_status === 'closed') {
+    // "Resueltas por Gestor" = únicamente cuando el gestor puso el estado en "Respondida"
+    // No se cuenta "Cerrada" ya que es una acción administrativa distinta
+    if (h.to_status === 'responded') {
       if (h.request_id) userRespondedReqs[uid].add(h.request_id)
     }
     if (h.comment) map[uid].comments++
