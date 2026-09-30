@@ -411,7 +411,7 @@ export async function fetchAttendanceDetail(
       )
     `)
     .order('appointment_date', { ascending: false })
-    .limit(500)
+    // Sin límite artificial: debe mostrar el mismo universo que el resumen
 
   if (from) query = query.gte('appointment_date', from)
   if (to)   query = query.lte('appointment_date', to)
