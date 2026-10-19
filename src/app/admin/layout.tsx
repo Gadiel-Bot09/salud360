@@ -23,6 +23,7 @@ import { Button } from '@/components/ui/button'
 import { Toaster } from '@/components/ui/toaster'
 import { getPendingAppointmentsCountToday } from '@/app/admin/appointments/actions'
 import { UserMenu } from '@/components/admin/user-menu'
+import { WelcomeNotifier } from '@/components/admin/welcome-notifier'
 
 export default async function AdminLayout({ children }: { children: ReactNode }) {
     const supabase = await createClient()
@@ -32,7 +33,7 @@ export default async function AdminLayout({ children }: { children: ReactNode })
         redirect('/login')
     }
     
-    const { data: userProfile } = await supabase.from('users').select('role_id, roles(name, permissions, is_system)').eq('id', user.id).single()
+    const { data: userProfile } = await supabase.from('users').select('full_name, role_id, roles(name, permissions, is_system)').eq('id', user.id).single()
     const profile = userProfile as any;
     const roleName = profile?.roles?.name || '';
     const permissions = (profile?.roles?.permissions as string[]) || [];
@@ -129,12 +130,20 @@ export default async function AdminLayout({ children }: { children: ReactNode })
                     )}
                 </nav>
 
-                <UserMenu email={user.email || 'usuario@salud360.com'} />
+                <UserMenu 
+                    email={user.email || 'usuario@salud360.com'} 
+                    name={profile?.full_name || (user.user_metadata as any)?.full_name || null} 
+                    roleName={roleName} 
+                />
             </aside>
 
             {/* Main Content */}
             <main className="flex-1 overflow-y-auto w-full">
                 {children}
+                <WelcomeNotifier 
+                    fullName={profile?.full_name || (user.user_metadata as any)?.full_name || null} 
+                    email={user.email} 
+                />
                 <Toaster />
             </main>
         </div>

@@ -17,7 +17,7 @@ import { useToast } from '@/hooks/use-toast'
 import { changePassword } from '@/app/admin/settings/actions'
 import { logout } from '@/app/login/actions'
 
-export function UserMenu({ email }: { email: string }) {
+export function UserMenu({ email, name, roleName }: { email: string; name?: string | null; roleName?: string | null }) {
   const [open, setOpen] = useState(false)
   const [isPending, startTransition] = useTransition()
   const { toast } = useToast()
@@ -40,7 +40,15 @@ export function UserMenu({ email }: { email: string }) {
   return (
     <div className="w-full px-4 mt-auto">
       <div className="bg-slate-800 rounded-lg p-3 mb-2 flex flex-col gap-2 shadow-inner border border-slate-700">
-        <p className="text-xs font-medium text-slate-300 truncate px-2 pt-1">{email}</p>
+        <div className="px-2 pt-1 space-y-0.5">
+          <p className="text-sm font-semibold text-white truncate">{name || email}</p>
+          {name && <p className="text-xs text-slate-400 truncate">{email}</p>}
+          {roleName && (
+            <span className="inline-block text-[10px] font-semibold px-2 py-0.5 rounded bg-teal-500/20 text-teal-300 border border-teal-500/30">
+              {roleName}
+            </span>
+          )}
+        </div>
         <Button 
           variant="ghost" 
           size="sm"
