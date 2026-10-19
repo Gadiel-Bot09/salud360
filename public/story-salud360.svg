@@ -1,0 +1,216 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1080 1920" width="1080" height="1920">
+  <defs>
+    <style>
+      @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&amp;display=swap');
+      text {
+        font-family: 'Plus Jakarta Sans', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      }
+      .title-bold { font-weight: 800; letter-spacing: -0.03em; }
+      .semi-bold { font-weight: 600; letter-spacing: -0.01em; }
+      .regular { font-weight: 400; }
+      .pill-text { font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; }
+    </style>
+
+    <!-- Gradients -->
+    <linearGradient id="bgStory" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#080D1A" />
+      <stop offset="35%" stop-color="#0F172A" />
+      <stop offset="70%" stop-color="#0C1427" />
+      <stop offset="100%" stop-color="#060A14" />
+    </linearGradient>
+
+    <linearGradient id="tealGradStory" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#2DD4BF" />
+      <stop offset="60%" stop-color="#14B8A6" />
+      <stop offset="100%" stop-color="#0D9488" />
+    </linearGradient>
+
+    <linearGradient id="cardBg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#1E293B" stop-opacity="0.9" />
+      <stop offset="100%" stop-color="#0F172A" stop-opacity="0.95" />
+    </linearGradient>
+
+    <linearGradient id="cardBorderStory" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#2DD4BF" stop-opacity="0.45" />
+      <stop offset="100%" stop-color="#38BDF8" stop-opacity="0.1" />
+    </linearGradient>
+
+    <!-- Glowing Filters -->
+    <filter id="storyGlow" x="-30%" y="-30%" width="160%" height="160%">
+      <feGaussianBlur stdDeviation="70" result="blur" />
+    </filter>
+
+    <filter id="shadowStory" x="-10%" y="-10%" width="120%" height="120%">
+      <feDropShadow dx="0" dy="10" stdDeviation="14" flood-color="#000000" flood-opacity="0.5" />
+    </filter>
+
+    <filter id="tealDrop" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="8" stdDeviation="10" flood-color="#0D9488" flood-opacity="0.35" />
+    </filter>
+  </defs>
+
+  <!-- Background Base -->
+  <rect width="1080" height="1920" fill="url(#bgStory)" />
+
+  <!-- Ambient Light Orbs (Glows) -->
+  <circle cx="180" cy="300" r="260" fill="#0D9488" opacity="0.3" filter="url(#storyGlow)" />
+  <circle cx="900" cy="650" r="280" fill="#0284C7" opacity="0.22" filter="url(#storyGlow)" />
+  <circle cx="200" cy="1300" r="300" fill="#14B8A6" opacity="0.2" filter="url(#storyGlow)" />
+  <circle cx="850" cy="1700" r="240" fill="#0D9488" opacity="0.25" filter="url(#storyGlow)" />
+
+  <!-- Subtle Tech Grid -->
+  <g opacity="0.035" stroke="#FFFFFF" stroke-width="1.2">
+    <line x1="120" y1="0" x2="120" y2="1920" />
+    <line x1="360" y1="0" x2="360" y2="1920" />
+    <line x1="600" y1="0" x2="600" y2="1920" />
+    <line x1="840" y1="0" x2="840" y2="1920" />
+    <line x1="0" y1="300" x2="1080" y2="300" />
+    <line x1="0" y1="650" x2="1080" y2="650" />
+    <line x1="0" y1="1000" x2="1080" y2="1000" />
+    <line x1="0" y1="1350" x2="1080" y2="1350" />
+    <line x1="0" y1="1700" x2="1080" y2="1700" />
+  </g>
+
+  <!-- ── 1. HEADER (Safe Zone: Starts at y=150) ─────────────────────────────── -->
+  <g transform="translate(60, 160)">
+    <!-- Top Pill Badge -->
+    <rect width="320" height="40" rx="20" fill="#0D9488" fill-opacity="0.25" stroke="#14B8A6" stroke-width="1.2" />
+    <circle cx="24" cy="20" r="5" fill="#2DD4BF" />
+    <text x="38" y="25" class="pill-text" font-size="12" fill="#2DD4BF">TECNOLOGÍA CLÍNICA SAAS</text>
+
+    <!-- Official Logo -->
+    <g transform="translate(0, 55)">
+      <g transform="scale(1.15)">
+        <circle cx="40" cy="40" r="32" fill="none" stroke="url(#tealGradStory)" stroke-width="8" stroke-dasharray="140 40" stroke-linecap="round" transform="rotate(-45 40 40)" filter="url(#tealDrop)" />
+        <circle cx="68" cy="18" r="6" fill="#2DD4BF" />
+        <path d="M35 25 h10 v10 h10 v10 h-10 v10 h-10 v-10 h-10 v-10 h10 z" fill="url(#tealGradStory)" />
+      </g>
+      <text x="110" y="58" class="title-bold" font-size="54" fill="#FFFFFF">Salud<tspan fill="url(#tealGradStory)">360</tspan></text>
+      <text x="112" y="82" class="pill-text" font-size="12" fill="#94A3B8" letter-spacing="3.5">PLATAFORMA SAAS</text>
+    </g>
+  </g>
+
+  <!-- ── 2. HERO HEADLINE ───────────────────────────────────────────────────── -->
+  <g transform="translate(60, 340)">
+    <text x="0" y="50" class="title-bold" font-size="48" fill="#FFFFFF" line-height="1.15">
+      Centraliza tu IPS &amp;
+    </text>
+    <text x="0" y="105" class="title-bold" font-size="48" fill="url(#tealGradStory)">
+      Conecta a tus Pacientes
+    </text>
+    <text x="0" y="150" class="semi-bold" font-size="20" fill="#94A3B8">
+      Gestión unificada de citas, PQRS y comunicaciones en tiempo real.
+    </text>
+  </g>
+
+  <!-- ── 3. FIVE CORE FEATURES (Mobile Story Cards) ──────────────────────────── -->
+  <g transform="translate(60, 530)">
+
+    <!-- CARD 1: Centralización Multicanal -->
+    <g transform="translate(0, 0)">
+      <rect width="960" height="150" rx="20" fill="url(#cardBg)" stroke="url(#cardBorderStory)" stroke-width="1.2" filter="url(#shadowStory)" />
+      <!-- Icon Box -->
+      <rect x="22" y="25" width="100" height="100" rx="16" fill="#0D9488" fill-opacity="0.2" stroke="#14B8A6" stroke-width="1" />
+      <text x="72" y="85" font-size="42" text-anchor="middle">🏥</text>
+      <!-- Texts -->
+      <text x="145" y="60" class="title-bold" font-size="24" fill="#FFFFFF">1. Centralización Multicanal</text>
+      <text x="145" y="90" class="regular" font-size="16.5" fill="#94A3B8">Ventanilla presencial + Portal web 24/7 unificados en un solo panel.</text>
+      <text x="145" y="120" class="semi-bold" font-size="14" fill="#2DD4BF">✓ Todas las solicitudes en una sola bandeja</text>
+    </g>
+
+    <!-- CARD 2: WhatsApp & Email Transaccional -->
+    <g transform="translate(0, 175)">
+      <rect width="960" height="150" rx="20" fill="url(#cardBg)" stroke="url(#cardBorderStory)" stroke-width="1.2" filter="url(#shadowStory)" />
+      <!-- Icon Box -->
+      <rect x="22" y="25" width="100" height="100" rx="16" fill="#16A34A" fill-opacity="0.2" stroke="#22C55E" stroke-width="1" />
+      <text x="72" y="85" font-size="42" text-anchor="middle">💬</text>
+      <!-- Texts -->
+      <text x="145" y="60" class="title-bold" font-size="24" fill="#FFFFFF">2. Recordatorios por WhatsApp &amp; Email</text>
+      <text x="145" y="90" class="regular" font-size="16.5" fill="#94A3B8">Confirmaciones inmediatas y recordatorios automáticos de citas.</text>
+      <text x="145" y="120" class="semi-bold" font-size="14" fill="#4ADE80">✓ Reduce el ausentismo en un 40%</text>
+    </g>
+
+    <!-- CARD 3: Circular 1552 Supersalud -->
+    <g transform="translate(0, 350)">
+      <rect width="960" height="150" rx="20" fill="url(#cardBg)" stroke="url(#cardBorderStory)" stroke-width="1.2" filter="url(#shadowStory)" />
+      <!-- Icon Box -->
+      <rect x="22" y="25" width="100" height="100" rx="16" fill="#EAB308" fill-opacity="0.2" stroke="#FACC15" stroke-width="1" />
+      <text x="72" y="85" font-size="42" text-anchor="middle">⚖️</text>
+      <!-- Texts -->
+      <text x="145" y="60" class="title-bold" font-size="24" fill="#FFFFFF">3. Circular 1552 en 1 Clic</text>
+      <text x="145" y="90" class="regular" font-size="16.5" fill="#94A3B8">Reportes normativos obligatorios listos para descargar ante Supersalud.</text>
+      <text x="145" y="120" class="semi-bold" font-size="14" fill="#FDE047">✓ Cero sanciones y cumplimiento legal 100%</text>
+    </g>
+
+    <!-- CARD 4: Autoconsulta Paciente (Cero Filas) -->
+    <g transform="translate(0, 525)">
+      <rect width="960" height="150" rx="20" fill="url(#cardBg)" stroke="url(#cardBorderStory)" stroke-width="1.2" filter="url(#shadowStory)" />
+      <!-- Icon Box -->
+      <rect x="22" y="25" width="100" height="100" rx="16" fill="#8B5CF6" fill-opacity="0.2" stroke="#A855F7" stroke-width="1" />
+      <text x="72" y="85" font-size="42" text-anchor="middle">🔍</text>
+      <!-- Texts -->
+      <text x="145" y="60" class="title-bold" font-size="24" fill="#FFFFFF">4. Autoconsulta de Radicado (Cero Filas)</text>
+      <text x="145" y="90" class="regular" font-size="16.5" fill="#94A3B8">El paciente revisa su estado desde el celular sin ir a la clínica ni llamar.</text>
+      <text x="145" y="120" class="semi-bold" font-size="14" fill="#C084FC">✓ Descongestión inmediata de salas de espera</text>
+    </g>
+
+    <!-- CARD 5: Control SLA & Trazabilidad -->
+    <g transform="translate(0, 700)">
+      <rect width="960" height="150" rx="20" fill="url(#cardBg)" stroke="url(#cardBorderStory)" stroke-width="1.2" filter="url(#shadowStory)" />
+      <!-- Icon Box -->
+      <rect x="22" y="25" width="100" height="100" rx="16" fill="#0284C7" fill-opacity="0.2" stroke="#38BDF8" stroke-width="1" />
+      <text x="72" y="85" font-size="42" text-anchor="middle">⏱️</text>
+      <!-- Texts -->
+      <text x="145" y="60" class="title-bold" font-size="24" fill="#FFFFFF">5. Control SLA &amp; Métricas en Vivo</text>
+      <text x="145" y="90" class="regular" font-size="16.5" fill="#94A3B8">Semáforo de vencimientos, auditoría de gestores y tasa de asistencia.</text>
+      <text x="145" y="120" class="semi-bold" font-size="14" fill="#38BDF8">✓ Productividad y tiempos medidos al segundo</text>
+    </g>
+
+  </g>
+
+  <!-- ── 4. IMPACT STATS / PROVEN RESULTS ───────────────────────────────────── -->
+  <g transform="translate(60, 1420)">
+    <rect width="960" height="135" rx="20" fill="#0F172A" stroke="url(#tealGradStory)" stroke-width="1.5" filter="url(#shadowStory)" />
+
+    <!-- Metric 1 -->
+    <g transform="translate(30, 28)">
+      <text x="130" y="44" class="title-bold" font-size="42" text-anchor="middle" fill="#2DD4BF">-40%</text>
+      <text x="130" y="74" class="semi-bold" font-size="15" text-anchor="middle" fill="#FFFFFF">Ausentismo</text>
+    </g>
+    <line x1="320" y1="20" x2="320" y2="115" stroke="#334155" stroke-width="1" />
+
+    <!-- Metric 2 -->
+    <g transform="translate(350, 28)">
+      <text x="130" y="44" class="title-bold" font-size="42" text-anchor="middle" fill="#38BDF8">0 Filas</text>
+      <text x="130" y="74" class="semi-bold" font-size="15" text-anchor="middle" fill="#FFFFFF">En Salas de Espera</text>
+    </g>
+    <line x1="640" y1="20" x2="640" y2="115" stroke="#334155" stroke-width="1" />
+
+    <!-- Metric 3 -->
+    <g transform="translate(670, 28)">
+      <text x="130" y="44" class="title-bold" font-size="42" text-anchor="middle" fill="#4ADE80">100%</text>
+      <text x="130" y="74" class="semi-bold" font-size="15" text-anchor="middle" fill="#FFFFFF">Trazabilidad</text>
+    </g>
+  </g>
+
+  <!-- ── 5. CALL TO ACTION & FOOTER (Safe Zone above y=1850) ────────────────── -->
+  <g transform="translate(60, 1590)">
+    <rect width="960" height="115" rx="22" fill="url(#tealGradStory)" filter="url(#tealDrop)" />
+    
+    <g transform="translate(45, 36)">
+      <text x="0" y="24" class="title-bold" font-size="25" fill="#090E17">Lleva la atención de tu IPS al siguiente nivel</text>
+      <text x="0" y="52" class="semi-bold" font-size="15.5" fill="#0F172A">Agenda una demostración personalizada y prueba el sistema.</text>
+    </g>
+
+    <!-- Web Badge -->
+    <g transform="translate(680, 32)">
+      <rect width="235" height="52" rx="14" fill="#090E17" />
+      <text x="117" y="33" class="title-bold" font-size="14.5" text-anchor="middle" fill="#2DD4BF">salud360.sinuhub.com</text>
+    </g>
+  </g>
+
+  <!-- Brand watermark footer -->
+  <text x="540" y="1745" class="regular" font-size="13" text-anchor="middle" fill="#64748B">
+    Salud360 • Plataforma Integral para IPS, Clínicas y Centros Médicos
+  </text>
+</svg>
