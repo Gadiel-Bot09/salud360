@@ -1,0 +1,342 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 1800" width="1200" height="1800">
+  <defs>
+    <!-- Fonts -->
+    <style>
+      @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&amp;display=swap');
+      text {
+        font-family: 'Plus Jakarta Sans', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      }
+      .heading { font-weight: 800; letter-spacing: -0.03em; }
+      .subheading { font-weight: 600; letter-spacing: -0.01em; }
+      .body { font-weight: 400; }
+      .badge-text { font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; }
+    </style>
+
+    <!-- Gradients -->
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#090E17" />
+      <stop offset="40%" stop-color="#0F172A" />
+      <stop offset="80%" stop-color="#0B132B" />
+      <stop offset="100%" stop-color="#08101F" />
+    </linearGradient>
+
+    <linearGradient id="tealGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#2DD4BF" />
+      <stop offset="50%" stop-color="#14B8A6" />
+      <stop offset="100%" stop-color="#0D9488" />
+    </linearGradient>
+
+    <linearGradient id="tealGlow" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#14B8A6" stop-opacity="0.6" />
+      <stop offset="100%" stop-color="#38BDF8" stop-opacity="0" />
+    </linearGradient>
+
+    <linearGradient id="accentGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#38BDF8" />
+      <stop offset="100%" stop-color="#0284C7" />
+    </linearGradient>
+
+    <linearGradient id="cardBg1" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#1E293B" stop-opacity="0.85" />
+      <stop offset="100%" stop-color="#0F172A" stop-opacity="0.95" />
+    </linearGradient>
+
+    <linearGradient id="cardBorder" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#2DD4BF" stop-opacity="0.4" />
+      <stop offset="100%" stop-color="#38BDF8" stop-opacity="0.1" />
+    </linearGradient>
+
+    <linearGradient id="goldGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#FCD34D" />
+      <stop offset="100%" stop-color="#F59E0B" />
+    </linearGradient>
+
+    <!-- Filters -->
+    <filter id="glowBlur" x="-30%" y="-30%" width="160%" height="160%">
+      <feGaussianBlur stdDeviation="90" result="blur" />
+    </filter>
+
+    <filter id="softShadow" x="-10%" y="-10%" width="120%" height="120%">
+      <feDropShadow dx="0" dy="12" stdDeviation="16" flood-color="#000000" flood-opacity="0.4" />
+    </filter>
+
+    <filter id="tealShadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="8" stdDeviation="12" flood-color="#0D9488" flood-opacity="0.35" />
+    </filter>
+  </defs>
+
+  <!-- ── 1. BACKGROUND ──────────────────────────────────────────────────────── -->
+  <rect width="1200" height="1800" fill="url(#bgGrad)" />
+
+  <!-- Ambient Glow Orbs -->
+  <circle cx="200" cy="250" r="280" fill="#0D9488" opacity="0.25" filter="url(#glowBlur)" />
+  <circle cx="1050" cy="500" r="320" fill="#0284C7" opacity="0.2" filter="url(#glowBlur)" />
+  <circle cx="600" cy="1150" r="350" fill="#14B8A6" opacity="0.18" filter="url(#glowBlur)" />
+  <circle cx="150" cy="1600" r="260" fill="#0369A1" opacity="0.2" filter="url(#glowBlur)" />
+
+  <!-- Geometric Grid Pattern Overlay -->
+  <g opacity="0.04" stroke="#FFFFFF" stroke-width="1">
+    <line x1="100" y1="0" x2="100" y2="1800" />
+    <line x1="300" y1="0" x2="300" y2="1800" />
+    <line x1="500" y1="0" x2="500" y2="1800" />
+    <line x1="700" y1="0" x2="700" y2="1800" />
+    <line x1="900" y1="0" x2="900" y2="1800" />
+    <line x1="1100" y1="0" x2="1100" y2="1800" />
+    <line x1="0" y1="200" x2="1200" y2="200" />
+    <line x1="0" y1="500" x2="1200" y2="500" />
+    <line x1="0" y1="800" x2="1200" y2="800" />
+    <line x1="0" y1="1100" x2="1200" y2="1100" />
+    <line x1="0" y1="1400" x2="1200" y2="1400" />
+    <line x1="0" y1="1700" x2="1200" y2="1700" />
+  </g>
+
+  <!-- Medical Cross Watermarks in background -->
+  <g opacity="0.03" fill="#FFFFFF">
+    <path d="M 1000 180 h 30 v 30 h 30 v 30 h -30 v 30 h -30 v -30 h -30 v -30 h 30 z" />
+    <path d="M 120 750 h 40 v 40 h 40 v 40 h -40 v 40 h -40 v -40 h -40 v -40 h 40 z" />
+    <path d="M 1050 1350 h 35 v 35 h 35 v 35 h -35 v 35 h -35 v -35 h -35 v -35 h 35 z" />
+  </g>
+
+  <!-- ── 2. HEADER: OFFICIAL LOGO & INSTITUTIONAL BADGE ──────────────────────── -->
+  <g transform="translate(80, 75)">
+    <!-- Brand Icon -->
+    <g transform="translate(0, 0) scale(1.15)">
+      <!-- 360 Arc outside -->
+      <circle cx="40" cy="40" r="32" fill="none" stroke="url(#tealGrad)" stroke-width="8" stroke-dasharray="140 40" stroke-linecap="round" transform="rotate(-45 40 40)" filter="url(#tealShadow)" />
+      <!-- Dynamic dot -->
+      <circle cx="68" cy="18" r="6" fill="#2DD4BF" />
+      <!-- Medical Cross Inside -->
+      <path d="M35 25 h10 v10 h10 v10 h-10 v10 h-10 v-10 h-10 v-10 h10 z" fill="url(#tealGrad)" />
+    </g>
+
+    <!-- Brand Text -->
+    <text x="110" y="58" class="heading" font-size="52" fill="#FFFFFF">Salud<tspan fill="url(#tealGrad)">360</tspan></text>
+    <text x="112" y="82" class="badge-text" font-size="13" fill="#94A3B8" letter-spacing="4">PLATAFORMA SAAS EN SALUD</text>
+
+    <!-- Right Header Badge -->
+    <g transform="translate(680, 15)">
+      <rect width="360" height="52" rx="26" fill="#1E293B" stroke="url(#cardBorder)" stroke-width="1.5" />
+      <circle cx="28" cy="26" r="6" fill="#10B981" />
+      <circle cx="28" cy="26" r="10" fill="#10B981" opacity="0.3" />
+      <text x="50" y="32" class="badge-text" font-size="12" fill="#E2E8F0">TECNOLOGÍA PARA IPS Y CLÍNICAS</text>
+    </g>
+  </g>
+
+  <!-- Divider Line -->
+  <line x1="80" y1="190" x2="1120" y2="190" stroke="url(#tealGlow)" stroke-width="1.5" />
+
+  <!-- ── 3. HERO TITLE & VALUE PROPOSITION ──────────────────────────────────── -->
+  <g transform="translate(80, 260)">
+    <!-- Super Headline Pill -->
+    <rect width="410" height="38" rx="19" fill="#0F766E" fill-opacity="0.35" stroke="#14B8A6" stroke-width="1.2" />
+    <text x="25" y="24" class="badge-text" font-size="13" fill="#2DD4BF">⚡ CENTRALIZACIÓN &amp; COMUNICACIÓN MÉDICA</text>
+
+    <!-- Main Title -->
+    <text x="0" y="105" class="heading" font-size="64" fill="#FFFFFF" line-height="1.15">
+      Conecta tu Institución
+    </text>
+    <text x="0" y="175" class="heading" font-size="64" fill="url(#tealGrad)">
+      con tus Pacientes en 360°
+    </text>
+
+    <!-- Subtitle / Value Hook -->
+    <text x="0" y="235" class="subheading" font-size="24" fill="#E2E8F0">
+      El ecosistema integral que centraliza canales presenciales y digitales,
+    </text>
+    <text x="0" y="270" class="subheading" font-size="24" fill="#94A3B8">
+      automatiza citas médicas y eleva la satisfacción eliminando las salas de espera saturadas.
+    </text>
+  </g>
+
+  <!-- ── 4. CENTRAL ARCHITECTURE HUB: MULTICHANNEL → SALUD360 → CHANNELS ──────── -->
+  <g transform="translate(80, 580)">
+    <!-- Container Card -->
+    <rect width="1040" height="230" rx="24" fill="url(#cardBg1)" stroke="url(#cardBorder)" stroke-width="1.5" filter="url(#softShadow)" />
+
+    <!-- Left Box: Inbound Channels -->
+    <g transform="translate(40, 30)">
+      <rect width="260" height="170" rx="16" fill="#0F172A" stroke="#334155" stroke-width="1" />
+      <rect x="20" y="20" width="36" height="36" rx="8" fill="#0D9488" fill-opacity="0.2" />
+      <text x="38" y="44" font-size="18" text-anchor="middle" fill="#2DD4BF">📥</text>
+      <text x="68" y="44" class="subheading" font-size="17" fill="#F8FAFC">Canales de Entrada</text>
+
+      <text x="24" y="82" class="body" font-size="13.5" fill="#94A3B8">• Portal Web Online 24/7</text>
+      <text x="24" y="108" class="body" font-size="13.5" fill="#94A3B8">• Taquilla / Presencial</text>
+      <text x="24" y="134" class="body" font-size="13.5" fill="#94A3B8">• Demanda Inducida</text>
+      <text x="24" y="160" class="body" font-size="13.5" fill="#94A3B8">• Radicación de PQRS</text>
+    </g>
+
+    <!-- Arrow 1 -->
+    <path d="M 320 115 L 375 115" stroke="url(#tealGrad)" stroke-width="3" stroke-linecap="round" stroke-dasharray="6 4" />
+    <polygon points="380,115 370,110 370,120" fill="#2DD4BF" />
+
+    <!-- Center Box: Salud360 Engine Hub -->
+    <g transform="translate(390, 20)">
+      <rect width="280" height="190" rx="20" fill="#0D9488" fill-opacity="0.15" stroke="#14B8A6" stroke-width="2" filter="url(#tealShadow)" />
+      
+      <!-- Central Glowing Icon -->
+      <circle cx="140" cy="48" r="26" fill="#0F172A" stroke="#2DD4BF" stroke-width="2" />
+      <text x="140" y="55" font-size="22" text-anchor="middle" fill="#2DD4BF">⚙️</text>
+      
+      <text x="140" y="105" class="heading" font-size="21" text-anchor="middle" fill="#FFFFFF">Motor Salud360</text>
+      <text x="140" y="128" class="badge-text" font-size="11" text-anchor="middle" fill="#2DD4BF">GESTIÓN CENTRALIZADA</text>
+
+      <text x="140" y="156" class="body" font-size="13" text-anchor="middle" fill="#CBD5E1">Enrutamiento Inteligente</text>
+      <text x="140" y="176" class="body" font-size="13" text-anchor="middle" fill="#CBD5E1">Control de Tiempos &amp; Auditoría</text>
+    </g>
+
+    <!-- Arrow 2 -->
+    <path d="M 685 115 L 740 115" stroke="url(#tealGrad)" stroke-width="3" stroke-linecap="round" stroke-dasharray="6 4" />
+    <polygon points="745,115 735,110 735,120" fill="#2DD4BF" />
+
+    <!-- Right Box: Outbound Communications -->
+    <g transform="translate(755, 30)">
+      <rect width="250" height="170" rx="16" fill="#0F172A" stroke="#334155" stroke-width="1" />
+      <rect x="20" y="20" width="36" height="36" rx="8" fill="#0284C7" fill-opacity="0.2" />
+      <text x="38" y="44" font-size="18" text-anchor="middle" fill="#38BDF8">📲</text>
+      <text x="68" y="44" class="subheading" font-size="17" fill="#F8FAFC">Comunicaciones</text>
+
+      <text x="24" y="82" class="body" font-size="13.5" fill="#94A3B8">• WhatsApp API Oficial</text>
+      <text x="24" y="108" class="body" font-size="13.5" fill="#94A3B8">• Correos Brevo Masivos</text>
+      <text x="24" y="134" class="body" font-size="13.5" fill="#94A3B8">• Recordatorios Automáticos</text>
+      <text x="24" y="160" class="body" font-size="13.5" fill="#94A3B8">• Portal de Autoconsulta</text>
+    </g>
+  </g>
+
+  <!-- ── 5. SIX PILLARS / KEY FEATURES GRID ──────────────────────────────────── -->
+  <g transform="translate(80, 845)">
+    <!-- Section Title -->
+    <text x="0" y="28" class="badge-text" font-size="13" fill="#2DD4BF">CARACTERÍSTICAS DE ALTO IMPACTO</text>
+    <text x="0" y="65" class="heading" font-size="34" fill="#FFFFFF">Todo lo que tu institución necesita para operar sin fricción</text>
+
+    <!-- CARD 1: Centralización Multicanal -->
+    <g transform="translate(0, 95)">
+      <rect width="325" height="205" rx="18" fill="url(#cardBg1)" stroke="url(#cardBorder)" stroke-width="1.2" />
+      <rect x="24" y="24" width="44" height="44" rx="12" fill="#0D9488" fill-opacity="0.2" />
+      <text x="46" y="52" font-size="22" text-anchor="middle">🏥</text>
+      <text x="24" y="98" class="heading" font-size="19" fill="#FFFFFF">Centralización Total</text>
+      <text x="24" y="126" class="body" font-size="13.5" fill="#94A3B8">
+        Unifica citas web, trámites presenciales y radicados en un único panel operativo en tiempo real.
+      </text>
+      <text x="24" y="180" class="badge-text" font-size="11.5" fill="#2DD4BF">✓ Cero solicitudes perdidas</text>
+    </g>
+
+    <!-- CARD 2: Notificaciones WhatsApp & Email -->
+    <g transform="translate(355, 95)">
+      <rect width="325" height="205" rx="18" fill="url(#cardBg1)" stroke="url(#cardBorder)" stroke-width="1.2" />
+      <rect x="24" y="24" width="44" height="44" rx="12" fill="#16A34A" fill-opacity="0.2" />
+      <text x="46" y="52" font-size="22" text-anchor="middle">💬</text>
+      <text x="24" y="98" class="heading" font-size="19" fill="#FFFFFF">WhatsApp &amp; Brevo</text>
+      <text x="24" y="126" class="body" font-size="13.5" fill="#94A3B8">
+        Envío automático de confirmaciones, recordatorios con fecha/hora y respuestas a la bandeja del paciente.
+      </text>
+      <text x="24" y="180" class="badge-text" font-size="11.5" fill="#4ADE80">✓ -40% Ausentismo en citas</text>
+    </g>
+
+    <!-- CARD 3: Circular 1552 Automatizada -->
+    <g transform="translate(715, 95)">
+      <rect width="325" height="205" rx="18" fill="url(#cardBg1)" stroke="url(#cardBorder)" stroke-width="1.2" />
+      <rect x="24" y="24" width="44" height="44" rx="12" fill="#EAB308" fill-opacity="0.2" />
+      <text x="46" y="52" font-size="22" text-anchor="middle">⚖️</text>
+      <text x="24" y="98" class="heading" font-size="19" fill="#FFFFFF">Circular 1552</text>
+      <text x="24" y="126" class="body" font-size="13.5" fill="#94A3B8">
+        Módulo legal listo para generar y descargar los reportes obligatorios exigidos por la Supersalud en un clic.
+      </text>
+      <text x="24" y="180" class="badge-text" font-size="11.5" fill="#FDE047">✓ Cumplimiento normativo 100%</text>
+    </g>
+
+    <!-- CARD 4: Control de SLA & Tiempos -->
+    <g transform="translate(0, 325)">
+      <rect width="325" height="205" rx="18" fill="url(#cardBg1)" stroke="url(#cardBorder)" stroke-width="1.2" />
+      <rect x="24" y="24" width="44" height="44" rx="12" fill="#0284C7" fill-opacity="0.2" />
+      <text x="46" y="52" font-size="22" text-anchor="middle">⏱️</text>
+      <text x="24" y="98" class="heading" font-size="19" fill="#FFFFFF">Control SLA &amp; Tiempos</text>
+      <text x="24" y="126" class="body" font-size="13.5" fill="#94A3B8">
+        Semáforo de vencimientos por tipo de solicitud. Trazabilidad exacta de cada acción realizada por el gestor.
+      </text>
+      <text x="24" y="180" class="badge-text" font-size="11.5" fill="#38BDF8">✓ Trazabilidad segundo a segundo</text>
+    </g>
+
+    <!-- CARD 5: Portal de Paciente 24/7 -->
+    <g transform="translate(355, 325)">
+      <rect width="325" height="205" rx="18" fill="url(#cardBg1)" stroke="url(#cardBorder)" stroke-width="1.2" />
+      <rect x="24" y="24" width="44" height="44" rx="12" fill="#8B5CF6" fill-opacity="0.2" />
+      <text x="46" y="52" font-size="22" text-anchor="middle">🔍</text>
+      <text x="24" y="98" class="heading" font-size="19" fill="#FFFFFF">Autoconsulta de Radicado</text>
+      <text x="24" y="126" class="body" font-size="13.5" fill="#94A3B8">
+        El paciente consulta el estado de su radicado desde su celular sin hacer filas ni llamar a la central telefónica.
+      </text>
+      <text x="24" y="180" class="badge-text" font-size="11.5" fill="#A78BFA">✓ Experiencia ágil y transparente</text>
+    </g>
+
+    <!-- CARD 6: Analítica & Productividad -->
+    <g transform="translate(715, 325)">
+      <rect width="325" height="205" rx="18" fill="url(#cardBg1)" stroke="url(#cardBorder)" stroke-width="1.2" />
+      <rect x="24" y="24" width="44" height="44" rx="12" fill="#EC4899" fill-opacity="0.2" />
+      <text x="46" y="52" font-size="22" text-anchor="middle">📊</text>
+      <text x="24" y="98" class="heading" font-size="19" fill="#FFFFFF">Métricas de Productividad</text>
+      <text x="24" y="126" class="body" font-size="13.5" fill="#94A3B8">
+        Reportes por usuario, tasa de asistencia, volumen por especialidad y exportación directa a Excel y PDF.
+      </text>
+      <text x="24" y="180" class="badge-text" font-size="11.5" fill="#F472B6">✓ Toma de decisiones con datos</text>
+    </g>
+  </g>
+
+  <!-- ── 6. IMPACT STATS / ROI BANNER ────────────────────────────────────────── -->
+  <g transform="translate(80, 1420)">
+    <rect width="1040" height="150" rx="22" fill="#0F172A" stroke="url(#tealGrad)" stroke-width="1.5" filter="url(#softShadow)" />
+
+    <!-- Stat 1 -->
+    <g transform="translate(40, 32)">
+      <text x="95" y="44" class="heading" font-size="44" text-anchor="middle" fill="#2DD4BF">-40%</text>
+      <text x="95" y="74" class="subheading" font-size="15" text-anchor="middle" fill="#FFFFFF">Ausentismo</text>
+      <text x="95" y="96" class="body" font-size="12" text-anchor="middle" fill="#94A3B8">con recordatorios automáticos</text>
+    </g>
+    <line x1="270" y1="25" x2="270" y2="125" stroke="#334155" stroke-width="1" />
+
+    <!-- Stat 2 -->
+    <g transform="translate(290, 32)">
+      <text x="105" y="44" class="heading" font-size="44" text-anchor="middle" fill="#38BDF8">0 Filas</text>
+      <text x="105" y="74" class="subheading" font-size="15" text-anchor="middle" fill="#FFFFFF">Descongestión</text>
+      <text x="105" y="96" class="body" font-size="12" text-anchor="middle" fill="#94A3B8">en recepción y salas de espera</text>
+    </g>
+    <line x1="535" y1="25" x2="535" y2="125" stroke="#334155" stroke-width="1" />
+
+    <!-- Stat 3 -->
+    <g transform="translate(555, 32)">
+      <text x="105" y="44" class="heading" font-size="44" text-anchor="middle" fill="#4ADE80">100%</text>
+      <text x="105" y="74" class="subheading" font-size="15" text-anchor="middle" fill="#FFFFFF">Trazabilidad</text>
+      <text x="105" y="96" class="body" font-size="12" text-anchor="middle" fill="#94A3B8">de cada solicitud y cita médica</text>
+    </g>
+    <line x1="800" y1="25" x2="800" y2="125" stroke="#334155" stroke-width="1" />
+
+    <!-- Stat 4 -->
+    <g transform="translate(820, 32)">
+      <text x="95" y="44" class="heading" font-size="44" text-anchor="middle" fill="#FCD34D">24/7</text>
+      <text x="95" y="74" class="subheading" font-size="15" text-anchor="middle" fill="#FFFFFF">Disponibilidad</text>
+      <text x="95" y="96" class="body" font-size="12" text-anchor="middle" fill="#94A3B8">sin cierres de taquilla</text>
+    </g>
+  </g>
+
+  <!-- ── 7. FOOTER CALL TO ACTION & CONTACT ─────────────────────────────────── -->
+  <g transform="translate(80, 1610)">
+    <!-- CTA Button Background -->
+    <rect width="1040" height="110" rx="20" fill="url(#tealGrad)" filter="url(#tealShadow)" />
+    
+    <g transform="translate(50, 32)">
+      <text x="0" y="24" class="heading" font-size="26" fill="#090E17">Moderniza la atención médica de tu institución hoy</text>
+      <text x="0" y="52" class="subheading" font-size="16" fill="#0F172A">Agenda una demostración personalizada en vivo y conoce el impacto real.</text>
+    </g>
+
+    <!-- URL Pill -->
+    <g transform="translate(760, 30)">
+      <rect width="230" height="50" rx="14" fill="#090E17" />
+      <text x="115" y="32" class="heading" font-size="15" text-anchor="middle" fill="#2DD4BF">salud360.sinuhub.com</text>
+    </g>
+  </g>
+
+  <!-- Bottom Legal line -->
+  <text x="600" y="1760" class="body" font-size="13" text-anchor="middle" fill="#64748B">
+    Salud360 • Plataforma Cloud de Gestión Médica &amp; Citas • Desarrollado para Clínicas, IPS y Hospitales
+  </text>
+</svg>
