@@ -149,3 +149,34 @@ export async function getAllInstitutionsMaintenance() {
     .order('name')
   return data || []
 }
+
+// ── Update seasonal theme (Auto / Halloween / Christmas / Disabled) ───────────
+export async function updateSeasonalTheme(
+  institutionId: string,
+  theme: 'auto' | 'halloween' | 'christmas' | 'disabled'
+) {
+  if (!institutionId) return { success: false, error: 'ID de institución requerido.' }
+
+  const { data: inst, error: fetchErr } = await supabaseAdmin
+    .from('institutions')
+    .select('settings_json')
+    .eq('id', institutionId)
+    .single()
+
+  if (fetchErr) return { success: false, error: fetchErr.message }
+
+  const currentSettings = (inst?.settings_json as Record<string, any>) || {}
+  const newSettings = { ...currentSettings, seasonal_theme: theme }
+
+  const { error: updErr } = await supabaseAdmin
+    .from('institutions')
+    .update({ settings_json: newSettings })
+    .eq('id', institutionId)
+
+  if (updErr) return { success: false, error: updErr.message }
+
+  revalidatePath('/admin', 'layout')
+  revalidatePath('/admin/dashboard')
+  revalidatePath('/admin/settings')
+  return { success: true, message: 'Tema festivo actualizado correctamente.' }
+}

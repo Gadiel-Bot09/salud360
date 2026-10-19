@@ -1,8 +1,9 @@
 import { fetchDashboardMetrics } from './actions'
 import { DashboardCharts } from '@/components/admin/dashboard-charts'
-import { AlertTriangle, Globe2, Building, Stethoscope, Sunrise, Sun, Moon } from 'lucide-react'
+import { AlertTriangle, Globe2, Building, Stethoscope, Sunrise, Sun, Moon, Ghost, Gift } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
 import { getTimeGreeting } from '@/lib/utils'
+import { getSeasonalConfig } from '@/lib/seasonal-theme'
 
 export const dynamic = 'force-dynamic'
 
@@ -14,7 +15,7 @@ export default async function DashboardPage() {
     const { data: { user } } = await supabase.auth.getUser()
     const { data: userProfile } = await supabase
         .from('users')
-        .select('full_name, role_id, roles(name), institutions(name, slug)')
+        .select('full_name, role_id, roles(name), institutions(name, slug, settings_json)')
         .eq('id', user?.id)
         .single()
 
@@ -29,6 +30,10 @@ export default async function DashboardPage() {
         user?.email
     )
 
+    // Seasonal Theme resolution
+    const seasonalSetting = (userProfile?.institutions as any)?.settings_json?.seasonal_theme || 'auto'
+    const seasonal = getSeasonalConfig(seasonalSetting)
+
     if (!metrics) {
         return (
             <div className="p-8 flex flex-col items-center justify-center text-center mt-20">
@@ -41,29 +46,56 @@ export default async function DashboardPage() {
         )
     }
 
+    // Determine card background and styles based on seasonal theme
+    const isHalloween = seasonal.activeTheme === 'halloween'
+    const isChristmas = seasonal.activeTheme === 'christmas'
+
     return (
         <div className="p-6 md:p-8 space-y-8 max-w-[1600px] mx-auto">
-            {/* Header con Saludo Personalizado según horario */}
-            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-white p-6 rounded-2xl border border-slate-200/80 shadow-sm">
+            {/* Header con Saludo Personalizado y Toque de Temporada (Halloween/Navidad) */}
+            <div className={`flex flex-col md:flex-row justify-between items-start md:items-center gap-4 p-6 rounded-2xl border shadow-sm transition-all duration-300 relative overflow-hidden ${
+                isHalloween
+                    ? 'bg-gradient-to-r from-orange-50/60 via-white to-amber-50/40 border-orange-200/80'
+                    : isChristmas
+                    ? 'bg-gradient-to-r from-emerald-50/60 via-white to-red-50/30 border-emerald-200/80'
+                    : 'bg-white border-slate-200/80'
+            }`}>
                 <div>
-                    <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-semibold bg-teal-50 text-teal-800 border border-teal-200/60 mb-2">
-                        {greeting.period === 'morning' && <Sunrise className="w-3.5 h-3.5 text-amber-500" />}
-                        {greeting.period === 'afternoon' && <Sun className="w-3.5 h-3.5 text-amber-500" />}
-                        {greeting.period === 'night' && <Moon className="w-3.5 h-3.5 text-indigo-500" />}
-                        <span>{greeting.greeting}</span>
+                    <div className={`inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-semibold mb-2 ${
+                        isHalloween
+                            ? 'bg-orange-500/15 text-orange-700 border border-orange-500/30'
+                            : isChristmas
+                            ? 'bg-emerald-500/15 text-emerald-700 border border-emerald-500/30'
+                            : 'bg-teal-50 text-teal-800 border border-teal-200/60'
+                    }`}>
+                        {isHalloween ? (
+                            <span>🎃</span>
+                        ) : isChristmas ? (
+                            <span>🎄</span>
+                        ) : (
+                            <>
+                                {greeting.period === 'morning' && <Sunrise className="w-3.5 h-3.5 text-amber-500" />}
+                                {greeting.period === 'afternoon' && <Sun className="w-3.5 h-3.5 text-amber-500" />}
+                                {greeting.period === 'night' && <Moon className="w-3.5 h-3.5 text-indigo-500" />}
+                            </>
+                        )}
+                        <span>{isHalloween ? seasonal.badgeText : isChristmas ? seasonal.badgeText : greeting.greeting}</span>
                         {greeting.formattedDate && (
                             <>
-                                <span className="text-teal-400">•</span>
+                                <span className={isHalloween ? 'text-orange-400' : isChristmas ? 'text-emerald-400' : 'text-teal-400'}>•</span>
                                 <span>{greeting.formattedDate}</span>
                             </>
                         )}
                     </div>
+
                     <h2 className="text-2xl md:text-3xl font-extrabold text-slate-800 tracking-tight flex items-center gap-2">
                         <span>{greeting.fullPhrase}</span>
-                        <span className="text-2xl" role="img" aria-hidden="true">{greeting.emoji}</span>
+                        <span className="text-2xl" role="img" aria-hidden="true">
+                            {isHalloween ? '🎃' : isChristmas ? '🎄' : greeting.emoji}
+                        </span>
                     </h2>
-                    <p className="text-slate-500 mt-1 text-sm md:text-base">
-                        {greeting.timeMessage}
+                    <p className={`mt-1 text-sm md:text-base ${isHalloween || isChristmas ? 'text-slate-600 font-medium' : 'text-slate-500'}`}>
+                        {isHalloween || isChristmas ? seasonal.holidayMessage[greeting.period] : greeting.timeMessage}
                     </p>
                 </div>
 

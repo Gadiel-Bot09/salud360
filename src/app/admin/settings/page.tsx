@@ -8,7 +8,8 @@ import { TemplatesManager } from '@/components/admin/templates-manager'
 import { BranchesManager } from '@/components/admin/branches-manager'
 import { MaintenanceModeSection } from '@/components/admin/maintenance-mode-section'
 import { getBranches } from '@/app/admin/requests/branches-actions'
-import { Settings, FileText, Building2, Mail, CheckCircle2, XCircle, BarChart3, Wrench } from 'lucide-react'
+import { SeasonalThemeManager } from '@/components/admin/seasonal-theme-manager'
+import { Settings, FileText, Building2, Mail, CheckCircle2, XCircle, BarChart3, Wrench, Sparkles } from 'lucide-react'
 
 export const dynamic = 'force-dynamic'
 
@@ -33,7 +34,7 @@ export default async function SettingsPage() {
   if (userProfile?.institution_id) {
     const { data } = await supabaseAdmin
       .from('institutions')
-      .select('id, name, slug, logo_url, colors, tagline, description, address, phone, contact_email, website, privacy_policy, evolution_connected, evolution_instance_name, codigo_prestador')
+      .select('id, name, slug, logo_url, colors, tagline, description, address, phone, contact_email, website, privacy_policy, evolution_connected, evolution_instance_name, codigo_prestador, settings_json')
       .eq('id', userProfile.institution_id)
       .single()
     institution = data
@@ -157,6 +158,25 @@ export default async function SettingsPage() {
           initialEvolutionConnected={initialEvolutionConnected}
         />
       </div>
+
+      {/* Section: Seasonal Themes (Halloween & Christmas) */}
+      {institution && (
+        <>
+          <div className="border-t border-slate-200" />
+          <div>
+            <h2 className="text-sm font-bold text-slate-500 uppercase tracking-wider mb-1 flex items-center gap-2">
+              <Sparkles className="w-4 h-4 text-amber-500" /> Temas de Temporada (Halloween &amp; Navidad)
+            </h2>
+            <p className="text-xs text-slate-400 mb-4">
+              Activa o programa decoraciones sutiles y amigables en el panel administrativo para las festividades del año.
+            </p>
+            <SeasonalThemeManager
+              institutionId={institution.id}
+              initialSetting={(institution as any)?.settings_json?.seasonal_theme || 'auto'}
+            />
+          </div>
+        </>
+      )}
 
       {/* Divider */}
       <div className="border-t border-slate-200" />
