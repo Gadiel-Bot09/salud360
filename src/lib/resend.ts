@@ -10,6 +10,34 @@ export interface EmailInstitution {
   colors?: { primary?: string; secondary?: string } | null
 }
 
+// ── Color & Luminance Helpers for High-Contrast Responsive Email Layouts ─────
+function isLightColor(hex?: string | null): boolean {
+  if (!hex || typeof hex !== 'string') return false
+  const clean = hex.replace('#', '').trim()
+  if (clean.length !== 6 && clean.length !== 3) return false
+  const fullHex = clean.length === 3 ? clean.split('').map((c) => c + c).join('') : clean
+  const r = parseInt(fullHex.substring(0, 2), 16)
+  const g = parseInt(fullHex.substring(2, 4), 16)
+  const b = parseInt(fullHex.substring(4, 6), 16)
+  if (isNaN(r) || isNaN(g) || isNaN(b)) return false
+  return 0.299 * r + 0.587 * g + 0.114 * b > 165
+}
+
+function adjustColorBrightness(hex: string, percent: number): string {
+  const clean = hex.replace('#', '').trim()
+  if (clean.length !== 6 && clean.length !== 3) return hex
+  const fullHex = clean.length === 3 ? clean.split('').map((c) => c + c).join('') : clean
+  const num = parseInt(fullHex, 16)
+  if (isNaN(num)) return hex
+  let r = (num >> 16) + Math.round(255 * (percent / 100))
+  let g = ((num >> 8) & 0x00ff) + Math.round(255 * (percent / 100))
+  let b = (num & 0x0000ff) + Math.round(255 * (percent / 100))
+  r = Math.min(255, Math.max(0, r))
+  g = Math.min(255, Math.max(0, g))
+  b = Math.min(255, Math.max(0, b))
+  return '#' + ((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1)
+}
+
 // ── Shared branded layout builder ────────────────────────────────────────────
 function emailLayout(
   institution: EmailInstitution | null | undefined,
@@ -18,54 +46,70 @@ function emailLayout(
   headerSubtitle: string,
   bodyHtml: string
 ): string {
-  const inst     = institution || { name: 'Salud360' }
-  const primary  = inst.colors?.primary   || '#0f766e'
-  const secondary = inst.colors?.secondary || '#0c4a6e'
-  const name     = inst.name || 'Salud360'
-  const logoUrl  = inst.logo_url
+  const inst        = institution || { name: 'Salud360' }
+  const rawPrimary  = inst.colors?.primary   || '#0f766e'
+  const rawSecondary = inst.colors?.secondary || '#0c4a6e'
+  const name        = (inst.name || 'Salud360').replace(/\s+/g, ' ').trim()
+  const logoUrl     = inst.logo_url
 
-  // Header: logo + name or fallback initial
+  const secondaryIsLight = isLightColor(rawSecondary)
+  const primaryIsLight   = isLightColor(rawPrimary)
+
+  const headerBg1 = primaryIsLight ? '#2d2c2a' : adjustColorBrightness(rawPrimary, -18)
+  const headerBg2 = primaryIsLight ? '#444240' : (secondaryIsLight ? rawPrimary : rawSecondary)
+  const accentColor = secondaryIsLight ? rawSecondary : '#14b8a6'
+
   const logoHtml = logoUrl
-    ? `<img src="${logoUrl}" alt="${name}" style="height:48px;max-width:160px;object-fit:contain;border-radius:8px;background:rgba(255,255,255,0.15);padding:6px;" />`
+    ? `<div style="background:#ffffff;padding:7px 14px;border-radius:10px;display:inline-block;box-shadow:0 3px 10px rgba(0,0,0,0.12);border:1px solid rgba(255,255,255,0.4);vertical-align:middle;">
+        <img src="${logoUrl}" alt="${name}" style="height:42px;max-width:170px;object-fit:contain;display:block;" />
+       </div>`
     : `<div style="width:48px;height:48px;border-radius:12px;background:rgba(255,255,255,0.2);display:inline-flex;align-items:center;justify-content:center;font-size:22px;font-weight:900;color:white;vertical-align:middle;">${name.charAt(0).toUpperCase()}</div>`
 
   return `
-  <div style="font-family:'Segoe UI',Arial,sans-serif;max-width:620px;margin:0 auto;color:#1e293b;background:#f1f5f9;padding:24px 0;">
+  <div style="font-family:'Segoe UI',-apple-system,BlinkMacSystemFont,Roboto,Helvetica,Arial,sans-serif;max-width:620px;margin:0 auto;color:#1e293b;background:#f8fafc;padding:28px 12px;">
+    <!-- Main Email Container -->
+    <div style="background:#ffffff;border-radius:20px;overflow:hidden;box-shadow:0 8px 30px rgba(0,0,0,0.06);border:1px solid #e2e8f0;">
+      
+      <!-- Top Decorative Ribbon -->
+      <div style="height:4px;background:linear-gradient(90deg, ${accentColor}, #ffffff 50%, ${accentColor});"></div>
 
-    <!-- Institution Header -->
-    <div style="background:linear-gradient(135deg,${primary} 0%,${secondary} 100%);padding:28px 40px;border-radius:16px 16px 0 0;position:relative;overflow:hidden;">
-      <!-- Decorative circle -->
-      <div style="position:absolute;top:-40px;right:-40px;width:160px;height:160px;border-radius:50%;background:rgba(255,255,255,0.08);"></div>
+      <!-- Header -->
+      <div style="background:linear-gradient(135deg, ${headerBg1} 0%, ${headerBg2} 100%);padding:30px 36px 26px 36px;position:relative;overflow:hidden;">
+        <div style="position:absolute;top:-40px;right:-40px;width:170px;height:170px;border-radius:50%;background:rgba(255,255,255,0.05);pointer-events:none;"></div>
+        
+        <!-- Branding Bar -->
+        <div style="display:flex;align-items:center;gap:14px;margin-bottom:20px;">
+          ${logoHtml}
+          <div>
+            <div style="font-size:10px;font-weight:800;color:${accentColor};text-transform:uppercase;letter-spacing:1.8px;margin-bottom:3px;">Institución de Salud</div>
+            <div style="font-size:16px;font-weight:800;color:#ffffff;line-height:1.2;text-shadow:0 1px 2px rgba(0,0,0,0.25);">${name}</div>
+          </div>
+        </div>
 
-      <!-- Institution branding row -->
-      <div style="display:flex;align-items:center;gap:14px;margin-bottom:20px;">
-        ${logoHtml}
-        <div>
-          <div style="font-size:11px;font-weight:700;color:rgba(255,255,255,0.6);text-transform:uppercase;letter-spacing:1.5px;margin-bottom:2px;">Institución de Salud</div>
-          <div style="font-size:17px;font-weight:800;color:white;line-height:1.2;">${name}</div>
+        <!-- Title Card -->
+        <div style="background:rgba(255,255,255,0.09);border:1px solid rgba(255,255,255,0.18);border-radius:14px;padding:16px 20px;backdrop-filter:blur(6px);">
+          <div style="font-size:20px;font-weight:900;color:#ffffff;margin-bottom:4px;letter-spacing:-0.2px;">${headerEmoji} ${headerTitle}</div>
+          <div style="font-size:13px;color:rgba(255,255,255,0.85);font-weight:500;">${headerSubtitle}</div>
         </div>
       </div>
 
-      <!-- Email title -->
-      <div style="background:rgba(255,255,255,0.12);border:1px solid rgba(255,255,255,0.2);border-radius:12px;padding:16px 20px;backdrop-filter:blur(8px);">
-        <div style="font-size:22px;font-weight:900;color:white;margin-bottom:4px;">${headerEmoji} ${headerTitle}</div>
-        <div style="font-size:13px;color:rgba(255,255,255,0.75);">${headerSubtitle}</div>
+      <!-- Body -->
+      <div style="padding:34px 36px;background:#ffffff;">
+        ${bodyHtml}
       </div>
-    </div>
 
-    <!-- Body -->
-    <div style="background:#ffffff;padding:32px 40px;border:1px solid #e2e8f0;border-top:none;">
-      ${bodyHtml}
-    </div>
+      <!-- Footer -->
+      <div style="background:#fafafa;border-top:1px solid #f1f5f9;padding:18px 36px;text-align:center;">
+        <p style="margin:0 0 6px 0;color:#64748b;font-size:12px;font-weight:600;">
+          Correo oficial enviado por <strong style="color:#334155;">${name}</strong>
+        </p>
+        <p style="margin:0;color:#94a3b8;font-size:11px;">
+          Plataforma tecnológica administrada por <strong>Salud360</strong> · Sistema de Gestión Médica Digital
+          <br/>© ${new Date().getFullYear()} · Todos los derechos reservados.
+        </p>
+      </div>
 
-    <!-- Footer -->
-    <div style="background:#f8fafc;border:1px solid #e2e8f0;border-top:none;border-radius:0 0 16px 16px;padding:16px 40px;text-align:center;">
-      <p style="margin:0;color:#94a3b8;font-size:12px;">
-        Correo enviado por <strong style="color:#64748b;">${name}</strong> · Administrado por Salud360
-        <br/>© ${new Date().getFullYear()} · Sistema de Gestión Médica Digital
-      </p>
     </div>
-
   </div>`
 }
 
