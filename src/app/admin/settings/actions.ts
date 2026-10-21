@@ -181,11 +181,12 @@ export async function updateSeasonalTheme(
   return { success: true, message: 'Tema festivo actualizado correctamente.' }
 }
 
-// ── Update portal announcement (Required Documents Banner) ───────────────────
+// ── Update portal announcement (Required Documents Banner & Modal) ───────────
 export async function updatePortalAnnouncement(
   institutionId: string,
   announcement: {
     enabled: boolean
+    show_modal?: boolean
     title: string
     message: string
     documents: string[]

@@ -13,6 +13,7 @@ import {
 
 interface PortalAnnouncementData {
   enabled: boolean
+  show_modal?: boolean
   title: string
   message: string
   documents: string[]
@@ -45,6 +46,7 @@ export function PortalAnnouncementManager({
   institutionSlug,
 }: Props) {
   const [enabled, setEnabled] = useState(initialData?.enabled ?? true)
+  const [showModal, setShowModal] = useState(initialData?.show_modal ?? true)
   const [title, setTitle] = useState(initialData?.title || 'Documentos requeridos antes de radicar')
   const [message, setMessage] = useState(
     initialData?.message ||
@@ -90,6 +92,7 @@ export function PortalAnnouncementManager({
     startTransition(async () => {
       const res = await updatePortalAnnouncement(institutionId, {
         enabled,
+        show_modal: showModal,
         title: title.trim() || 'Documentos requeridos antes de radicar',
         message: message.trim(),
         documents,
@@ -170,6 +173,36 @@ export function PortalAnnouncementManager({
                 className="text-sm"
               />
             </div>
+          </div>
+
+          {/* Modal Activation Option */}
+          <div className="bg-slate-50 border border-slate-200/80 rounded-xl p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+            <div className="flex items-start gap-3">
+              <div className="p-2 bg-teal-100/70 text-teal-700 rounded-lg shrink-0 mt-0.5">
+                <Sparkles className="w-4 h-4" />
+              </div>
+              <div>
+                <p className="text-xs font-bold text-slate-800">
+                  Ventana Emergente (Modal) al ingresar al portal
+                </p>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  Muestra automáticamente una ventana emergente al paciente apenas abre el portal para informarle los documentos requeridos antes de radicar.
+                </p>
+              </div>
+            </div>
+
+            <label className="relative inline-flex items-center cursor-pointer select-none shrink-0">
+              <input
+                type="checkbox"
+                checked={showModal}
+                onChange={(e) => setShowModal(e.target.checked)}
+                className="sr-only peer"
+              />
+              <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-teal-600"></div>
+              <span className="ml-2.5 text-xs font-semibold text-slate-700 min-w-[70px]">
+                {showModal ? 'Activado' : 'Desactivado'}
+              </span>
+            </label>
           </div>
 
           {/* Document list manager */}

@@ -1,6 +1,7 @@
 import { getInstitutionBySlug, getInstitutionTemplate } from '@/app/actions'
 import { RequestForm } from '@/components/patient/request-form'
 import { PortalAnnouncementBanner } from '@/components/patient/portal-announcement-banner'
+import { PortalAnnouncementModal } from '@/components/patient/portal-announcement-modal'
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
 import { Search, MapPin, Phone, Globe, Mail, Shield, Stethoscope, Wrench } from 'lucide-react'
@@ -224,6 +225,13 @@ export default async function PortalPage({
           {/* ── Required Documents Announcement Banner ─────────────────── */}
           <PortalAnnouncementBanner
             announcement={(institution as any)?.settings_json?.portal_announcement}
+            primaryColor={primary}
+          />
+
+          {/* ── Required Documents Announcement Modal (Automatic on load) ── */}
+          <PortalAnnouncementModal
+            announcement={(institution as any)?.settings_json?.portal_announcement}
+            institutionName={institution.name}
             primaryColor={primary}
           />
         </div>

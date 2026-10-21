@@ -2,6 +2,7 @@ import { FileCheck, Check } from 'lucide-react'
 
 export interface PortalAnnouncement {
   enabled?: boolean
+  show_modal?: boolean
   title?: string
   message?: string
   documents?: string[]
