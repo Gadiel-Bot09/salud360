@@ -180,3 +180,40 @@ export async function updateSeasonalTheme(
   revalidatePath('/admin/settings')
   return { success: true, message: 'Tema festivo actualizado correctamente.' }
 }
+
+// ── Update portal announcement (Required Documents Banner) ───────────────────
+export async function updatePortalAnnouncement(
+  institutionId: string,
+  announcement: {
+    enabled: boolean
+    title: string
+    message: string
+    documents: string[]
+  }
+) {
+  if (!institutionId) return { success: false, error: 'ID de institución requerido.' }
+
+  const { data: inst, error: fetchErr } = await supabaseAdmin
+    .from('institutions')
+    .select('settings_json, slug')
+    .eq('id', institutionId)
+    .single()
+
+  if (fetchErr) return { success: false, error: fetchErr.message }
+
+  const currentSettings = (inst?.settings_json as Record<string, any>) || {}
+  const newSettings = { ...currentSettings, portal_announcement: announcement }
+
+  const { error: updErr } = await supabaseAdmin
+    .from('institutions')
+    .update({ settings_json: newSettings })
+    .eq('id', institutionId)
+
+  if (updErr) return { success: false, error: updErr.message }
+
+  revalidatePath('/admin/settings')
+  if (inst?.slug) {
+    revalidatePath(`/portal/${inst.slug}`)
+  }
+  return { success: true, message: 'Anuncio del portal actualizado correctamente.' }
+}

@@ -9,7 +9,8 @@ import { BranchesManager } from '@/components/admin/branches-manager'
 import { MaintenanceModeSection } from '@/components/admin/maintenance-mode-section'
 import { getBranches } from '@/app/admin/requests/branches-actions'
 import { SeasonalThemeManager } from '@/components/admin/seasonal-theme-manager'
-import { Settings, FileText, Building2, Mail, CheckCircle2, XCircle, BarChart3, Wrench, Sparkles } from 'lucide-react'
+import { PortalAnnouncementManager } from '@/components/admin/portal-announcement-manager'
+import { Settings, FileText, Building2, Mail, CheckCircle2, XCircle, BarChart3, Wrench, Sparkles, FileCheck } from 'lucide-react'
 
 export const dynamic = 'force-dynamic'
 
@@ -173,6 +174,23 @@ export default async function SettingsPage() {
             <SeasonalThemeManager
               institutionId={institution.id}
               initialSetting={(institution as any)?.settings_json?.seasonal_theme || 'auto'}
+            />
+          </div>
+
+          <div className="border-t border-slate-200" />
+          <div>
+            <h2 className="text-sm font-bold text-slate-500 uppercase tracking-wider mb-1 flex items-center gap-2">
+              <FileCheck className="w-4 h-4 text-teal-600" /> Anuncio en el Portal de Pacientes
+            </h2>
+            <p className="text-xs text-slate-400 mb-4">
+              Configura los documentos requeridos y el mensaje de aviso que verán los pacientes en la cabecera del portal antes de radicar.
+            </p>
+            <PortalAnnouncementManager
+              institutionId={institution.id}
+              initialData={(institution as any)?.settings_json?.portal_announcement}
+              primaryColor={institution.colors?.primary || '#0f766e'}
+              secondaryColor={institution.colors?.secondary || '#134e4a'}
+              institutionSlug={institution.slug}
             />
           </div>
         </>

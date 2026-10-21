@@ -1,5 +1,6 @@
 import { getInstitutionBySlug, getInstitutionTemplate } from '@/app/actions'
 import { RequestForm } from '@/components/patient/request-form'
+import { PortalAnnouncementBanner } from '@/components/patient/portal-announcement-banner'
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
 import { Search, MapPin, Phone, Globe, Mail, Shield, Stethoscope, Wrench } from 'lucide-react'
@@ -219,6 +220,12 @@ export default async function PortalPage({
               Consultar Estado o Cancelar mi Cita
             </Link>
           </div>
+
+          {/* ── Required Documents Announcement Banner ─────────────────── */}
+          <PortalAnnouncementBanner
+            announcement={(institution as any)?.settings_json?.portal_announcement}
+            primaryColor={primary}
+          />
         </div>
 
         {/* Wave separator */}
