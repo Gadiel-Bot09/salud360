@@ -523,6 +523,7 @@ export function RequestForm({
   canal?: 'online' | 'presencial'
 }) {
   const [submitting, setSubmitting] = useState(false)
+  const [uploadStatus, setUploadStatus] = useState<string | null>(null)
   const [successRadicado, setSuccessRadicado] = useState<string | null>(null)
   const [selectedRequestType, setSelectedRequestType] = useState<import('@/lib/form-template').RequestType | undefined>(undefined)
   const [formValues, setFormValues] = useState<Record<string, string>>({})
@@ -615,6 +616,61 @@ export function RequestForm({
     }
   }
 
+  // Helper: auto-optimize high-resolution images from mobile cameras before upload
+  async function compressImageIfNeeded(file: File): Promise<File> {
+    if (!file.type.startsWith('image/') || file.size < 1.2 * 1024 * 1024) {
+      return file
+    }
+    if (file.type === 'image/svg+xml' || file.type === 'image/gif') {
+      return file
+    }
+
+    return new Promise((resolve) => {
+      const reader = new FileReader()
+      reader.onload = (e) => {
+        const img = new Image()
+        img.onload = () => {
+          const MAX_DIM = 1920
+          let { width, height } = img
+
+          if (width > height && width > MAX_DIM) {
+            height = Math.round((height * MAX_DIM) / width)
+            width = MAX_DIM
+          } else if (height > MAX_DIM) {
+            width = Math.round((width * MAX_DIM) / height)
+            height = MAX_DIM
+          }
+
+          const canvas = document.createElement('canvas')
+          canvas.width = width
+          canvas.height = height
+          const ctx = canvas.getContext('2d')
+          if (!ctx) return resolve(file)
+
+          ctx.drawImage(img, 0, 0, width, height)
+          canvas.toBlob(
+            (blob) => {
+              if (!blob || blob.size >= file.size) {
+                return resolve(file)
+              }
+              const compressed = new File([blob], file.name.replace(/\.[^.]+$/, '.jpg'), {
+                type: 'image/jpeg',
+                lastModified: Date.now(),
+              })
+              resolve(compressed)
+            },
+            'image/jpeg',
+            0.85
+          )
+        }
+        img.onerror = () => resolve(file)
+        img.src = e.target?.result as string
+      }
+      reader.onerror = () => resolve(file)
+      reader.readAsDataURL(file)
+    })
+  }
+
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
 
@@ -627,21 +683,149 @@ export function RequestForm({
     setCaptchaError(false)
 
     setSubmitting(true)
+    setUploadStatus('Validando información...')
+
     const formData = new FormData(e.currentTarget)
     formData.append('institutionId', institutionId)
     formData.append('canal', canal)
+
     try {
+      // 1. Extract all attached files from formData to upload directly to MinIO
+      const rawEntries = Array.from(formData.entries())
+      const filesToPresign: { inputKey: string; file: File; docLabel: string }[] = []
+
+      for (const [k, v] of rawEntries) {
+        if (v instanceof File && v.size > 0) {
+          const docLabel = (formData.get(`filelabel__${k}`) as string) || (formData.get(`label__${k}`) as string) || ''
+          
+          if (v.size > 40 * 1024 * 1024) {
+            toast({
+              title: 'Archivo Demasiado Grande',
+              description: `El archivo "${v.name}" supera 40 MB. Por favor adjunta un archivo más liviano o comprimido.`,
+              variant: 'destructive',
+            })
+            setSubmitting(false)
+            setUploadStatus(null)
+            return
+          }
+
+          filesToPresign.push({ inputKey: k, file: v, docLabel })
+          // Remove binary payload from formData to bypass Vercel 4.5 MB payload limit
+          formData.delete(k)
+        }
+      }
+
+      const preUploadedResults: Array<{
+        fileName: string
+        key: string
+        fileType: string
+        fileSize: number
+        docLabel: string
+      }> = []
+
+      // 2. Direct S3 Upload via Presigned URLs
+      if (filesToPresign.length > 0) {
+        setUploadStatus(`Optimizando ${filesToPresign.length} documento${filesToPresign.length > 1 ? 's' : ''}...`)
+
+        // Client-side image compression for heavy phone photos
+        const processedFiles = await Promise.all(
+          filesToPresign.map(async (item) => {
+            const optimized = await compressImageIfNeeded(item.file)
+            return { ...item, file: optimized }
+          })
+        )
+
+        // Request presigned upload URLs
+        setUploadStatus('Conectando con almacenamiento seguro...')
+        const presignRes = await fetch('/api/requests/presign', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            institutionId,
+            files: processedFiles.map((pf, idx) => ({
+              id: String(idx),
+              name: pf.file.name,
+              type: pf.file.type || 'application/octet-stream',
+              size: pf.file.size,
+              docLabel: pf.docLabel,
+            })),
+          }),
+        })
+
+        if (!presignRes.ok) {
+          const errData = await presignRes.json().catch(() => null)
+          throw new Error(errData?.error || 'No fue posible autorizar la subida segura de archivos.')
+        }
+
+        const presignData = await presignRes.json()
+        const presignedList = presignData.files || []
+
+        // Upload each file directly to Contabo MinIO S3
+        for (let i = 0; i < processedFiles.length; i++) {
+          const { file, docLabel } = processedFiles[i]
+          const target = presignedList[i]
+          if (!target?.uploadUrl) {
+            throw new Error(`Enlace de subida no disponible para "${file.name}".`)
+          }
+
+          const labelText = docLabel ? ` (${docLabel})` : ''
+          setUploadStatus(`Subiendo archivo ${i + 1} de ${processedFiles.length}${labelText}...`)
+
+          const uploadRes = await fetch(target.uploadUrl, {
+            method: 'PUT',
+            headers: {
+              'Content-Type': file.type || 'application/octet-stream',
+            },
+            body: file,
+          })
+
+          if (!uploadRes.ok) {
+            throw new Error(`Fallo al subir el archivo "${file.name}" a Contabo S3 (código ${uploadRes.status}).`)
+          }
+
+          preUploadedResults.push({
+            fileName: file.name,
+            key: target.key,
+            fileType: file.type || 'application/octet-stream',
+            fileSize: file.size,
+            docLabel,
+          })
+        }
+
+        formData.append('preUploadedFiles', JSON.stringify(preUploadedResults))
+      }
+
+      // 3. Final submission (lightweight JSON/FormData payload, finishes in milliseconds)
+      setUploadStatus('Generando radicado médico oficial...')
       const res = await fetch('/api/requests/submit', { method: 'POST', body: formData })
+
+      if (!res.ok) {
+        if (res.status === 413) {
+          throw new Error('El tamaño de los datos supera el límite permitido. Por favor intente con archivos más livianos.')
+        }
+        if (res.status === 504) {
+          throw new Error('El servidor tardó demasiado tiempo en responder. Verifique su conexión e intente nuevamente.')
+        }
+        const errJson = await res.json().catch(() => null)
+        throw new Error(errJson?.error || `Error del servidor (código ${res.status}).`)
+      }
+
       const result = await res.json()
       if (result.success) {
         setSuccessRadicado(result.radicado)
       } else {
-        toast({ title: 'Error', description: result.error, variant: 'destructive' })
+        toast({ title: 'Error al Radicar', description: result.error || 'No fue posible registrar la solicitud.', variant: 'destructive' })
       }
-    } catch {
-      toast({ title: 'Fallo de Red', description: 'Imposible conectar con el servidor.', variant: 'destructive' })
+    } catch (err: any) {
+      console.error('Error submitting request:', err)
+      toast({
+        title: 'Error de Radicación',
+        description: err?.message || 'Ocurrió un error inesperado al procesar la solicitud. Por favor verifique su conexión e intente nuevamente.',
+        variant: 'destructive',
+      })
     } finally {
       setSubmitting(false)
+      setUploadStatus(null)
     }
   }
 
@@ -825,7 +1009,7 @@ export function RequestForm({
           }}
         >
           {submitting
-            ? <><Loader2 className="h-5 w-5 animate-spin" /> Generando Radicado Seguro...</>
+            ? <><Loader2 className="h-5 w-5 animate-spin shrink-0" /> <span className="truncate">{uploadStatus || 'Generando Radicado Seguro...'}</span></>
             : 'Radicar Solicitud Médica'}
         </button>
       </div>

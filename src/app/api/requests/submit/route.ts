@@ -52,7 +52,7 @@ export async function POST(request: Request) {
         }
 
         for (const [key, value] of entries) {
-             if (coreKeys.includes(key) || key.startsWith('label__') || key.startsWith('filelabel__') || key === '_requestTypeId') continue
+             if (coreKeys.includes(key) || key.startsWith('label__') || key.startsWith('filelabel__') || key === '_requestTypeId' || key === 'preUploadedFiles') continue
 
              if (value instanceof File) {
                  if (value.size > 0) {
@@ -137,7 +137,28 @@ export async function POST(request: Request) {
               : 'El paciente radicó la solicitud mediante el portal principal dinámico.'
         })
 
-        // File Processing
+        // File Processing — 1. Pre-uploaded files (Direct S3 upload via Presigned URLs)
+        const preUploadedJson = formData.get('preUploadedFiles') as string | null
+        if (preUploadedJson) {
+            try {
+                const preUploadedFiles = JSON.parse(preUploadedJson)
+                if (Array.isArray(preUploadedFiles) && preUploadedFiles.length > 0) {
+                    for (const pf of preUploadedFiles) {
+                        await supabase.from('request_attachments').insert({
+                            request_id: requestId,
+                            file_name: pf.docLabel ? `[${pf.docLabel}] ${pf.fileName}` : pf.fileName,
+                            file_path: pf.key,
+                            file_type: pf.fileType || 'application/octet-stream',
+                            file_size: pf.fileSize || 0
+                        })
+                    }
+                }
+            } catch (pErr) {
+                console.error('Error parsing or inserting preUploadedFiles:', pErr)
+            }
+        }
+
+        // File Processing — 2. Direct server fallback files (e.g. signature or small legacy files)
         if (filesToUpload.length > 0) {
             const s3 = new S3Client({
                 region: 'us-east-1',
