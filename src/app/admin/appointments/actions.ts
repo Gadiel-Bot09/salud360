@@ -14,6 +14,18 @@ function sb() {
   )
 }
 
+export interface RescheduledTargetInfo {
+  id: string
+  appointment_date: string
+  appointment_time: string
+  doctor_name: string | null
+  specialty: string | null
+  branch_name: string | null
+  attended: boolean | null
+  cancelled: boolean
+  rescheduled: boolean
+}
+
 export interface AppointmentWithPatient {
   id: string
   request_id: string
@@ -31,10 +43,16 @@ export interface AppointmentWithPatient {
   cancelled_at: string | null
   cancellation_reason: string | null
   cancelled_by: string | null
+  cancelled_by_name?: string | null
+  cancellation_channel?: 'portal_paciente' | 'panel_admin'
+  cancellation_clean_reason?: string | null
   rescheduled: boolean
   rescheduled_at: string | null
+  rescheduled_by: string | null
+  rescheduled_by_name?: string | null
   rescheduled_reason: string | null
   rescheduled_from_id: string | null
+  rescheduled_to?: RescheduledTargetInfo | null
   patient_name: string
   patient_phone: string
   patient_email: string
@@ -112,10 +130,99 @@ export async function getAppointmentsByDate(date: string): Promise<AppointmentWi
       requestMap[(req as any).id] = req
     }
 
+    // Step 4b: Resolve forward rescheduled appointments (rescheduled_from_id -> new appointment)
+    const rescheduledAppts = appointments.filter((a: any) => a.rescheduled)
+    const rescheduledToMap: Record<string, RescheduledTargetInfo> = {}
+    if (rescheduledAppts.length > 0) {
+      const rescheduledIds = rescheduledAppts.map((a: any) => a.id)
+      const { data: childAppts } = await supabase
+        .from('appointments')
+        .select('id, rescheduled_from_id, request_id, appointment_date, appointment_time, doctor_name, specialty, branch_name, attended, cancelled, rescheduled, created_at')
+        .in('rescheduled_from_id', rescheduledIds)
+        .order('created_at', { ascending: false })
+
+      for (const child of (childAppts || []) as any[]) {
+        if (child.rescheduled_from_id && !rescheduledToMap[child.rescheduled_from_id]) {
+          rescheduledToMap[child.rescheduled_from_id] = {
+            id: child.id,
+            appointment_date: child.appointment_date,
+            appointment_time: child.appointment_time,
+            doctor_name: child.doctor_name ?? null,
+            specialty: child.specialty ?? null,
+            branch_name: child.branch_name ?? null,
+            attended: child.attended ?? null,
+            cancelled: child.cancelled ?? false,
+            rescheduled: child.rescheduled ?? false,
+          }
+        }
+      }
+
+      // Fallback for any legacy rescheduled row without rescheduled_from_id populated on child
+      const missingParentAppts = rescheduledAppts.filter((a: any) => !rescheduledToMap[a.id])
+      if (missingParentAppts.length > 0) {
+        const missingReqIds = [...new Set(missingParentAppts.map((a: any) => a.request_id).filter(Boolean))]
+        if (missingReqIds.length > 0) {
+          const { data: siblingAppts } = await supabase
+            .from('appointments')
+            .select('id, request_id, appointment_date, appointment_time, doctor_name, specialty, branch_name, attended, cancelled, rescheduled, created_at')
+            .in('request_id', missingReqIds)
+            .order('created_at', { ascending: false })
+
+          for (const parent of missingParentAppts as any[]) {
+            const candidate = (siblingAppts || []).find(
+              (s: any) => s.request_id === parent.request_id && s.id !== parent.id && (!s.rescheduled || s.appointment_date !== parent.appointment_date)
+            ) as any
+            if (candidate) {
+              rescheduledToMap[parent.id] = {
+                id: candidate.id,
+                appointment_date: candidate.appointment_date,
+                appointment_time: candidate.appointment_time,
+                doctor_name: candidate.doctor_name ?? null,
+                specialty: candidate.specialty ?? null,
+                branch_name: candidate.branch_name ?? null,
+                attended: candidate.attended ?? null,
+                cancelled: candidate.cancelled ?? false,
+                rescheduled: candidate.rescheduled ?? false,
+              }
+            }
+          }
+        }
+      }
+    }
+
+    // Step 4c: Resolve actor names (cancelled_by, rescheduled_by)
+    const actorIds = [
+      ...new Set(
+        appointments
+          .flatMap((a: any) => [a.cancelled_by, a.rescheduled_by])
+          .filter(Boolean)
+      ),
+    ] as string[]
+    const userMap: Record<string, string> = {}
+    if (actorIds.length > 0) {
+      const { data: actors } = await supabase
+        .from('users')
+        .select('id, full_name, email')
+        .in('id', actorIds)
+      for (const u of (actors || []) as any[]) {
+        userMap[u.id] = u.full_name || u.email || 'Gestor del Sistema'
+      }
+    }
+
     // Step 5: Merge
     return appointments.map((appt: any) => {
       const req = requestMap[appt.request_id] || {}
       const patientJson = req.patient_data_json || {}
+      const rawCancelReason: string | null = appt.cancellation_reason ?? null
+      const isPortalCancel =
+        !appt.cancelled_by &&
+        typeof rawCancelReason === 'string' &&
+        rawCancelReason.startsWith('Cancelada por el paciente (Portal Web):')
+
+      const cleanCancelReason = isPortalCancel
+        ? rawCancelReason!.replace('Cancelada por el paciente (Portal Web):', '').trim()
+        : rawCancelReason
+
       return {
         id:               appt.id,
         request_id:       appt.request_id,
@@ -129,16 +236,22 @@ export async function getAppointmentsByDate(date: string): Promise<AppointmentWi
         attended_by:      appt.attended_by      ?? null,
         reminder_24h_sent: appt.reminder_24h_sent ?? false,
         reminder_2h_sent:  appt.reminder_2h_sent  ?? false,
-        cancelled:           appt.cancelled           ?? false,
-        cancelled_at:        appt.cancelled_at        ?? null,
-        cancellation_reason: appt.cancellation_reason ?? null,
-        cancelled_by:        appt.cancelled_by        ?? null,
+        cancelled:                 appt.cancelled           ?? false,
+        cancelled_at:              appt.cancelled_at        ?? null,
+        cancellation_reason:       rawCancelReason,
+        cancelled_by:              appt.cancelled_by        ?? null,
+        cancelled_by_name:         appt.cancelled_by ? (userMap[appt.cancelled_by] || 'Gestor Administrativo') : null,
+        cancellation_channel:      appt.cancelled ? (isPortalCancel ? 'portal_paciente' : 'panel_admin') : undefined,
+        cancellation_clean_reason: cleanCancelReason,
         rescheduled:         appt.rescheduled         ?? false,
         rescheduled_at:      appt.rescheduled_at      ?? null,
+        rescheduled_by:      appt.rescheduled_by      ?? null,
+        rescheduled_by_name: appt.rescheduled_by ? (userMap[appt.rescheduled_by] || 'Gestor Administrativo') : null,
         rescheduled_reason:  appt.rescheduled_reason  ?? null,
         rescheduled_from_id: appt.rescheduled_from_id ?? null,
-        patient_name:     patientJson.fullName || 'Paciente',
-        patient_phone:    patientJson.phone || '—',
+        rescheduled_to:      rescheduledToMap[appt.id] ?? null,
+        patient_name:     patientJson.fullName || patientJson['Nombre Completo'] || patientJson.nombre || 'Paciente',
+        patient_phone:    patientJson.phone || patientJson.telefono || '—',
         patient_email:    req.patient_email || patientJson.email || '—',
         radicado:         req.radicado      || '—',
         request_type:     req.type          || '—',
@@ -270,23 +383,22 @@ export async function getPendingAppointmentsCountToday(): Promise<number> {
 
     let query = supabase
       .from('appointments')
-      .select('id, requests!inner(institution_id)', { count: 'exact', head: true })
+      .select('id, cancelled, rescheduled, requests!inner(institution_id)')
       .eq('appointment_date', today)
       .is('attended', null)
-      .or('cancelled.is.null,cancelled.eq.false')
 
     if (!filter.isSuperAdmin && filter.institutionId) {
       query = query.eq('requests.institution_id', filter.institutionId)
     }
 
-    const { count, error } = await query
+    const { data, error } = await query
     
     if (error) {
       console.error('Error fetching pending appointments count:', error)
       return 0
     }
     
-    return count || 0
+    return (data || []).filter((r: any) => !r.cancelled && !r.rescheduled).length
   } catch (err) {
     console.error('getPendingAppointmentsCountToday exception:', err)
     return 0
@@ -339,7 +451,7 @@ export async function cancelAppointmentsBulk(params: {
     let query = supabase
       .from('appointments')
       .select(`
-        id, appointment_date, appointment_time, doctor_name, specialty, request_id,
+        id, appointment_date, appointment_time, doctor_name, specialty, request_id, cancelled, rescheduled,
         requests!inner ( id, radicado, patient_data_json, institution_id, institutions ( id, name, evolution_instance_name, evolution_connected ) )
       `)
       .is('attended', null)
@@ -362,14 +474,16 @@ export async function cancelAppointmentsBulk(params: {
       query = query.eq('requests.institution_id', filter.institutionId)
     }
 
-    const { data: appts, error } = await query
+    const { data: rawAppts, error } = await query
     if (error) {
       console.error('Error searching appointments to cancel:', error)
       return { success: false, count: 0, notified: 0, error: 'Error al buscar citas en base de datos: ' + error.message }
     }
 
-    if (!appts || appts.length === 0) {
-      return { success: false, count: 0, notified: 0, error: 'No se encontraron citas pendientes que coincidan con los criterios seleccionados.' }
+    const appts = (rawAppts || []).filter((a: any) => !a.cancelled && !a.rescheduled)
+
+    if (appts.length === 0) {
+      return { success: false, count: 0, notified: 0, error: 'No se encontraron citas activas pendientes que coincidan con los criterios seleccionados.' }
     }
 
     const apptIds = appts.map((a: any) => a.id)

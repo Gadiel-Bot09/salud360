@@ -335,7 +335,7 @@ export async function fetchAttendanceReport(from?: string, to?: string): Promise
   const sb = getAdminClient()
   let query = sb
     .from('appointments')
-    .select('attended, requests!inner(institution_id, institutions(name))')
+    .select('attended, cancelled, rescheduled, requests!inner(institution_id, institutions(name))')
 
   if (from) query = query.gte('appointment_date', from)
   if (to)   query = query.lte('appointment_date', to)
@@ -349,6 +349,7 @@ export async function fetchAttendanceReport(from?: string, to?: string): Promise
 
   const map: Record<string, { total: number; attended: number; absent: number; pending: number }> = {}
   for (const a of data as any[]) {
+    if (a.cancelled || a.rescheduled) continue
     const name = (a.requests as any)?.institutions?.name || 'Sin Institución'
     if (!map[name]) map[name] = { total: 0, attended: 0, absent: 0, pending: 0 }
     map[name].total++
@@ -402,6 +403,8 @@ export async function fetchAttendanceDetail(
       attended,
       attended_at,
       attendance_notes,
+      cancelled,
+      rescheduled,
       requests!inner(
         radicado,
         patient_email,
@@ -429,7 +432,7 @@ export async function fetchAttendanceDetail(
   const { data, error } = await query
   if (error || !data) { console.error('fetchAttendanceDetail error:', error); return [] }
 
-  return (data as any[]).map(r => {
+  return (data as any[]).filter(r => !r.cancelled && !r.rescheduled).map(r => {
     const req = r.requests || {}
     const json = req.patient_data_json || {}
     const name = json['Nombre Completo'] || json['nombre'] || json['nombre_completo'] || json['fullName'] || '—'
