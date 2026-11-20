@@ -285,6 +285,10 @@ export interface PendingCritical {
   patient_email: string
   status: string
   days_open: number
+  servicio?: string
+  patient_name?: string
+  patient_phone?: string
+  patient_document?: string
 }
 
 export async function fetchPendingCriticals(minDays = 5): Promise<PendingCritical[]> {
@@ -295,7 +299,7 @@ export async function fetchPendingCriticals(minDays = 5): Promise<PendingCritica
   const cutoff = new Date(Date.now() - minDays * 24 * 60 * 60 * 1000).toISOString()
 
   let query = sb.from('requests')
-    .select('radicado, type, patient_email, status, created_at, institution_id, institutions(name)')
+    .select('radicado, type, patient_email, patient_data_json, patient_document_type, patient_document_number, status, created_at, institution_id, institutions(name)')
     .in('status', ['received', 'processing', 'escalated'])
     .lte('created_at', cutoff)
     .order('created_at', { ascending: true })
@@ -308,14 +312,46 @@ export async function fetchPendingCriticals(minDays = 5): Promise<PendingCritica
 
   if (error || !data) { console.error(error); return [] }
 
-  return (data as any[]).map(r => ({
-    radicado: r.radicado,
-    type: r.type,
-    institution: r.institutions?.name || '—',
-    patient_email: r.patient_email,
-    status: r.status,
-    days_open: Math.floor((Date.now() - new Date(r.created_at).getTime()) / (1000 * 60 * 60 * 24))
-  })).sort((a, b) => b.days_open - a.days_open)
+  return (data as any[]).map(r => {
+    const patientData = r.patient_data_json || {}
+    const servicio = 
+      patientData['Tipo de Solicitud'] ||
+      patientData['Tipo de Cita'] ||
+      patientData['Servicio'] ||
+      patientData['Servicio Solicitado'] ||
+      patientData['Especialidad'] ||
+      r.type ||
+      '—'
+
+    const patientName = 
+      patientData['fullName'] || 
+      patientData['Nombre Completo'] || 
+      patientData['nombre'] || 
+      '—'
+
+    const patientPhone = 
+      patientData['phone'] || 
+      patientData['celular'] || 
+      patientData['telefono'] || 
+      '—'
+
+    const patientDoc = r.patient_document_number 
+      ? `${r.patient_document_type || ''} ${r.patient_document_number}`.trim() 
+      : '—'
+
+    return {
+      radicado: r.radicado,
+      type: r.type,
+      institution: r.institutions?.name || '—',
+      patient_email: r.patient_email,
+      status: r.status,
+      days_open: Math.floor((Date.now() - new Date(r.created_at).getTime()) / (1000 * 60 * 60 * 24)),
+      servicio,
+      patient_name: patientName,
+      patient_phone: patientPhone,
+      patient_document: patientDoc
+    }
+  }).sort((a, b) => b.days_open - a.days_open)
 }
 
 // ── 7. Reporte de Asistencia a Citas ─────────────────────────────────────────
@@ -685,3 +721,166 @@ export async function fetchTypeChannelReport(from?: string, to?: string): Promis
   }
   return Object.values(map).sort((a, b) => b.total - a.total)
 }
+
+// ── 12. Reporte de Solicitudes Recibidas y Críticas ───────────────────────────
+export interface ReceivedRequestReportRow {
+  id: string
+  radicado: string
+  created_at: string
+  created_at_formatted: string
+  days_open: number
+  is_critical: boolean           // >= 5 días o escalada
+  is_highly_critical: boolean    // >= 10 días
+  criticality_level: 'normal' | 'warning' | 'critical' | 'urgent'
+  status: string
+  status_label: string
+  canal: 'online' | 'presencial'
+  institution: string
+  institution_id: string
+  // Datos del Paciente
+  patient_name: string
+  patient_document_type: string
+  patient_document_number: string
+  patient_phone: string
+  patient_email: string
+  patient_eps: string
+  // Servicio y Trámite
+  servicio: string
+  request_type: string
+  request_detail: string
+}
+
+export async function fetchReceivedRequestsReport(
+  from?: string,
+  to?: string,
+  statusMode: 'all' | 'received_only' = 'all'
+): Promise<ReceivedRequestReportRow[]> {
+  const filter = await getAuthFilter()
+  if (!filter) return []
+
+  const sb = getAdminClient()
+  let query = sb
+    .from('requests')
+    .select(`
+      id,
+      radicado,
+      type,
+      status,
+      canal,
+      created_at,
+      patient_document_type,
+      patient_document_number,
+      patient_email,
+      patient_data_json,
+      institution_id,
+      institutions ( id, name )
+    `)
+    // Incluye solicitudes en estado 'received', y también 'escalated' que requieren atención crítica
+    .in('status', statusMode === 'received_only' ? ['received'] : ['received', 'escalated'])
+    .order('created_at', { ascending: false })
+    .limit(5000)
+
+  if (from) query = query.gte('created_at', from)
+  if (to)   query = query.lte('created_at', to + 'T23:59:59Z')
+
+  if (!filter.isSuperAdmin && filter.institutionId) {
+    query = query.eq('institution_id', filter.institutionId)
+  }
+
+  const { data, error } = await query
+  if (error || !data) {
+    console.error('fetchReceivedRequestsReport error:', error)
+    return []
+  }
+
+  return (data as any[]).map(r => {
+    const patientData = r.patient_data_json || {}
+
+    // 1. Servicio de la Solicitud
+    const servicio = 
+      patientData['Tipo de Solicitud'] ||
+      patientData['Tipo de Cita'] ||
+      patientData['Servicio'] ||
+      patientData['Servicio Solicitado'] ||
+      patientData['Especialidad'] ||
+      patientData['tipo_solicitud'] ||
+      r.type ||
+      'General'
+
+    // 2. Datos del Paciente
+    const patientName = 
+      patientData['fullName'] || 
+      patientData['Nombre Completo'] || 
+      patientData['nombre'] || 
+      patientData['nombre_completo'] || 
+      'Paciente'
+
+    const patientPhone = 
+      patientData['phone'] || 
+      patientData['celular'] || 
+      patientData['telefono'] || 
+      patientData['Teléfono'] || 
+      '—'
+
+    const patientEps = 
+      patientData['Entidad / EPS'] || 
+      patientData['entidad_eps'] || 
+      patientData['eps'] || 
+      patientData['EPS'] || 
+      '—'
+
+    const requestDetail = 
+      patientData['Detalle de la Solicitud'] || 
+      patientData['detalle'] || 
+      patientData['observaciones'] || 
+      ''
+
+    // 3. Días Transcurridos y Criticidad
+    const createdTime = new Date(r.created_at).getTime()
+    const daysOpen = Math.max(0, Math.floor((Date.now() - createdTime) / (1000 * 60 * 60 * 24)))
+
+    const isCritical = daysOpen >= 5 || r.status === 'escalated'
+    const isHighlyCritical = daysOpen >= 10
+
+    let criticalityLevel: 'normal' | 'warning' | 'critical' | 'urgent' = 'normal'
+    if (r.status === 'escalated' || daysOpen >= 10) {
+      criticalityLevel = 'urgent'
+    } else if (daysOpen >= 5) {
+      criticalityLevel = 'critical'
+    } else if (daysOpen >= 3) {
+      criticalityLevel = 'warning'
+    }
+
+    const createdFormatted = new Date(r.created_at).toLocaleDateString('es-CO', {
+      day: '2-digit',
+      month: 'short',
+      year: 'numeric'
+    })
+
+    return {
+      id: r.id,
+      radicado: r.radicado || '—',
+      created_at: r.created_at,
+      created_at_formatted: createdFormatted,
+      days_open: daysOpen,
+      is_critical: isCritical,
+      is_highly_critical: isHighlyCritical,
+      criticality_level: criticalityLevel,
+      status: r.status,
+      status_label: r.status === 'received' ? 'Recibida' : r.status === 'escalated' ? 'Escalada' : r.status,
+      canal: r.canal === 'presencial' ? 'presencial' : 'online',
+      institution: r.institutions?.name || 'Sin Institución',
+      institution_id: r.institution_id,
+      patient_name: patientName,
+      patient_document_type: r.patient_document_type || '—',
+      patient_document_number: r.patient_document_number || '—',
+      patient_phone: patientPhone,
+      patient_email: r.patient_email || '—',
+      patient_eps: patientEps,
+      servicio,
+      request_type: r.type || '—',
+      request_detail: requestDetail
+    }
+  })
+}
+

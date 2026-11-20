@@ -263,7 +263,7 @@ function AttendanceTabContent({
   attDetail: { institution: string; rows: AttendanceDetailRow[] } | null
   attDetailLoading: boolean
   attFilter: string
-  setAttFilter: (f: string) => void
+  setAttFilter: (f: any) => void
   setAttDetail: (v: null) => void
   openAttDetail: (inst: string) => void
 }) {
@@ -640,7 +640,7 @@ export function ReportsDashboard({ initialData, onRefresh, onFetchDetail, onFetc
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart data={rows.slice(0, 10)} margin={{ top: 16, right: 24, left: 0, bottom: 40 }}>
                     <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
-                    <XAxis dataKey="user_name" tick={{ fontSize: 10, angle: -30, textAnchor: 'end' }} />
+                    <XAxis dataKey="user_name" tick={{ fontSize: 10, angle: -30, textAnchor: 'end' } as any} />
                     <YAxis tick={{ fontSize: 11 }} />
                     <Tooltip />
                     <Legend />
@@ -829,15 +829,25 @@ export function ReportsDashboard({ initialData, onRefresh, onFetchDetail, onFetc
                 <div className="overflow-x-auto">
                   <table className="w-full text-sm">
                     <thead className="bg-slate-50 border-b border-slate-200">
-                      <tr>{['Radicado','Tipo','Institución','Correo Paciente','Estado','Días Abierto'].map(h => <th key={h} className="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase">{h}</th>)}</tr>
+                      <tr>{['Radicado','Servicio','Paciente','Institución','Estado','Días Abierto'].map(h => <th key={h} className="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase">{h}</th>)}</tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100">
                       {rows.map((r, i) => (
                         <tr key={i} className="hover:bg-rose-50/50">
                           <td className="px-4 py-3 font-mono text-xs font-semibold text-teal-700">{r.radicado}</td>
-                          <td className="px-4 py-3 text-slate-700">{r.type}</td>
-                          <td className="px-4 py-3 text-slate-700">{r.institution}</td>
-                          <td className="px-4 py-3 text-slate-500 text-xs truncate max-w-[180px]">{r.patient_email}</td>
+                          <td className="px-4 py-3">
+                            <span className="font-semibold text-slate-800">{r.servicio || r.type}</span>
+                            {r.type && r.type !== r.servicio && (
+                              <span className="block text-[11px] text-slate-400">{r.type}</span>
+                            )}
+                          </td>
+                          <td className="px-4 py-3">
+                            <div className="font-medium text-slate-900">{r.patient_name || '—'}</div>
+                            {r.patient_document && (
+                              <div className="text-[11px] text-slate-500">{r.patient_document}</div>
+                            )}
+                          </td>
+                          <td className="px-4 py-3 text-slate-700 text-xs">{r.institution}</td>
                           <td className="px-4 py-3"><span className="bg-amber-100 text-amber-700 rounded-full px-2 py-0.5 text-xs font-semibold">{STATUS_LABELS[r.status] || r.status}</span></td>
                           <td className="px-4 py-3">
                             <span className={`font-bold text-sm ${r.days_open > 10 ? 'text-red-600' : 'text-amber-600'}`}>
@@ -852,10 +862,19 @@ export function ReportsDashboard({ initialData, onRefresh, onFetchDetail, onFetc
               </div>
             )}
             <div className="flex gap-3">
-              <Button size="sm" variant="outline" onClick={() => exportCSV('pendientes_criticos.csv', rows as any)}>
+              <Button size="sm" variant="outline" onClick={() => exportCSV('pendientes_criticos.csv', rows.map(r => ({
+                Radicado: r.radicado,
+                Servicio: r.servicio || r.type,
+                Paciente: r.patient_name || '—',
+                Documento: r.patient_document || '—',
+                Institución: r.institution,
+                Email: r.patient_email,
+                Estado: STATUS_LABELS[r.status] || r.status,
+                'Días Abierto': r.days_open
+              })))}>
                 <Download className="w-4 h-4 mr-2" /> Exportar CSV
               </Button>
-              <Button size="sm" className="bg-red-600 hover:bg-red-700" onClick={() => exportPDF('Pendientes Críticos', ['Radicado','Tipo','Institución','Email','Estado','Días'], rows.map(r => [r.radicado, r.type, r.institution, r.patient_email, STATUS_LABELS[r.status] || r.status, r.days_open]))}>
+              <Button size="sm" className="bg-red-600 hover:bg-red-700" onClick={() => exportPDF('Pendientes Críticos', ['Radicado','Servicio','Paciente','Institución','Estado','Días'], rows.map(r => [r.radicado, r.servicio || r.type, r.patient_name || '—', r.institution, STATUS_LABELS[r.status] || r.status, r.days_open]))}>
                 <FileText className="w-4 h-4 mr-2" /> Exportar PDF
               </Button>
             </div>

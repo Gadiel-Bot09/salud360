@@ -352,8 +352,8 @@ export async function sendManualWhatsAppReminder(appointmentId: string): Promise
     })
 
     await supabase.from('whatsapp_logs').insert({
-      institution_id: req.institutions.id,
-      request_id: appt.requests?.id, // Note: actually requests doesn't fetch 'id' above, let's fix the select query as well! Wait, no I can fetch it.
+      institution_id: req.institutions?.id,
+      request_id: (appt.requests as any)?.id,
       appointment_id: appt.id,
       patient_phone: phone,
       message_content: text,
