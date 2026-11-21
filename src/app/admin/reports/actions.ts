@@ -896,3 +896,47 @@ export async function fetchReceivedRequestsReport(
   })
 }
 
+// ── 13. Resumen Ligero para el Selector de Reportes (Badges en tiempo real) ───
+export interface ReportsHubSummary {
+  receivedTotal: number
+  receivedCritical: number
+}
+
+export async function fetchReportsHubSummary(): Promise<ReportsHubSummary> {
+  const filter = await getAuthFilter()
+  if (!filter) return { receivedTotal: 0, receivedCritical: 0 }
+
+  const sb = getAdminClient()
+  let query = sb
+    .from('requests')
+    .select('status, created_at')
+    .in('status', ['received', 'escalated'])
+    .limit(5000)
+
+  if (!filter.isSuperAdmin && filter.institutionId) {
+    query = query.eq('institution_id', filter.institutionId)
+  }
+
+  const { data, error } = await query
+  if (error || !data) {
+    console.error('fetchReportsHubSummary error:', error)
+    return { receivedTotal: 0, receivedCritical: 0 }
+  }
+
+  const now = Date.now()
+  const FIVE_DAYS_MS = 5 * 24 * 60 * 60 * 1000
+  let receivedCritical = 0
+  for (const r of data as any[]) {
+    const ageMs = now - new Date(r.created_at).getTime()
+    if (r.status === 'escalated' || ageMs >= FIVE_DAYS_MS) {
+      receivedCritical++
+    }
+  }
+
+  return {
+    receivedTotal: data.length,
+    receivedCritical,
+  }
+}
+
+
