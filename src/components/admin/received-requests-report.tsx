@@ -20,6 +20,7 @@ interface Props {
 type CriticidadFilter = 'all' | 'critical' | 'urgent' | 'ontime' | 'escalated'
 
 const SERVICE_COLORS: Record<string, string> = {
+  'Demanda Inducida':      'bg-amber-100 text-amber-900 border-amber-300',
   'Cirugía Oral':          'bg-purple-100 text-purple-800 border-purple-200',
   'Cirugía Maxilofacial':  'bg-pink-100 text-pink-800 border-pink-200',
   'Endodoncia':            'bg-rose-100 text-rose-800 border-rose-200',
@@ -30,7 +31,11 @@ const SERVICE_COLORS: Record<string, string> = {
   'Primera Vez':           'bg-teal-100 text-teal-800 border-teal-200',
   'Prótesis':              'bg-blue-100 text-blue-800 border-blue-200',
   'Anestesia':             'bg-slate-100 text-slate-800 border-slate-200',
+  'Ayuda Diagnostica':     'bg-cyan-100 text-cyan-800 border-cyan-200',
 }
+
+// Servicios que siempre deben estar disponibles en el filtro (incluyendo Demanda Inducida del canal presencial)
+const ALWAYS_INCLUDED_SERVICES = ['Demanda Inducida']
 
 function getServiceColor(servicio: string) {
   for (const [key, color] of Object.entries(SERVICE_COLORS)) {
@@ -51,13 +56,27 @@ export function ReceivedRequestsReport({ initialData, onRefresh }: Props) {
   const [pageSize, setPageSize] = useState(25)
   const [isPending, startTransition] = useTransition()
 
-  // Lista dinámica de servicios presentes en los datos
-  const serviceOptions = useMemo(() => {
-    const set = new Set<string>()
+  // Mapa de conteo por servicio y lista dinámica (siempre incluye Demanda Inducida del canal presencial)
+  const { serviceOptions, serviceCountMap } = useMemo(() => {
+    const countMap: Record<string, number> = {}
+    const canonicalByLower: Record<string, string> = {}
+
+    for (const s of ALWAYS_INCLUDED_SERVICES) {
+      canonicalByLower[s.toLowerCase()] = s
+      countMap[s] = 0
+    }
+
     data.forEach(r => {
-      if (r.servicio && r.servicio !== '—') set.add(r.servicio)
+      if (r.servicio && r.servicio !== '—') {
+        const key = r.servicio.toLowerCase()
+        const canonical = canonicalByLower[key] || r.servicio
+        canonicalByLower[key] = canonical
+        countMap[canonical] = (countMap[canonical] || 0) + 1
+      }
     })
-    return Array.from(set).sort()
+
+    const options = Object.values(canonicalByLower).sort((a, b) => a.localeCompare(b, 'es'))
+    return { serviceOptions: options, serviceCountMap: countMap }
   }, [data])
 
   // Métricas agregadas
@@ -100,13 +119,13 @@ export function ReceivedRequestsReport({ initialData, onRefresh }: Props) {
       }
 
       // Filtro de Criticidad
-      if (criticidadFilter === 'critical' && (!r.is_critical || r.days_open < 5)) return false
+      if (criticidadFilter === 'critical' && !r.is_critical) return false
       if (criticidadFilter === 'urgent' && !r.is_highly_critical) return false
       if (criticidadFilter === 'ontime' && (r.days_open >= 5 || r.status === 'escalated')) return false
       if (criticidadFilter === 'escalated' && r.status !== 'escalated') return false
 
-      // Filtro de Servicio
-      if (selectedService !== 'ALL' && r.servicio !== selectedService) return false
+      // Filtro de Servicio (insensible a mayúsculas/minúsculas)
+      if (selectedService !== 'ALL' && r.servicio.toLowerCase() !== selectedService.toLowerCase()) return false
 
       // Filtro de Canal
       if (selectedCanal !== 'ALL' && r.canal !== selectedCanal) return false
@@ -471,12 +490,16 @@ export function ReceivedRequestsReport({ initialData, onRefresh }: Props) {
             <select
               value={selectedService}
               onChange={e => { setSelectedService(e.target.value); setPage(1); }}
-              className="h-8 rounded-lg border border-slate-200 bg-white px-2.5 text-xs text-slate-700 focus:outline-none focus:ring-2 focus:ring-teal-500 max-w-[200px]"
+              className="h-8 rounded-lg border border-slate-200 bg-white px-2.5 text-xs text-slate-700 focus:outline-none focus:ring-2 focus:ring-teal-500 max-w-[260px]"
             >
               <option value="ALL">Todos los servicios ({serviceOptions.length})</option>
-              {serviceOptions.map(serv => (
-                <option key={serv} value={serv}>{serv}</option>
-              ))}
+              {serviceOptions.map(serv => {
+                const count = serviceCountMap[serv] ?? 0
+                const label = serv === 'Demanda Inducida' ? `🏥 Demanda Inducida (Presencial) (${count})` : `${serv} (${count})`
+                return (
+                  <option key={serv} value={serv}>{label}</option>
+                )
+              })}
             </select>
 
             {/* Filtro por Canal */}
@@ -538,11 +561,17 @@ export function ReceivedRequestsReport({ initialData, onRefresh }: Props) {
       {/* ── Tabla de Solicitudes ────────────────────────────────────────────── */}
       <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
         {paginated.length === 0 ? (
-          <div className="py-16 text-center text-slate-400 space-y-2">
+          <div className="py-16 text-center text-slate-400 space-y-2 px-4">
             <Inbox className="w-12 h-12 mx-auto text-slate-300" />
-            <p className="font-semibold text-slate-600 text-base">No se encontraron solicitudes recibidas</p>
-            <p className="text-xs text-slate-400">
-              Prueba cambiando los filtros de criticidad, servicio o rango de fechas.
+            <p className="font-semibold text-slate-600 text-base">
+              {selectedService === 'Demanda Inducida'
+                ? 'Sin solicitudes de Demanda Inducida en estado Recibida'
+                : 'No se encontraron solicitudes recibidas'}
+            </p>
+            <p className="text-xs text-slate-400 max-w-md mx-auto">
+              {selectedService === 'Demanda Inducida'
+                ? 'Todas las solicitudes registradas por Demanda Inducida (canal presencial) en este periodo ya fueron gestionadas o respondidas. Cualquier nueva solicitud presencial sin responder aparecerá aquí automáticamente.'
+                : 'Prueba cambiando los filtros de criticidad, servicio o rango de fechas.'}
             </p>
           </div>
         ) : (

@@ -277,6 +277,16 @@ export async function fetchTrendData(from?: string, to?: string): Promise<TrendP
   return Object.values(map)
 }
 
+// Helper para normalizar nombres de servicios (evita duplicados por mayúsculas/tildes, ej. "Demanda inducida" -> "Demanda Inducida")
+function normalizeServiceName(raw: string | null | undefined): string {
+  const cleaned = (raw || '').trim().replace(/\)\)+$/, ')')
+  if (!cleaned) return 'General'
+  const lower = cleaned.toLowerCase()
+  if (lower === 'demanda inducida') return 'Demanda Inducida'
+  if (lower === 'protesis') return 'Prótesis'
+  return cleaned
+}
+
 // ── 6. Pendientes Críticos ────────────────────────────────────────────────────
 export interface PendingCritical {
   radicado: string
@@ -314,7 +324,7 @@ export async function fetchPendingCriticals(minDays = 5): Promise<PendingCritica
 
   return (data as any[]).map(r => {
     const patientData = r.patient_data_json || {}
-    const servicio = 
+    const servicio = normalizeServiceName(
       patientData['Tipo de Solicitud'] ||
       patientData['Tipo de Cita'] ||
       patientData['Servicio'] ||
@@ -322,6 +332,7 @@ export async function fetchPendingCriticals(minDays = 5): Promise<PendingCritica
       patientData['Especialidad'] ||
       r.type ||
       '—'
+    )
 
     const patientName = 
       patientData['fullName'] || 
@@ -796,8 +807,8 @@ export async function fetchReceivedRequestsReport(
   return (data as any[]).map(r => {
     const patientData = r.patient_data_json || {}
 
-    // 1. Servicio de la Solicitud
-    const servicio = 
+    // 1. Servicio de la Solicitud (incluye "Demanda Inducida" del canal presencial y demás servicios)
+    const servicio = normalizeServiceName(
       patientData['Tipo de Solicitud'] ||
       patientData['Tipo de Cita'] ||
       patientData['Servicio'] ||
@@ -806,6 +817,7 @@ export async function fetchReceivedRequestsReport(
       patientData['tipo_solicitud'] ||
       r.type ||
       'General'
+    )
 
     // 2. Datos del Paciente
     const patientName = 
@@ -868,7 +880,7 @@ export async function fetchReceivedRequestsReport(
       criticality_level: criticalityLevel,
       status: r.status,
       status_label: r.status === 'received' ? 'Recibida' : r.status === 'escalated' ? 'Escalada' : r.status,
-      canal: r.canal === 'presencial' ? 'presencial' : 'online',
+      canal: (r.canal === 'presencial' || patientData['canal'] === 'presencial' || servicio === 'Demanda Inducida') ? 'presencial' : 'online',
       institution: r.institutions?.name || 'Sin Institución',
       institution_id: r.institution_id,
       patient_name: patientName,
