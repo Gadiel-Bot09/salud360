@@ -21,12 +21,37 @@ import Link from 'next/link'
 import { ExportButtons } from './export-buttons'
 
 const PAGE_SIZE = 30
+const VALID_FILTERS = ['received', 'delayed', 'processing', 'responded', 'closed', 'escalated', 'all'] as const
+type RequestStatusFilter = (typeof VALID_FILTERS)[number]
 
 export function RequestsTable({ initialData }: { initialData: any[] }) {
     const router = useRouter()
     const [search, setSearch] = useState('')
-    const [statusFilter, setStatusFilter] = useState('all')
+    // Filtro predeterminado: "Recibida" para mantener la bandeja limpia y enfocada en pendientes por gestionar
+    const [statusFilter, setStatusFilter] = useState<RequestStatusFilter>('received')
     const [page, setPage] = useState(1)
+
+    // Leer filtro inicial desde URL (?status=...) si el usuario llega con un enlace o vuelve atrás
+    useEffect(() => {
+        if (typeof window === 'undefined') return
+        const urlStatus = new URLSearchParams(window.location.search).get('status') as RequestStatusFilter | null
+        if (urlStatus && VALID_FILTERS.includes(urlStatus)) {
+            setStatusFilter(urlStatus)
+        }
+    }, [])
+
+    const handleStatusChange = (nextStatus: RequestStatusFilter) => {
+        setStatusFilter(nextStatus)
+        if (typeof window !== 'undefined') {
+            const url = new URL(window.location.href)
+            if (nextStatus === 'received') {
+                url.searchParams.delete('status')
+            } else {
+                url.searchParams.set('status', nextStatus)
+            }
+            window.history.replaceState({}, '', url.toString())
+        }
+    }
 
     // Auto-refresh the page data every 15 seconds
     useEffect(() => {
@@ -41,20 +66,58 @@ export function RequestsTable({ initialData }: { initialData: any[] }) {
         setPage(1)
     }, [search, statusFilter])
 
-    // Filter data based on search & status
-    const filtered = useMemo(() => {
-        return initialData.filter((req) => {
-            const query = search.toLowerCase()
-            const patientName = req.patient_data_json?.fullName || ''
-            const matchesSearch =
-                !query ||
-                req.radicado?.toLowerCase().includes(query) ||
-                patientName.toLowerCase().includes(query) ||
-                req.patient_document_number?.toLowerCase().includes(query) ||
-                req.type?.toLowerCase().includes(query)
+    // Helper de búsqueda reutilizable (paciente, radicado, documento, tipo y servicio)
+    const matchesQuery = (req: any, q: string) => {
+        if (!q) return true
+        const patientName = req.patient_data_json?.fullName || req.patient_data_json?.['Nombre Completo'] || ''
+        const servicio = req.patient_data_json?.['Tipo de Solicitud'] || ''
+        return (
+            req.radicado?.toLowerCase().includes(q) ||
+            patientName.toLowerCase().includes(q) ||
+            req.patient_document_number?.toLowerCase().includes(q) ||
+            req.type?.toLowerCase().includes(q) ||
+            servicio.toLowerCase().includes(q)
+        )
+    }
+
+    // Contadores en vivo por estado para las píldoras de navegación rápida
+    const statusCounts = useMemo(() => {
+        const counts = {
+            all: initialData.length,
+            received: 0,
+            delayed: 0,
+            processing: 0,
+            responded: 0,
+            closed: 0,
+            escalated: 0,
+        }
+        const todayStart = startOfDay(new Date())
+        for (const req of initialData) {
+            if (req.status === 'received') counts.received++
+            else if (req.status === 'processing') counts.processing++
+            else if (req.status === 'responded') counts.responded++
+            else if (req.status === 'closed') counts.closed++
+            else if (req.status === 'escalated') counts.escalated++
 
             const isPending = req.status === 'received' || req.status === 'processing' || req.status === 'escalated'
-            const daysElapsed = differenceInDays(startOfDay(new Date()), startOfDay(new Date(req.created_at)))
+            if (isPending && differenceInDays(todayStart, startOfDay(new Date(req.created_at))) >= 5) {
+                counts.delayed++
+            }
+        }
+        return counts
+    }, [initialData])
+
+    const overdueCount = statusCounts.delayed
+
+    // Filter data based on search & status
+    const filtered = useMemo(() => {
+        const query = search.trim().toLowerCase()
+        const todayStart = startOfDay(new Date())
+        return initialData.filter((req) => {
+            if (!matchesQuery(req, query)) return false
+
+            const isPending = req.status === 'received' || req.status === 'processing' || req.status === 'escalated'
+            const daysElapsed = differenceInDays(todayStart, startOfDay(new Date(req.created_at)))
             const isDelayed = isPending && daysElapsed >= 5
 
             const matchesStatus =
@@ -62,17 +125,17 @@ export function RequestsTable({ initialData }: { initialData: any[] }) {
                 statusFilter === 'delayed' ? isDelayed :
                 req.status === statusFilter
 
-            return matchesSearch && matchesStatus
+            return matchesStatus
         })
     }, [initialData, search, statusFilter])
 
-    // Count of overdue pending requests (for toolbar alert)
-    const overdueCount = useMemo(() =>
-        initialData.filter(req => {
-            const isPending = req.status === 'received' || req.status === 'processing' || req.status === 'escalated'
-            return isPending && differenceInDays(startOfDay(new Date()), startOfDay(new Date(req.created_at))) >= 5
-        }).length
-    , [initialData])
+    // Búsqueda inteligente: contar coincidencias en OTROS estados cuando el usuario busca estando filtrado (ej. en "Recibida")
+    const otherStatusesSearchCount = useMemo(() => {
+        const query = search.trim().toLowerCase()
+        if (!query || statusFilter === 'all') return 0
+        const totalMatchingQuery = initialData.filter(req => matchesQuery(req, query)).length
+        return Math.max(0, totalMatchingQuery - filtered.length)
+    }, [initialData, search, statusFilter, filtered.length])
 
     // Pagination
     const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE))
@@ -102,26 +165,26 @@ export function RequestsTable({ initialData }: { initialData: any[] }) {
         return null
     }
 
-    const STATUS_OPTIONS = [
-        { label: 'Todos los estados', value: 'all' },
-        { label: '🔴 Con Atraso (+5 días)', value: 'delayed' },
-        { label: 'Recibidas', value: 'received' },
-        { label: 'En Trámite', value: 'processing' },
-        { label: 'Respondidas', value: 'responded' },
-        { label: 'Cerradas', value: 'closed' },
-        { label: 'Escaladas', value: 'escalated' },
+    const STATUS_TABS: { value: RequestStatusFilter; label: string; count: number; activeStyle: string }[] = [
+        { value: 'received',   label: 'Recibidas',           count: statusCounts.received,   activeStyle: 'bg-blue-600 text-white border-blue-600 shadow-sm' },
+        { value: 'delayed',    label: '🔴 Atrasadas (+5d)',   count: statusCounts.delayed,    activeStyle: 'bg-red-600 text-white border-red-600 shadow-sm' },
+        { value: 'processing', label: 'En Trámite',          count: statusCounts.processing, activeStyle: 'bg-amber-600 text-white border-amber-600 shadow-sm' },
+        { value: 'responded',  label: 'Respondidas',         count: statusCounts.responded,  activeStyle: 'bg-teal-700 text-white border-teal-700 shadow-sm' },
+        { value: 'closed',     label: 'Cerradas',            count: statusCounts.closed,     activeStyle: 'bg-emerald-700 text-white border-emerald-700 shadow-sm' },
+        ...(statusCounts.escalated > 0 ? [{ value: 'escalated' as RequestStatusFilter, label: 'Escaladas', count: statusCounts.escalated, activeStyle: 'bg-rose-700 text-white border-rose-700 shadow-sm' }] : []),
+        { value: 'all',        label: 'Todos los estados',   count: statusCounts.all,        activeStyle: 'bg-slate-800 text-white border-slate-800 shadow-sm' },
     ]
 
     return (
         <div className="space-y-4">
-            {/* Toolbar: Search + Filter + Export */}
+            {/* Toolbar: Search + Export */}
             <div className="flex flex-col sm:flex-row gap-3 justify-between items-start sm:items-center">
                 <div className="flex items-center gap-3 w-full sm:w-auto">
                     {/* Search */}
-                    <div className="relative flex-1 sm:w-72">
+                    <div className="relative flex-1 sm:w-80">
                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
                         <Input
-                            placeholder="Buscar por radicado, paciente, doc..."
+                            placeholder="Buscar por radicado, paciente, doc o servicio..."
                             value={search}
                             onChange={(e) => setSearch(e.target.value)}
                             className="pl-9 h-9 text-sm border-slate-200"
@@ -132,27 +195,58 @@ export function RequestsTable({ initialData }: { initialData: any[] }) {
                             </button>
                         )}
                     </div>
-
-                    {/* Status filter */}
-                    <select
-                        value={statusFilter}
-                        onChange={(e) => setStatusFilter(e.target.value)}
-                        className="flex h-9 items-center rounded-md border border-slate-200 bg-white px-3 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-teal-600"
-                    >
-                        {STATUS_OPTIONS.map((o) => (
-                            <option key={o.value} value={o.value}>{o.label}</option>
-                        ))}
-                    </select>
                 </div>
 
                 {/* Export Buttons — gets the currently filtered data (all pages) */}
                 <ExportButtons data={filtered} />
             </div>
 
+            {/* Quick Status Filter Pills (Predeterminado: Recibidas) */}
+            <div className="flex flex-wrap items-center gap-2 pb-1">
+                {STATUS_TABS.map((tab) => {
+                    const isActive = statusFilter === tab.value
+                    return (
+                        <button
+                            key={tab.value}
+                            type="button"
+                            onClick={() => handleStatusChange(tab.value)}
+                            className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold transition-all border ${
+                                isActive
+                                    ? tab.activeStyle
+                                    : 'bg-white text-slate-600 border-slate-200 hover:border-teal-300 hover:bg-slate-50'
+                            }`}
+                        >
+                            <span>{tab.label}</span>
+                            <span className={`px-1.5 py-0.5 rounded-full text-[11px] font-bold ${
+                                isActive ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-500'
+                            }`}>
+                                {tab.count}
+                            </span>
+                        </button>
+                    )
+                })}
+            </div>
+
+            {/* Cross-status search hint (si el gestor busca un radicado/paciente que ya fue respondido o está en otro estado) */}
+            {otherStatusesSearchCount > 0 && (
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 px-4 py-2.5 rounded-lg border border-indigo-200 bg-indigo-50 text-indigo-800 text-xs font-medium">
+                    <span>
+                        🔍 Se encontraron <strong>{otherStatusesSearchCount}</strong> coincidencia(s) adicional(es) para &ldquo;<strong>{search}</strong>&rdquo; en otros estados (Respondidas, En Trámite o Cerradas).
+                    </span>
+                    <button
+                        type="button"
+                        onClick={() => handleStatusChange('all')}
+                        className="font-bold text-indigo-700 hover:text-indigo-900 underline shrink-0 text-left sm:text-right"
+                    >
+                        Ver en todos los estados →
+                    </button>
+                </div>
+            )}
+
             {/* Overdue alert banner */}
             {overdueCount > 0 && statusFilter !== 'delayed' && (
                 <button
-                    onClick={() => setStatusFilter('delayed')}
+                    onClick={() => handleStatusChange('delayed')}
                     className="w-full flex items-center gap-3 px-4 py-2.5 rounded-lg border border-red-300 bg-red-50 text-red-700 text-sm font-semibold hover:bg-red-100 transition-colors animate-pulse"
                 >
                     <AlertTriangle className="h-4 w-4 shrink-0 text-red-500" />
@@ -181,10 +275,25 @@ export function RequestsTable({ initialData }: { initialData: any[] }) {
                     <TableBody>
                         {paginated.length === 0 ? (
                             <TableRow>
-                                <TableCell colSpan={6} className="text-center py-12 text-slate-400">
-                                    {search || statusFilter !== 'all'
-                                        ? 'No se encontraron solicitudes con los filtros aplicados.'
-                                        : 'No hay solicitudes para mostrar.'}
+                                <TableCell colSpan={8} className="text-center py-12 text-slate-400">
+                                    <div className="space-y-2">
+                                        <p className="font-medium text-slate-500">
+                                            {search
+                                                ? `No se encontraron solicitudes en "${STATUS_TABS.find(t => t.value === statusFilter)?.label || statusFilter}" para "${search}".`
+                                                : statusFilter === 'received'
+                                                ? '🎉 ¡Bandeja limpia! No hay solicitudes en estado Recibida pendientes por gestionar.'
+                                                : 'No hay solicitudes para mostrar en este estado.'}
+                                        </p>
+                                        {statusFilter !== 'all' && (
+                                            <button
+                                                type="button"
+                                                onClick={() => handleStatusChange('all')}
+                                                className="text-xs font-semibold text-teal-700 hover:underline"
+                                            >
+                                                Ver todos los estados ({statusCounts.all}) →
+                                            </button>
+                                        )}
+                                    </div>
                                 </TableCell>
                             </TableRow>
                         ) : (
@@ -197,7 +306,7 @@ export function RequestsTable({ initialData }: { initialData: any[] }) {
                                 // Buscar el último gestor que interactuó con la solicitud
                                 const historyArray = req.request_history || []
                                 const lastUserEntry = [...historyArray].reverse().find((h: any) => h.users?.full_name)
-                                const responderName = lastUserEntry ? lastUserEntry.users.full_name : (req.assigned_to_name || '—')
+                                const responderName = lastUserEntry ? lastUserEntry.users.full_name : (req.assigned_to_name || 'Sin asignar')
 
                                 let rowClass = "hover:bg-slate-50 transition-colors"
                                 if (isDelayed) rowClass = "bg-red-50 hover:bg-red-100 transition-colors"
@@ -256,7 +365,7 @@ export function RequestsTable({ initialData }: { initialData: any[] }) {
                                         <TableCell>
                                             <div className="flex items-center space-x-2">
                                                 <div className="flex flex-col">
-                                                    <span className={`text-xs font-medium ${responderName !== 'No asignado' ? 'text-slate-700' : 'text-slate-400 italic'}`}>
+                                                    <span className={`text-xs font-medium ${responderName !== 'Sin asignar' ? 'text-slate-700' : 'text-slate-400 italic'}`}>
                                                         {responderName}
                                                     </span>
                                                 </div>

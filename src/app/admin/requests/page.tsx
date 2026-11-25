@@ -40,10 +40,10 @@ export default async function RequestsPage() {
     const userMap = (usersList || []).reduce((acc: any, u: any) => ({ ...acc, [u.id]: u.full_name }), {})
 
     const mappedRequests = (requests || []).map(req => {
-        // Inyectar el nombre del usuario en el historial para que RequestsTable lo lea
+        // Inyectar el nombre del usuario en el historial solo si existe un gestor real asociado
         const historyWithUsers = (req.request_history || []).map((h: any) => ({
             ...h,
-            users: { full_name: userMap[h.user_id] || 'Usuario Desconocido' }
+            users: h.user_id && userMap[h.user_id] ? { full_name: userMap[h.user_id] } : null
         }))
         return {
             ...req,
