@@ -258,17 +258,36 @@ Al auditar el código fuente actual de Salud360, este es el inventario exacto de
 
 ---
 
-### Fase 4: Backups Automáticos, Monitoreo y Cierre de Supabase Pro
+### Fase 4: Backups Automáticos, Descarga Local al PC, Monitoreo y Cierre de Supabase Pro
 
-1. **Backups Automáticos Diarios a MinIO S3 (Regla 3-2-1):**
+1. **Backups Automáticos Diarios a MinIO S3 (Servidor Secundario):**
    * Crear un bucket privado exclusivo en tu servidor Contabo MinIO (ej. `salud360-db-backups`).
-   * Configurar en **Coolify** (o mediante `cron` diario a las 2:00 AM COT) el respaldo comprimido y cifrado de PostgreSQL hacia ese bucket S3 con política de retención de **30 días**.
+   * Configurar en **Coolify** (o mediante `cron` diario a las 2:00 AM COT) el respaldo comprimido y **cifrado con clave maestra (AES-256)** de PostgreSQL hacia ese bucket S3 con política de retención de **30 días**.
    * Beneficio: si el VPS de Supabase llegara a fallar físicamente, tus respaldos están a salvo en **otro servidor independiente (MinIO)**.
-2. **Periodo de Estabilización (10 a 15 días):**
+
+2. **Descarga Local de Backups a tu Propio PC / Disco Externo (Cumplimiento Regla 3-2-1):**
+   Para protegerte incluso ante un fallo simultáneo del servidor de MinIO, mantendrás una tercera copia **fuera de la nube (local en tu PC o disco duro externo)** mediante cualquiera de estas opciones:
+   * **Opción A — Descarga manual en 1 clic (Consola Web de MinIO):**
+     - Ingresas al panel web de MinIO → abres el bucket privado `salud360-db-backups` → seleccionas el archivo del día (ej. `salud360_2026-11-26.dump.gz.enc`, normalmente entre 5 MB y 50 MB) → clic en **Download**.
+   * **Opción B — Descarga automatizada en Windows (`rclone` o MinIO Client `mc`):**
+     - Dejaremos un script local en tu PC (ejecutable con doble clic o programado semanalmente en el *Programador de Tareas de Windows*) que sincroniza automáticamente los backups nuevos desde MinIO hacia una carpeta local o disco externo USB.
+     - Ejemplo con `rclone` / `mc` (descarga incremental, solo trae archivos nuevos):
+       ```powershell
+       # Descargar backups diarios de la base de datos a tu PC
+       mc mirror minio-contabo/salud360-db-backups "D:\Backups_Salud360\DB"
+
+       # Opcional (mensual): copia incremental de los PDFs adjuntos a un disco externo
+       mc mirror minio-contabo/tu-bucket-pdfs "D:\Backups_Salud360\PDFs"
+       ```
+   * **Seguridad y Cumplimiento Legal (Ley 1581 de 2012 — Datos de Salud):**
+     - Como el backup de la base de datos contiene datos sensibles de pacientes (nombres, documentos, teléfonos, correos y solicitudes médicas), el archivo se **comprime y cifra con AES-256** antes de salir del VPS hacia MinIO. De esta manera, la copia almacenada en MinIO y la descargada en tu PC o disco externo permanecen protegidas contra accesos no autorizados.
+
+3. **Periodo de Estabilización (10 a 15 días):**
    * Mantener **Supabase Cloud Pro** en modo lectura/espera sin cancelarlo durante 10–15 días.
    * Monitorear consumo de RAM, CPU y disco en Coolify (debe mantenerse por debajo del 60% de RAM y 70% de disco).
-3. **Cancelación de Supabase Cloud Pro:**
-   * Una vez cumplidos 15 días de operación estable y verificado que al menos 1 backup automático de MinIO se restaura correctamente, cancelar/bajar a Free el proyecto de Supabase Cloud Pro.
+
+4. **Cancelación de Supabase Cloud Pro:**
+   * Una vez cumplidos 15 días de operación estable y verificado que al menos 1 backup automático descargado desde MinIO se restaura correctamente, cancelar/bajar a Free el proyecto de Supabase Cloud Pro.
 
 ---
 
@@ -303,4 +322,5 @@ Si durante la noche del corte o en las primeras horas detectáramos cualquier fa
 - [ ] Acceso al panel de **Vercel** (para cambiar las 3 variables de entorno y probar en Preview).
 - [ ] Acceso al panel de **Supabase Cloud Pro** (para obtener el Connection String directo de Postgres y descargar `legal-templates`).
 - [ ] Credenciales SMTP de **Brevo** a la mano (para correos de Auth / recuperación de contraseña).
-- [ ] Bucket privado nuevo en **Contabo MinIO S3** listo para recibir los backups automáticos diarios de PostgreSQL.
+- [ ] Bucket privado nuevo en **Contabo MinIO S3** listo para recibir los backups automáticos diarios cifrados (AES-256) de PostgreSQL.
+- [ ] Carpeta local en tu PC (o disco externo USB) + script `mc`/`rclone` definido para descargar copias locales periódicas desde MinIO (Regla 3-2-1).
