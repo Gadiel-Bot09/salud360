@@ -17,15 +17,36 @@ import { useToast } from '@/hooks/use-toast'
 import { changePassword } from '@/app/admin/settings/actions'
 import { logout } from '@/app/login/actions'
 
-export function UserMenu({ email, name, roleName }: { email: string; name?: string | null; roleName?: string | null }) {
+function getInitials(name?: string | null, email?: string) {
+  const source = (name || email || 'U').trim()
+  const parts = source.split(/\s+/).filter(Boolean)
+  if (parts.length >= 2) {
+    return (parts[0][0] + parts[1][0]).toUpperCase()
+  }
+  return source.slice(0, 2).toUpperCase()
+}
+
+export function UserMenu({
+  email,
+  name,
+  roleName,
+  collapsed = false,
+}: {
+  email: string
+  name?: string | null
+  roleName?: string | null
+  collapsed?: boolean
+}) {
   const [open, setOpen] = useState(false)
   const [isPending, startTransition] = useTransition()
   const { toast } = useToast()
 
+  const initials = getInitials(name, email)
+
   const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
     const fd = new FormData(e.currentTarget)
-    
+
     startTransition(async () => {
       const result = await changePassword(fd)
       if (result.error) {
@@ -38,33 +59,81 @@ export function UserMenu({ email, name, roleName }: { email: string; name?: stri
   }
 
   return (
-    <div className="w-full px-4 mt-auto">
-      <div className="bg-slate-800 rounded-lg p-3 mb-2 flex flex-col gap-2 shadow-inner border border-slate-700">
-        <div className="px-2 pt-1 space-y-0.5">
-          <p className="text-sm font-semibold text-white truncate">{name || email}</p>
-          {name && <p className="text-xs text-slate-400 truncate">{email}</p>}
-          {roleName && (
-            <span className="inline-block text-[10px] font-semibold px-2 py-0.5 rounded bg-teal-500/20 text-teal-300 border border-teal-500/30">
-              {roleName}
-            </span>
-          )}
+    <div className="w-full shrink-0 border-t border-slate-800/80 bg-[#070C18]/70 backdrop-blur-sm">
+      {collapsed ? (
+        <div className="flex flex-col items-center gap-2 py-3 px-2">
+          <div
+            title={`${name || email}${roleName ? ` · ${roleName}` : ''}`}
+            className="w-9 h-9 rounded-xl bg-gradient-to-br from-teal-500 to-emerald-600 text-white font-bold text-xs flex items-center justify-center shadow-md shadow-teal-900/40 ring-1 ring-teal-400/30 select-none"
+          >
+            {initials}
+          </div>
+          <button
+            type="button"
+            onClick={() => setOpen(true)}
+            title="Cambiar contraseña"
+            className="w-9 h-9 rounded-lg flex items-center justify-center text-slate-400 hover:text-white hover:bg-white/[0.06] transition-colors"
+          >
+            <KeyRound className="h-4 w-4" />
+          </button>
+          <form action={logout}>
+            <button
+              type="submit"
+              title="Cerrar sesión"
+              className="w-9 h-9 rounded-lg flex items-center justify-center text-slate-400 hover:text-rose-400 hover:bg-rose-500/10 transition-colors"
+            >
+              <LogOut className="h-4 w-4" />
+            </button>
+          </form>
         </div>
-        <Button 
-          variant="ghost" 
-          size="sm"
-          className="w-full justify-start text-xs font-semibold text-slate-400 hover:text-white hover:bg-slate-700/50 h-8 rounded-md transition-colors"
-          onClick={() => setOpen(true)}
-        >
-          <KeyRound className="mr-2 h-3.5 w-3.5" />
-          Cambiar contraseña
-        </Button>
-      </div>
-      <form action={logout}>
-        <Button variant="ghost" className="w-full justify-start font-bold text-slate-400 hover:text-red-400 hover:bg-slate-800/50 h-10 transition-colors">
-          <LogOut className="mr-2 h-4 w-4" />
-          Cerrar sesión
-        </Button>
-      </form>
+      ) : (
+        <div className="p-3 space-y-2">
+          {/* Compact Profile Card */}
+          <div className="rounded-xl bg-slate-800/45 border border-slate-700/50 p-2.5 flex items-center gap-2.5">
+            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-teal-500 to-emerald-600 text-white font-bold text-xs flex items-center justify-center shrink-0 shadow-md shadow-teal-950/50 ring-1 ring-teal-400/30 select-none">
+              {initials}
+            </div>
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center gap-1.5">
+                <p className="text-[13px] font-semibold text-white truncate leading-tight">
+                  {name || email}
+                </p>
+              </div>
+              {name && (
+                <p className="text-[11px] text-slate-400 truncate leading-tight mt-0.5" title={email}>
+                  {email}
+                </p>
+              )}
+              {roleName && (
+                <span className="inline-block mt-1 text-[10px] font-semibold px-1.5 py-0.5 rounded-md bg-teal-500/15 text-teal-300 border border-teal-500/25 leading-none">
+                  {roleName}
+                </span>
+              )}
+            </div>
+          </div>
+
+          {/* Sleek Side-by-Side Quick Actions */}
+          <div className="grid grid-cols-2 gap-1.5">
+            <button
+              type="button"
+              onClick={() => setOpen(true)}
+              className="flex items-center justify-center gap-1.5 h-8 px-2 rounded-lg text-[11px] font-semibold text-slate-300 bg-slate-800/50 hover:bg-slate-700/70 hover:text-white border border-slate-700/50 transition-colors"
+            >
+              <KeyRound className="h-3.5 w-3.5 text-slate-400" />
+              <span>Clave</span>
+            </button>
+            <form action={logout} className="w-full">
+              <button
+                type="submit"
+                className="w-full flex items-center justify-center gap-1.5 h-8 px-2 rounded-lg text-[11px] font-semibold text-slate-300 bg-slate-800/50 hover:bg-rose-500/15 hover:text-rose-300 border border-slate-700/50 hover:border-rose-500/30 transition-colors"
+              >
+                <LogOut className="h-3.5 w-3.5 text-rose-400/80" />
+                <span>Salir</span>
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
 
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="sm:max-w-[425px]">
@@ -78,24 +147,24 @@ export function UserMenu({ email, name, roleName }: { email: string; name?: stri
             <div className="grid gap-5 py-6">
               <div className="space-y-2">
                 <Label htmlFor="newPassword">Nueva Contraseña</Label>
-                <Input 
-                  id="newPassword" 
-                  name="newPassword" 
-                  type="password" 
-                  required 
-                  minLength={8} 
-                  placeholder="Mínimo 8 caracteres" 
+                <Input
+                  id="newPassword"
+                  name="newPassword"
+                  type="password"
+                  required
+                  minLength={8}
+                  placeholder="Mínimo 8 caracteres"
                 />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="confirmPassword">Confirmar Contraseña</Label>
-                <Input 
-                  id="confirmPassword" 
-                  name="confirmPassword" 
-                  type="password" 
-                  required 
-                  minLength={8} 
-                  placeholder="Repite la nueva contraseña" 
+                <Input
+                  id="confirmPassword"
+                  name="confirmPassword"
+                  type="password"
+                  required
+                  minLength={8}
+                  placeholder="Repite la nueva contraseña"
                 />
               </div>
             </div>
